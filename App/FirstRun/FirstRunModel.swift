@@ -42,7 +42,7 @@ final class FirstRunModel {
     state = FirstRunState(
       summonKeySet: summonKeySet(), accessibilityGranted: services.accessibilityTrusted(),
       captureReady: !preferences.captureShortcut || captureShortcutText() != nil)
-    storageFolder = (try? storage.resolve()) ?? home.appendingPathComponent("Thoughts")
+    storageFolder = (try? storage.current()) ?? home.appendingPathComponent("Thoughts")
     clipboardAccess = services.pasteboardAccess()
   }
 
@@ -117,7 +117,7 @@ final class FirstRunModel {
       storageFolder = try await storage.perform(to: target)
       storageError = nil
     } catch {
-      storageFolder = (try? storage.resolve()) ?? storageFolder
+      storageFolder = (try? storage.current()) ?? storageFolder
       storageError = StorageMover.message(for: error)
     }
   }

@@ -23,6 +23,7 @@ final class ScreenshotFolderWatcher {
   }
 
   private let storageFolder: () -> URL?
+  private let listFolder: (URL) -> [String]
   private let now: () -> Date
   private let settle: Duration
   private let queue = DispatchQueue(label: "thoughts.screenshot-folders")
@@ -32,15 +33,21 @@ final class ScreenshotFolderWatcher {
 
   init(
     storageFolder: @escaping () -> URL?, now: @escaping () -> Date = Date.init,
-    settle: Duration = ScreenshotFolderWatcher.settleInterval
+    settle: Duration = ScreenshotFolderWatcher.settleInterval,
+    listFolder: @escaping (URL) -> [String] = ScreenshotFolderWatcher.list
   ) {
     self.storageFolder = storageFolder
+    self.listFolder = listFolder
     self.now = now
     self.settle = settle
   }
 
   var watchedFolders: [URL] {
     watches.values.map(\.folder).sorted { $0.path < $1.path }
+  }
+
+  nonisolated static func list(_ folder: URL) -> [String] {
+    (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
   }
 
   func update(folders: [URL]) {
@@ -59,7 +66,7 @@ final class ScreenshotFolderWatcher {
   }
 
   private func begin(_ key: String, _ folder: URL) {
-    let existing = Set((try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? [])
+    let existing = Set(listFolder(folder))
     let watcher = FolderWatcher(folder: folder, queue: queue) { [weak self] urls in
       Task { @MainActor in self?.handle(urls, key: key) }
     }
@@ -82,9 +89,7 @@ final class ScreenshotFolderWatcher {
     var names: [String] = []
     for url in urls {
       if Self.isDirectory(url) {
-        let children =
-          (try? FileManager.default.contentsOfDirectory(atPath: watch.folder.path)) ?? []
-        names.append(contentsOf: children)
+        names.append(contentsOf: listFolder(watch.folder))
       } else if Self.key(url.deletingLastPathComponent()) == key {
         names.append(url.lastPathComponent)
       }

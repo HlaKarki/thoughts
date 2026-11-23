@@ -11,12 +11,25 @@ struct StorageSection: View {
             model.showStorageInFinder()
           } label: {
             HStack(spacing: 8) {
-              Image(systemName: "folder.fill").foregroundStyle(Color(nsColor: .systemGray))
-              Text(verbatim: model.storageText)
-                .font(.system(size: 13))
-                .foregroundStyle(Color(nsColor: .secondaryLabelColor))
-                .lineLimit(1)
-                .truncationMode(.middle)
+              Image(
+                systemName: model.storageMissing ? "exclamationmark.triangle.fill" : "folder.fill"
+              )
+              .foregroundStyle(
+                model.storageMissing ? Color(nsColor: .systemOrange) : Color(nsColor: .systemGray))
+              VStack(alignment: .leading, spacing: 1) {
+                Text(verbatim: model.storageText)
+                  .font(.system(size: 13))
+                  .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+                  .lineLimit(1)
+                  .truncationMode(.middle)
+                if model.storageMissing {
+                  Text("Thoughts can't find this folder. Use Change… to point to it.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+              }
             }
             .contentShape(Rectangle())
           }
@@ -24,6 +37,7 @@ struct StorageSection: View {
           Button("Change…") { Task { await model.moveStorage() } }
             .disabled(model.isMoving)
         }
+        .frame(height: 44)
       }
       if let error = model.storageError {
         Text(verbatim: error)

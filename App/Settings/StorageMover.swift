@@ -2,9 +2,11 @@ import Foundation
 import ThoughtsCore
 
 struct StorageMover: Sendable {
-  var resolve: @Sendable () throws -> URL
+  var current: @Sendable () throws -> URL
+  var exists: @Sendable (URL) -> Bool
   var stop: @Sendable () -> Void
   var apply: @Sendable (URL) throws -> Void
+  var point: @Sendable (URL) throws -> Void
   var relocate: @Sendable (URL) throws -> Void
   var restart: @Sendable () throws -> Void
 
@@ -21,37 +23,44 @@ struct StorageMover: Sendable {
     apply: @escaping @Sendable (URL) throws -> Void
   ) {
     self.init(
-      resolve: { try location.resolve() },
+      current: { try location.configuredFolder() },
       stop: { live.stop() },
       apply: apply,
       relocate: { try index.relocate(to: $0) },
-      restart: { try live.restart() })
+      restart: { try live.restart() },
+      exists: { FileManager.default.fileExists(atPath: $0.path) },
+      point: { try location.setFolder($0) })
   }
 
   init(
-    resolve: @escaping @Sendable () throws -> URL,
+    current: @escaping @Sendable () throws -> URL,
     stop: @escaping @Sendable () -> Void,
     apply: @escaping @Sendable (URL) throws -> Void,
     relocate: @escaping @Sendable (URL) throws -> Void,
-    restart: @escaping @Sendable () throws -> Void
+    restart: @escaping @Sendable () throws -> Void,
+    exists: @escaping @Sendable (URL) -> Bool = { _ in true },
+    point: (@Sendable (URL) throws -> Void)? = nil
   ) {
-    self.resolve = resolve
+    self.current = current
+    self.exists = exists
     self.stop = stop
     self.apply = apply
+    self.point = point ?? apply
     self.relocate = relocate
     self.restart = restart
   }
 
   func run(to destination: URL) throws -> URL {
-    let before = try resolve()
+    let before = try current()
+    let missing = !exists(before)
     stop()
     var failure: Error?
     do {
-      try apply(destination)
+      try (missing ? point : apply)(destination)
     } catch {
       failure = error
     }
-    let after = (try? resolve()) ?? before
+    let after = (try? current()) ?? before
     if after.standardized.path != before.standardized.path {
       do {
         try relocate(after)
@@ -59,10 +68,12 @@ struct StorageMover: Sendable {
         failure = failure ?? error
       }
     }
-    do {
-      try restart()
-    } catch {
-      failure = failure ?? error
+    if exists(after) {
+      do {
+        try restart()
+      } catch {
+        failure = failure ?? error
+      }
     }
     if let failure { throw failure }
     return after

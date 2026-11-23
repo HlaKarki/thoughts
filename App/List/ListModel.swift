@@ -45,6 +45,9 @@ final class ListModel {
   @ObservationIgnored private let index: SearchIndex
   @ObservationIgnored private let live: LiveIndex
   @ObservationIgnored private let location: StorageLocation
+  @ObservationIgnored private let probe: StorageProbe
+  @ObservationIgnored private let mounts: MountSignal
+  @ObservationIgnored private var isRetryingStorage = false
   @ObservationIgnored private var hintTask: Task<Void, Never>?
   @ObservationIgnored private var birthDates: [String: Date] = [:]
   @ObservationIgnored private var searchTask: Task<Void, Never>?
@@ -55,6 +58,7 @@ final class ListModel {
 
   private(set) var entries: [ThoughtEntry] = []
   private(set) var hint: String?
+  private(set) var storageProblem: String?
   @ObservationIgnored private var isPanelShown = false
   private(set) var addedCount = 0
   private(set) var matches: Set<String>?
@@ -97,11 +101,14 @@ final class ListModel {
 
   init(
     index: SearchIndex, live: LiveIndex, location: StorageLocation,
-    searchDelay: Duration = .milliseconds(80)
+    searchDelay: Duration = .milliseconds(80), probe: StorageProbe? = nil,
+    mounts: MountSignal = .live
   ) {
     self.index = index
     self.live = live
     self.location = location
+    self.probe = probe ?? .live(location: location, live: live)
+    self.mounts = mounts
     self.searchDelay = searchDelay
   }
 
@@ -190,12 +197,16 @@ final class ListModel {
 
   func start() {
     load()
+    mounts.observe { [weak self] in
+      guard let self else { return }
+      Task { await self.retryStorage() }
+    }
     do {
       try live.start { [weak self] result in
         Task { @MainActor in self?.receive(result) }
       }
     } catch let error as ThoughtsError {
-      showHint(Self.message(for: error))
+      report(error)
     } catch {
       showHint(error.localizedDescription)
     }
@@ -210,7 +221,7 @@ final class ListModel {
       pruneSelection()
       endEditIfDeleted()
     } catch let error as ThoughtsError {
-      showHint(Self.message(for: error))
+      report(error)
     } catch {
       showHint(error.localizedDescription)
     }
@@ -470,7 +481,7 @@ final class ListModel {
     do {
       folder = try location.resolve()
     } catch let error as ThoughtsError {
-      showHint(Self.message(for: error))
+      report(error)
       return
     } catch {
       showHint(error.localizedDescription)
@@ -481,7 +492,7 @@ final class ListModel {
       do {
         _ = try await Task.detached { try store.clearDone() }.value
       } catch let error as ThoughtsError {
-        showHint(Self.message(for: error))
+        report(error)
       } catch {
         showHint(error.localizedDescription)
       }
@@ -496,6 +507,38 @@ final class ListModel {
   func panelDidShow() {
     isPanelShown = true
     armHintDismissal()
+    if storageProblem != nil { Task { await retryStorage() } }
+  }
+
+  var shownHint: String? { storageProblem ?? hint }
+
+  func storageRepointed() {
+    storageProblem = nil
+  }
+
+  func retryStorage() async {
+    guard storageProblem != nil, !isRetryingStorage else { return }
+    guard let folder = probe.folder(), probe.exists(folder) else { return }
+    isRetryingStorage = true
+    defer { isRetryingStorage = false }
+    let probe = probe
+    do {
+      try await Task.detached { try probe.restart() }.value
+      storageProblem = nil
+    } catch let error as ThoughtsError {
+      if case .storageUnavailable = error { return }
+      showHint(Self.message(for: error))
+    } catch {
+      showHint(error.localizedDescription)
+    }
+  }
+
+  private func report(_ error: ThoughtsError) {
+    if case .storageUnavailable = error {
+      storageProblem = Self.message(for: error)
+    } else {
+      showHint(Self.message(for: error))
+    }
   }
 
   func panelDidHide() {
@@ -516,10 +559,10 @@ final class ListModel {
     }
   }
 
-  private func receive(_ result: Result<IndexChanges, ThoughtsError>) {
+  func receive(_ result: Result<IndexChanges, ThoughtsError>) {
     switch result {
     case .success(let changes): apply(changes)
-    case .failure(let error): showHint(Self.message(for: error))
+    case .failure(let error): report(error)
     }
   }
 
@@ -539,7 +582,7 @@ final class ListModel {
     } catch let error as ThoughtsError {
       matches = []
       imageExcerpts = [:]
-      showHint(Self.message(for: error))
+      report(error)
     } catch {
       matches = []
       imageExcerpts = [:]
@@ -561,7 +604,8 @@ final class ListModel {
   nonisolated static func message(for error: ThoughtsError) -> String {
     switch error {
     case .storageUnavailable(let path):
-      String(localized: "The thoughts folder isn't available: \(path)")
+      String(
+        localized: "The thoughts folder isn't available: \(path). Choose where it is in Settings.")
     case .notFound:
       String(localized: "That thought isn't there anymore")
     case .ambiguous:

@@ -8,7 +8,7 @@ struct HintLine: View {
       .font(.system(size: 12))
       .foregroundStyle(Color(nsColor: .secondaryLabelColor))
       .lineLimit(1)
-      .truncationMode(.tail)
+      .truncationMode(.middle)
       .padding(.horizontal, 10)
       .frame(height: 24)
       .background(.regularMaterial, in: Capsule())

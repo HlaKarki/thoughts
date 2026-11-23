@@ -35,8 +35,12 @@ public struct StorageLocation: Sendable {
       .appendingPathComponent("\(name).sqlite")
   }
 
+  public func configuredFolder() throws -> URL {
+    try environmentFolder ?? settingsFolder() ?? defaultFolder
+  }
+
   public func resolve() throws -> URL {
-    let folder = try environmentFolder ?? settingsFolder() ?? defaultFolder
+    let folder = try configuredFolder()
     var isDirectory: ObjCBool = false
     if FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory) {
       guard isDirectory.boolValue else { throw ThoughtsError.io("\(folder.path) is not a folder") }

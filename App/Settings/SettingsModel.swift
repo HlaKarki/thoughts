@@ -10,6 +10,7 @@ final class SettingsModel {
   private(set) var loginError: String?
   private(set) var storageFolder: URL
   private(set) var storageError: String?
+  private(set) var storageMissing = false
   private(set) var isMoving = false
   private(set) var clipboardAccess: NSPasteboard.AccessBehavior
   var selectedFolder: URL?
@@ -17,6 +18,7 @@ final class SettingsModel {
   @ObservationIgnored private let login: LoginControl
   @ObservationIgnored private let storage: StorageMover
   @ObservationIgnored private let screenshots: ScreenshotLocation
+  @ObservationIgnored var onStorageRepointed: @MainActor () -> Void = {}
 
   init(
     preferences: Preferences,
@@ -33,8 +35,9 @@ final class SettingsModel {
     self.screenshots = screenshots
     self.home = home
     loginStatus = login.status()
-    storageFolder = (try? storage.resolve()) ?? home.appendingPathComponent("Thoughts")
+    storageFolder = (try? storage.current()) ?? home.appendingPathComponent("Thoughts")
     clipboardAccess = services.pasteboardAccess()
+    storageMissing = !storage.exists(storageFolder)
   }
 
   var storageText: String { PathText.abbreviated(storageFolder, home: home) }
@@ -51,7 +54,12 @@ final class SettingsModel {
   func refresh() {
     loginStatus = login.status()
     clipboardAccess = services.pasteboardAccess()
-    storageFolder = (try? storage.resolve()) ?? storageFolder
+    readStorage()
+  }
+
+  private func readStorage() {
+    storageFolder = (try? storage.current()) ?? storageFolder
+    storageMissing = !storage.exists(storageFolder)
   }
 
   func setLogin(_ enabled: Bool) {
@@ -100,8 +108,10 @@ final class SettingsModel {
     do {
       storageFolder = try await storage.perform(to: target)
       storageError = nil
+      storageMissing = !storage.exists(storageFolder)
+      onStorageRepointed()
     } catch {
-      storageFolder = (try? storage.resolve()) ?? storageFolder
+      readStorage()
       storageError = StorageMover.message(for: error)
     }
   }

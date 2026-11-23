@@ -150,16 +150,22 @@ final class AppState {
     let services = SystemServices.live
     let moving = StorageMover.moving(location: location, index: index, live: live)
     let choosing = StorageMover.choosing(location: location, index: index, live: live)
+    let gate = OfferGate(firstRunDone: { preferences.firstRunDone }, start: { offers.start() })
     let settings = SettingsWindowController {
-      SettingsModel(
+      let model = SettingsModel(
         preferences: preferences, services: services, login: .live, storage: moving)
+      model.onStorageRepointed = { [list] in list.storageRepointed() }
+      return model
     }
     self.settings = settings
     openSettings.fire = { settings.show() }
     firstRun = FirstRunWindowController {
       let model = FirstRunModel(preferences: preferences, services: services, storage: choosing)
       model.onAccessibilityGranted = { gesture.reinstall() }
-      model.onFinish = { panel.show() }
+      model.onFinish = {
+        gate.firstRunFinished()
+        panel.show()
+      }
       return model
     }
     let shortcut = CaptureShortcut(preferences: preferences)
@@ -170,7 +176,8 @@ final class AppState {
     shortcut.onFire = { [weak self] in self?.gestureFired() }
     shortcut.start()
     offers.onChange = { [weak self] offer, thumbnail in self?.present(offer, thumbnail: thumbnail) }
-    offers.start()
+    clipboard.start()
+    gate.launch()
     summon = SummonShortcut.listen { [panel] in panel.toggle() }
   }
 

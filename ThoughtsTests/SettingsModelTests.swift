@@ -12,7 +12,7 @@ struct StorageMoverTests {
     let log = CallLog()
     let state = Folder(URL(fileURLWithPath: "/example/home/Thoughts"))
     let mover = StorageMover(
-      resolve: { state.url },
+      current: { state.url },
       stop: { log.add("stop") },
       apply: {
         state.url = $0
@@ -28,7 +28,7 @@ struct StorageMoverTests {
   @Test func aMoveThatNeverHappenedLeavesTheIndexAlone() throws {
     let log = CallLog()
     let mover = StorageMover(
-      resolve: { URL(fileURLWithPath: "/example/home/Thoughts") },
+      current: { URL(fileURLWithPath: "/example/home/Thoughts") },
       stop: { log.add("stop") },
       apply: { _ in throw ThoughtsError.folderNotEmpty(["a.txt"]) },
       relocate: { log.add("relocate \($0.path)") },
@@ -47,7 +47,7 @@ struct StorageMoverTests {
     let location = StorageLocation(appName: "ThoughtsTests", environment: [:], home: root)
     let log = CallLog()
     let mover = StorageMover(
-      resolve: { try location.resolve() },
+      current: { try location.configuredFolder() },
       stop: { log.add("stop") },
       apply: { try location.move(to: $0) },
       relocate: { log.add("relocate \($0.lastPathComponent)") },
@@ -68,7 +68,7 @@ struct StorageMoverTests {
     let location = StorageLocation(appName: "ThoughtsTests", environment: [:], home: root)
     let log = CallLog()
     let mover = StorageMover(
-      resolve: { try location.resolve() },
+      current: { try location.configuredFolder() },
       stop: {},
       apply: { try location.move(to: $0) },
       relocate: { log.add("relocate \($0.lastPathComponent)") },
@@ -143,7 +143,7 @@ struct SettingsModelTests {
     let system = FakeSystem()
     system.picks = [URL(fileURLWithPath: "/example/home/Busy")]
     let mover = StorageMover(
-      resolve: { URL(fileURLWithPath: "/example/home/Thoughts") },
+      current: { URL(fileURLWithPath: "/example/home/Thoughts") },
       stop: {},
       apply: { _ in throw ThoughtsError.folderNotEmpty(["a.txt", "b.txt"]) },
       relocate: { _ in },
@@ -161,7 +161,7 @@ struct SettingsModelTests {
     system.picks = [target]
     let state = StorageMoverTests.Folder(URL(fileURLWithPath: "/example/home/Thoughts"))
     let mover = StorageMover(
-      resolve: { state.url },
+      current: { state.url },
       stop: {},
       apply: { state.url = $0 },
       relocate: { _ in },

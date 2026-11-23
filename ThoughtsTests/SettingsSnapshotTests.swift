@@ -140,6 +140,14 @@ struct SettingsSnapshotTests {
     try Self.check(
       SettingsView(model: approval), size: SettingsView.size, appearance: appearance,
       name: "settings-login-approval")
+    let missing = try SettingsFixtures.settings(
+      system: FakeSystem(), preferences: SettingsFixtures.preferences(),
+      mover: SettingsFixtures.mover(exists: { _ in false }))
+    try Self.check(
+      SettingsGroup(title: "Saving") { StorageSection(model: missing) }
+        .frame(width: SettingsView.size.width - 44, alignment: .topLeading).padding(11),
+      size: CGSize(width: SettingsView.size.width - 22, height: 90), appearance: appearance,
+      name: "settings-storage-missing")
     let shortcut = try Self.settings(method: .shortcut)
     try Self.check(
       SettingsGroup(title: "Keys") { KeysSettings(preferences: shortcut.preferences) }

@@ -80,14 +80,16 @@ enum SettingsFixtures {
 
   static func mover(
     folder: URL = home.appendingPathComponent("Thoughts", isDirectory: true),
-    log: CallLog = CallLog()
+    log: CallLog = CallLog(), exists: @escaping @Sendable (URL) -> Bool = { _ in true }
   ) -> StorageMover {
     StorageMover(
-      resolve: { folder },
+      current: { folder },
       stop: { log.add("stop") },
       apply: { log.add("apply \($0.path)") },
       relocate: { log.add("relocate \($0.path)") },
-      restart: { log.add("restart") })
+      restart: { log.add("restart") },
+      exists: exists,
+      point: { log.add("point \($0.path)") })
   }
 
   @MainActor

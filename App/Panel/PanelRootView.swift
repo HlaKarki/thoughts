@@ -90,7 +90,7 @@ struct PanelRootView: View {
         .animation(.easeOut(duration: PanelController.duration), value: list.focus == .input)
     }
     .overlay(alignment: .bottom) {
-      HintLine(text: list.hint)
+      HintLine(text: list.shownHint)
         .padding(.bottom, previewInset)
     }
     .overlay(alignment: .bottom) {

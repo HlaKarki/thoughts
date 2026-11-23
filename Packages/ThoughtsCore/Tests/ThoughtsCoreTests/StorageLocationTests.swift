@@ -101,6 +101,20 @@ private final class Fixture {
   #expect(fixture.exists(fixture.url("Thoughts")))
 }
 
+@Test func configuredFolderNamesTheFolderWithoutCreatingIt() throws {
+  let fixture = Fixture()
+  let location = fixture.location()
+  #expect(try location.configuredFolder().path == fixture.url("Thoughts").path)
+  #expect(!fixture.exists(fixture.url("Thoughts")))
+  #expect(!fixture.exists(location.supportFolder))
+  try location.setFolder(fixture.url("Elsewhere"))
+  #expect(try location.configuredFolder().path == fixture.url("Elsewhere").path)
+  #expect(!fixture.exists(fixture.url("Elsewhere")))
+  let onVolume = fixture.location(["THOUGHTS_DIR": "/Volumes/NoSuchDrive/Thoughts"])
+  #expect(try onVolume.configuredFolder().path == "/Volumes/NoSuchDrive/Thoughts")
+  #expect(!FileManager.default.fileExists(atPath: "/Volumes/NoSuchDrive"))
+}
+
 @Test func missingFolderOnVolumeIsUnavailable() {
   let fixture = Fixture()
   let location = fixture.location(["THOUGHTS_DIR": "/Volumes/NoSuchDrive/Thoughts"])

@@ -43,7 +43,10 @@ final class ListFixture {
 
   static let now = Date(timeIntervalSince1970: 1_795_000_000)
 
-  init(searchDelay: Duration = .zero, recognizer: (any TextRecognizing)? = nil) throws {
+  init(
+    searchDelay: Duration = .zero, recognizer: (any TextRecognizing)? = nil,
+    probe: StorageProbe? = nil, mounts: MountSignal = MountSignal { _ in }
+  ) throws {
     cleanup = TempFolder()
     root = cleanup.url
     folder = root.appendingPathComponent("Thoughts", isDirectory: true)
@@ -58,7 +61,8 @@ final class ListFixture {
     store = ThoughtStore(folder: folder)
     sync = IndexSync(store: store, index: index, recognizer: recognizer)
     model = ListModel(
-      index: index, live: live, location: location, searchDelay: searchDelay)
+      index: index, live: live, location: location, searchDelay: searchDelay, probe: probe,
+      mounts: mounts)
     input = InputModel(location: location, now: { Self.now }, onFailure: { _ in })
   }
 
