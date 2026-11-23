@@ -24,7 +24,11 @@ final class URLHandler {
   }
 
   func handle(_ urls: [URL]) {
-    for request in urls.compactMap(ThoughtsURL.init) { perform(request) }
+    let requests = urls.compactMap(ThoughtsURL.init)
+    if requests.count < urls.count {
+      onFailure(String(localized: "Thoughts couldn't read that link"))
+    }
+    for request in requests { perform(request) }
   }
 
   private func perform(_ request: ThoughtsURL) {
@@ -33,7 +37,10 @@ final class URLHandler {
       panel.show()
     case .importInbox:
       handBack()
-      guard let task = importer?.importNow() else { return }
+      guard let task = importer?.importNow() else {
+        onFailure(String(localized: "Shared items can't be imported on this Mac"))
+        return
+      }
       Task { [weak self] in
         await task.value
         self?.handBack()
@@ -43,7 +50,10 @@ final class URLHandler {
       add { NewThought(content: .text(text), source: $0, created: $1) }
     case .addImage(let path, let note):
       let file = URL(fileURLWithPath: path)
-      guard Self.isImageFile(file) else { return }
+      guard Self.isImageFile(file) else {
+        onFailure(String(localized: "That file isn't an image"))
+        return
+      }
       handBack()
       add { source, created in
         var new = NewThought.fromFile(file, source: source, created: created)

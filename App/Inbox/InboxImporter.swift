@@ -33,11 +33,16 @@ final class InboxImporter {
 
   func start() {
     guard watcher == nil else { return }
-    try? FileManager.default.createDirectory(at: inbox.folder, withIntermediateDirectories: true)
     let watcher = FolderWatcher(folder: inbox.folder, queue: queue) { [weak self] _ in
       Task { @MainActor in self?.importNow() }
     }
-    try? watcher.start()
+    do {
+      try FileManager.default.createDirectory(
+        at: inbox.folder, withIntermediateDirectories: true)
+      try watcher.start()
+    } catch {
+      onFailure(String(localized: "Shared items won't arrive until you reopen Thoughts"))
+    }
     self.watcher = watcher
     importNow()
   }
@@ -63,11 +68,24 @@ final class InboxImporter {
   }
 
   private func importPending() async {
-    guard let entries = try? inbox.pending(), !entries.isEmpty else { return }
+    let entries: [URL]
+    do {
+      entries = try inbox.pending()
+    } catch {
+      onFailure(String(localized: "Couldn't read the shared items"))
+      return
+    }
+    guard !entries.isEmpty else { return }
     let fallback = await source()
     var failure: String?
     for entry in entries {
-      guard let new = try? inbox.newThought(from: entry, source: fallback) else { continue }
+      let new: NewThought
+      do {
+        new = try inbox.newThought(from: entry, source: fallback)
+      } catch {
+        failure = failure ?? CaptureCoordinator.message(for: error)
+        continue
+      }
       do {
         try await save(new)
         try inbox.remove(entry)

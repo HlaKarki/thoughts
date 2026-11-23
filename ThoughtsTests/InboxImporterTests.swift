@@ -56,4 +56,17 @@ struct InboxImporterTests {
     #expect(saves.failures.count == 1)
     #expect(try inbox.pending() == [entry])
   }
+
+  @Test func anItemThatCannotBeReadIsReported() async throws {
+    let temp = TempFolder()
+    let inbox = Inbox(folder: temp.url.appendingPathComponent("Inbox", isDirectory: true))
+    _ = try inbox.write(InboxItem(kind: .text, text: "   "), attachment: nil)
+    let saves = Saves()
+    let importer = InboxImporter(
+      inbox: inbox, save: { saves.saved.append($0) }, source: { nil })
+    importer.onFailure = { saves.failures.append($0) }
+    await importer.importNow().value
+    #expect(saves.saved.isEmpty)
+    #expect(saves.failures == ["The shared item has no text"])
+  }
 }

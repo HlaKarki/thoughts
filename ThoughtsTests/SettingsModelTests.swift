@@ -106,6 +106,23 @@ struct SettingsModelTests {
     #expect(model.preferences.watchedFolders == [shots])
   }
 
+  @Test func addingAFolderThatIsAlreadyWatchedSaysSo() async throws {
+    let system = FakeSystem()
+    let model = try SettingsFixtures.settings(
+      system: system, preferences: SettingsFixtures.preferences())
+    let shots = URL(fileURLWithPath: "/example/home/Pictures/Shots", isDirectory: true)
+    system.picks = [model.screenshotFolder, shots, shots]
+    await model.addWatchedFolder()
+    #expect(model.watchedFolderNote == "Screenshots are already watched")
+    await model.addWatchedFolder()
+    #expect(model.watchedFolderNote == nil)
+    await model.addWatchedFolder()
+    #expect(model.watchedFolderNote == "That folder is already watched")
+    #expect(model.selectedFolder == shots)
+    model.removeSelectedFolder()
+    #expect(model.watchedFolderNote == nil)
+  }
+
   @Test func theScreenshotLocationRowCannotBeRemoved() async throws {
     let system = FakeSystem()
     let model = try SettingsFixtures.settings(

@@ -12,6 +12,7 @@ final class SettingsModel {
   private(set) var storageError: String?
   private(set) var storageMissing = false
   private(set) var isMoving = false
+  private(set) var watchedFolderNote: String?
   private(set) var clipboardAccess: NSPasteboard.AccessBehavior
   var selectedFolder: URL?
   @ObservationIgnored private let services: SystemServices
@@ -93,7 +94,16 @@ final class SettingsModel {
     let message = String(localized: "Choose a folder to watch for new images")
     guard let folder = await services.chooseFolder(message, screenshotFolder) else { return }
     let known = [screenshotFolder] + preferences.watchedFolders
-    guard !known.contains(where: { Self.same($0, folder) }) else { return }
+    if let existing = known.first(where: { Self.same($0, folder) }) {
+      if Self.same(existing, screenshotFolder) {
+        watchedFolderNote = String(localized: "Screenshots are already watched")
+      } else {
+        watchedFolderNote = String(localized: "That folder is already watched")
+        selectedFolder = existing
+      }
+      return
+    }
+    watchedFolderNote = nil
     preferences.watchedFolders.append(folder)
     selectedFolder = folder
   }
@@ -102,6 +112,7 @@ final class SettingsModel {
     guard let target = removableSelection else { return }
     preferences.watchedFolders.removeAll { Self.same($0, target) }
     selectedFolder = nil
+    watchedFolderNote = nil
   }
 
   func moveStorage() async {

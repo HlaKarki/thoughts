@@ -49,6 +49,11 @@ struct WatchedFoldersSection: View {
           .disabled(model.removableSelection == nil)
           .accessibilityLabel("Remove folder")
           Rectangle().fill(palette.divider).frame(width: 1, height: 22)
+          Text(verbatim: model.watchedFolderNote ?? "")
+            .font(.system(size: 11))
+            .foregroundStyle(Color(nsColor: .systemOrange))
+            .lineLimit(1)
+            .padding(.horizontal, 8)
           Spacer(minLength: 0)
         }
         .buttonStyle(.plain)
