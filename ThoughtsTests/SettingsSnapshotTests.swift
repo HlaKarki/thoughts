@@ -124,7 +124,7 @@ struct SettingsSnapshotTests {
       ),
       (
         "settings-panel",
-        AnyView(SettingsGroup(title: "Panel") { PanelSettings(model: model) }), 140
+        AnyView(SettingsGroup(title: "Panel") { PanelSettings(model: model) }), 190
       ),
     ]
     for (name, view, height) in sections {

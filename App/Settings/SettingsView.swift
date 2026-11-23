@@ -198,6 +198,8 @@ struct PanelSettings: View {
       .frame(width: 125)
     }
     RowDivider()
+    MenuBarIconSetting(preferences: preferences)
+    RowDivider()
     SettingsRow(title: "Open at login") {
       Toggle(
         "Open at login",
@@ -218,6 +220,31 @@ struct PanelSettings: View {
         .padding(.horizontal, 12)
         .padding(.bottom, 10)
     }
+  }
+}
+
+struct MenuBarIconSetting: View {
+  @Bindable var preferences: Preferences
+
+  var body: some View {
+    HStack(alignment: .top, spacing: 12) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text("Show Thoughts in the menu bar")
+          .font(.system(size: 13))
+          .foregroundStyle(Color(nsColor: .labelColor))
+        Text(verbatim: MenuBarCopy.settingsExplanation(iconShown: preferences.showsMenuBarIcon))
+          .font(.system(size: 12))
+          .lineSpacing(2)
+          .foregroundStyle(Color.helpGray)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+      Spacer(minLength: 0)
+      Toggle("Show Thoughts in the menu bar", isOn: $preferences.showsMenuBarIcon)
+        .labelsHidden()
+        .toggleStyle(.switch)
+    }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 12)
   }
 }
 

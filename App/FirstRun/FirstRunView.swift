@@ -136,11 +136,13 @@ struct HelpText: View {
 private struct SummonKeyStep: View {
   let model: FirstRunModel
 
+  private var message: Text {
+    Text(verbatim: MenuBarCopy.summonKeyMessage(iconShown: model.preferences.showsMenuBarIcon))
+  }
+
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      StepHeader(
-        step: .summonKey, title: "Pick a key to open Thoughts",
-        message: Text("Press it in any app to show or hide the panel."))
+      StepHeader(step: .summonKey, title: "Pick a key to open Thoughts", message: message)
       FieldLabel(text: "Summon key").padding(.top, 24)
       ShortcutRecorder(for: .summon) { model.summonKeyChanged($0) }
         .frame(width: 220, alignment: .leading)
