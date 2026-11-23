@@ -382,3 +382,123 @@ private func pixelSize(of url: URL) -> (width: Int, height: Int)? {
     try store.add(NewThought(content: .text("x"), source: nil, created: Date()))
   }
 }
+
+@Test func entriesSkipVanishedFilesAndFlagUnreadableOnes() throws {
+  let fx = Fixture()
+  let good = fx.addText("good")
+  let dangling = fx.folder.appendingPathComponent("dangling.md")
+  try FileManager.default.createSymbolicLink(
+    atPath: dangling.path, withDestinationPath: fx.scratch.appendingPathComponent("gone.md").path)
+  let locked = fx.write("locked.md", "---\nid: locked01\n---\nsecret\n")
+  try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: locked.path)
+  defer {
+    try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: locked.path)
+  }
+  let entries = try fx.store.entries()
+  #expect(entries.count == 2)
+  #expect(entries.contains(.thought(good)))
+  let reasons = entries.compactMap { entry -> String? in
+    if case .malformed(let file, let reason) = entry, file == locked { return reason }
+    return nil
+  }
+  #expect(reasons.count == 1)
+  #expect(throws: ThoughtsError.notFound("dangling.md")) { try fx.store.entry(at: dangling) }
+  #expect(try fx.store.thought(matching: good.id.rawValue) == good)
+}
+
+@Test func fileNamesStayGregorianWhateverTheCalendar() {
+  let zone = TimeZone(secondsFromGMT: 0)!
+  var utc = Calendar(identifier: .gregorian)
+  utc.timeZone = zone
+  let date = utc.date(
+    from: DateComponents(year: 2026, month: 11, day: 22, hour: 20, minute: 3, second: 28))!
+  let id = ThoughtID(rawValue: "ke16cx5j")!
+  for identifier in [Calendar.Identifier.japanese, .buddhist, .gregorian, .islamicUmmAlQura] {
+    var calendar = Calendar(identifier: identifier)
+    calendar.timeZone = zone
+    calendar.locale = Locale(identifier: "ar_SA@numbers=arab")
+    #expect(
+      FileNaming.baseName(created: date, id: id, calendar: calendar) == "20261122-200328-ke16cx5j")
+  }
+}
+
+@Test func copiesReadOnlyAndLockedSourceImages() throws {
+  let fx = Fixture()
+  let jpeg = encoded(grayImage(width: 40, height: 30), as: .jpeg)
+  let readOnly = fx.scratch.appendingPathComponent("readonly.jpg")
+  let locked = fx.scratch.appendingPathComponent("locked.jpg")
+  try jpeg.write(to: readOnly)
+  try jpeg.write(to: locked)
+  try FileManager.default.setAttributes([.posixPermissions: 0o444], ofItemAtPath: readOnly.path)
+  try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: locked.path)
+  defer {
+    try? FileManager.default.setAttributes([.immutable: false], ofItemAtPath: locked.path)
+  }
+  for source in [readOnly, locked] {
+    let thought = try fx.store.add(NewThought.fromFile(source, source: nil, created: Date()))
+    let image = try #require(fx.store.imageURL(of: thought))
+    #expect(try Data(contentsOf: image) == jpeg)
+    #expect(FileManager.default.isWritableFile(atPath: image.path))
+  }
+  let all = try FileManager.default.contentsOfDirectory(atPath: fx.folder.path)
+  #expect(all.count == 4)
+  #expect(all.allSatisfy { !$0.contains(".tmp-") })
+}
+
+@Test func deleteTrashesOnlyTheImageSharingItsBaseName() throws {
+  let fx = Fixture()
+  let victim = fx.writeFrontMatter(id: "victim01")
+  let attacker = fx.write(
+    "20261122-101010-attack01.md",
+    "---\nid: attack01\ncreated: 2026-11-22T10:10:10.000+00:00\nimage: 20261122-101010-victim01.md\n---\nnote\n"
+  )
+  try fx.store.delete([ThoughtID(rawValue: "attack01")!])
+  #expect(fx.trashed.all == [attacker])
+  #expect(!fx.trashed.all.contains(victim))
+}
+
+@Test func duplicateIDCopyIsMalformedAndNeverTouched() throws {
+  let fx = Fixture()
+  let original = fx.writeFrontMatter(id: "dupe0001")
+  let copy = fx.write(
+    "20261122-101010-dupe0001 copy.md", try String(contentsOf: original, encoding: .utf8))
+  let id = ThoughtID(rawValue: "dupe0001")!
+  let copyBytes = try Data(contentsOf: copy)
+
+  let entries = try fx.store.entries()
+  #expect(entries.count == 2)
+  guard case .malformed(copy, let reason) = entries.first(where: { $0.isMalformed(copy) }) else {
+    Issue.record("expected the copy to be malformed")
+    return
+  }
+  #expect(reason.contains(original.lastPathComponent))
+
+  let found = try fx.store.thought(matching: "dupe0001")
+  #expect(found.file == original)
+  let edited = try fx.store.setText("edited", of: id, expected: found.version)
+  #expect(edited.file == original)
+  _ = try fx.store.setDone(true, for: id, at: Date())
+  #expect(try fx.store.clearDone() == [id])
+  try fx.store.delete([id])
+  #expect(fx.trashed.all == [original])
+  #expect(try Data(contentsOf: copy) == copyBytes)
+}
+
+@Test func duplicateIDWithoutASingleOwnerMakesEveryFileMalformed() throws {
+  let fx = Fixture()
+  let body = "---\nid: shared01\ncreated: 2026-11-22T10:10:10.000+00:00\n---\nbody\n"
+  _ = fx.write("a-shared01.md", body)
+  _ = fx.write("b-shared01.md", body)
+  _ = fx.write("renamed.md", body)
+  let entries = try fx.store.entries()
+  #expect(entries.count == 3)
+  #expect(entries.allSatisfy { if case .malformed = $0 { true } else { false } })
+  #expect(throws: ThoughtsError.notFound("shared01")) { try fx.store.thought(matching: "shared01") }
+}
+
+extension ThoughtEntry {
+  fileprivate func isMalformed(_ url: URL) -> Bool {
+    if case .malformed(let file, _) = self { return file == url }
+    return false
+  }
+}

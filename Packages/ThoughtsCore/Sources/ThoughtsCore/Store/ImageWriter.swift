@@ -11,7 +11,7 @@ enum ImageWriter {
       if type == .png {
         try AtomicFile.write(data, to: destination, target: .new)
       } else {
-        try AtomicFile.stage(for: destination, target: .new) { temp in
+        _ = try AtomicFile.stage(for: destination, target: .new) { temp in
           try convertToPNG(data, at: temp)
         }
       }
@@ -20,10 +20,23 @@ enum ImageWriter {
       let ext = source.pathExtension
       guard !ext.isEmpty else { throw ThoughtsError.io("Image file has no extension") }
       let name = base + "." + ext
-      try AtomicFile.stage(for: folder.appendingPathComponent(name), target: .new) { temp in
-        try FileManager.default.copyItem(at: source, to: temp)
+      _ = try AtomicFile.stage(for: folder.appendingPathComponent(name), target: .new) { temp in
+        try copyBytes(from: source, to: temp)
       }
       return name
+    }
+  }
+
+  private static func copyBytes(from source: URL, to destination: URL) throws {
+    let reader = try FileHandle(forReadingFrom: source)
+    defer { try? reader.close() }
+    guard FileManager.default.createFile(atPath: destination.path, contents: nil) else {
+      throw ThoughtsError.io("Could not create a temporary image file")
+    }
+    let writer = try FileHandle(forWritingTo: destination)
+    defer { try? writer.close() }
+    while let chunk = try reader.read(upToCount: 1 << 20), !chunk.isEmpty {
+      try writer.write(contentsOf: chunk)
     }
   }
 

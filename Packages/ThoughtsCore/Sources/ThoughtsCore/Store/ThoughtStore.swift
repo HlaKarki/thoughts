@@ -55,42 +55,29 @@ public struct ThoughtStore: Sendable {
   }
 
   public func entries() throws -> [ThoughtEntry] {
-    let keyed = try markdownFiles().map { file -> (entry: ThoughtEntry, date: Date) in
-      let entry = try entry(at: file)
+    try scan().map { entry -> (entry: ThoughtEntry, date: Date) in
       switch entry {
       case .thought(let thought):
         return (entry, thought.created)
-      case .malformed:
+      case .malformed(let file, _):
         return (entry, (try? AtomicFile.info(at: file).birth) ?? .distantPast)
       }
     }
-    return keyed.sorted { lhs, rhs in
+    .sorted { lhs, rhs in
       if lhs.date != rhs.date { return lhs.date < rhs.date }
       return fileName(of: lhs.entry) < fileName(of: rhs.entry)
-    }.map(\.entry)
+    }
+    .map(\.entry)
   }
 
   public func entry(at file: URL) throws -> ThoughtEntry {
-    let info: DiskInfo
-    let data: Data
     do {
-      info = try AtomicFile.info(at: file)
-      data = try Data(contentsOf: file)
+      return try load(file)
     } catch AtomicFileError.missing {
       throw ThoughtsError.notFound(file.lastPathComponent)
     } catch {
       throw mapped(error)
     }
-    guard var text = String(data: data, encoding: .utf8) else {
-      return .malformed(file: file, reason: "File is not valid UTF-8 text")
-    }
-    if text.hasPrefix("\u{FEFF}") { text.removeFirst() }
-    return FrontMatterCodec.decode(
-      text,
-      file: file,
-      version: info.version,
-      fallbackCreated: FrontMatterCodec.canonical(info.birth)
-    )
   }
 
   public func thought(matching idOrPrefix: String) throws -> Thought {
@@ -143,7 +130,7 @@ public struct ThoughtStore: Sendable {
     for id in ids {
       guard case .found(let thought) = try locate(id) else { continue }
       try wrapped { try trash(thought.file) }
-      if let image = imageURL(of: thought), FileManager.default.fileExists(atPath: image.path) {
+      if let image = ownImageURL(of: thought), FileManager.default.fileExists(atPath: image.path) {
         try wrapped { try trash(image) }
       }
     }
@@ -192,24 +179,97 @@ extension ThoughtStore {
     }
   }
 
-  private func locate(_ id: ThoughtID) throws -> Located {
-    let files = try markdownFiles()
-    let suffix = "-" + id.rawValue
-    func likely(_ file: URL) -> Bool {
-      let stem = file.deletingPathExtension().lastPathComponent
-      return stem == id.rawValue || stem.hasSuffix(suffix)
+  private func load(_ file: URL) throws -> ThoughtEntry {
+    let info = try AtomicFile.info(at: file)
+    let data: Data
+    do {
+      data = try Data(contentsOf: file)
+    } catch {
+      do {
+        _ = try AtomicFile.info(at: file)
+      } catch AtomicFileError.missing {
+        throw AtomicFileError.missing
+      } catch {}
+      throw error
     }
-    var sawMalformed = false
-    for file in files where likely(file) {
-      switch try entry(at: file) {
-      case .thought(let thought) where thought.id == id: return .found(thought)
-      case .malformed: sawMalformed = true
-      default: continue
+    guard var text = String(data: data, encoding: .utf8) else {
+      return .malformed(file: file, reason: "File is not valid UTF-8 text")
+    }
+    if text.hasPrefix("\u{FEFF}") { text.removeFirst() }
+    return FrontMatterCodec.decode(
+      text,
+      file: file,
+      version: info.version,
+      fallbackCreated: FrontMatterCodec.canonical(info.birth)
+    )
+  }
+
+  private func scan() throws -> [ThoughtEntry] {
+    var loaded: [ThoughtEntry] = []
+    for file in try markdownFiles() {
+      do {
+        loaded.append(try load(file))
+      } catch AtomicFileError.missing {
+        continue
+      } catch {
+        loaded.append(.malformed(file: file, reason: "File could not be read: \(describe(error))"))
       }
     }
-    for file in files where !likely(file) {
-      if case .thought(let thought) = try entry(at: file), thought.id == id {
-        return .found(thought)
+    return resolvingDuplicateIDs(loaded)
+  }
+
+  private func resolvingDuplicateIDs(_ loaded: [ThoughtEntry]) -> [ThoughtEntry] {
+    var groups: [ThoughtID: [Thought]] = [:]
+    for case .thought(let thought) in loaded { groups[thought.id, default: []].append(thought) }
+    var demoted: [URL: String] = [:]
+    for (id, group) in groups where group.count > 1 {
+      let owners = group.filter { owns($0.file, id) }
+      if owners.count == 1 {
+        let owner = owners[0].file.lastPathComponent
+        for thought in group where thought.file != owners[0].file {
+          demoted[thought.file] = "Duplicate id \(id), owned by \(owner)"
+        }
+      } else {
+        let names = group.map(\.file.lastPathComponent).sorted().joined(separator: ", ")
+        for thought in group {
+          demoted[thought.file] = "Several files share the id \(id): \(names)"
+        }
+      }
+    }
+    return loaded.map { entry in
+      if case .thought(let thought) = entry, let reason = demoted[thought.file] {
+        return .malformed(file: thought.file, reason: reason)
+      }
+      return entry
+    }
+  }
+
+  private func owns(_ file: URL, _ id: ThoughtID) -> Bool {
+    let stem = file.deletingPathExtension().lastPathComponent
+    return stem == id.rawValue || stem.hasSuffix("-" + id.rawValue)
+  }
+
+  private func ownImageURL(of thought: Thought) -> URL? {
+    guard let image = imageURL(of: thought),
+      image.lastPathComponent != thought.file.lastPathComponent
+    else { return nil }
+    let imageBase = image.deletingPathExtension().lastPathComponent
+    return imageBase == thought.file.deletingPathExtension().lastPathComponent ? image : nil
+  }
+
+  private func describe(_ error: Error) -> String {
+    if case ThoughtsError.io(let message) = error { return message }
+    return error.localizedDescription
+  }
+
+  private func locate(_ id: ThoughtID) throws -> Located {
+    let loaded = try scan()
+    var sawMalformed = false
+    for entry in loaded {
+      switch entry {
+      case .thought(let thought) where thought.id == id: return .found(thought)
+      case .malformed(let file, _) where owns(file, id): sawMalformed = true
+      default: continue
       }
     }
     return sawMalformed ? .malformed : .missing
