@@ -1,0 +1,29 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  check:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_27.2.app
+      - name: Install XcodeGen
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip
+          echo "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Comment check
+        run: swift run --package-path Tools/CommentCheck --only-use-versions-from-resolved-file comment-check .
+      - name: Format check
+        run: git ls-files -z --cached --others --exclude-standard '*.swift' | xargs -0 xcrun swift-format lint --strict
+      - name: Core tests
+        run: swift test --package-path Packages/ThoughtsCore --only-use-versions-from-resolved-file
+      - name: Comment checker tests
+        run: swift test --package-path Tools/CommentCheck --only-use-versions-from-resolved-file
+      - name: App build
+        run: |
+          xcodegen generate
+          xcodebuild -project Thoughts.xcodeproj -scheme Thoughts -configuration Debug -onlyUsePackageVersionsFromResolvedFile CODE_SIGNING_ALLOWED=NO build

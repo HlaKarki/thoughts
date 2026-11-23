@@ -1,0 +1,70 @@
+name: Thoughts
+options:
+  bundleIdPrefix: dev.hla
+  deploymentTarget:
+    macOS: "15.4"
+  createIntermediateGroups: true
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+packages:
+  ThoughtsCore:
+    path: Packages/ThoughtsCore
+targets:
+  Thoughts:
+    type: application
+    platform: macOS
+    sources:
+      - App
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleName: $(THOUGHTS_DISPLAY_NAME)
+        CFBundleDisplayName: $(THOUGHTS_DISPLAY_NAME)
+        LSMinimumSystemVersion: "15.4"
+        LSUIElement: true
+    settings:
+      base:
+        PRODUCT_NAME: Thoughts
+        PRODUCT_MODULE_NAME: Thoughts
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: dev.hla.thoughts.debug
+          THOUGHTS_DISPLAY_NAME: Thoughts Dev
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: dev.hla.thoughts
+          THOUGHTS_DISPLAY_NAME: Thoughts
+    dependencies:
+      - package: ThoughtsCore
+        product: ThoughtsCore
+      - target: ThoughtsCLI
+        embed: true
+        copy:
+          destination: wrapper
+          subpath: Contents/Helpers
+  ThoughtsCLI:
+    type: tool
+    platform: macOS
+    sources:
+      - CLI
+    settings:
+      base:
+        PRODUCT_NAME: thoughts
+    dependencies:
+      - package: ThoughtsCore
+        product: ThoughtsCommands
+schemes:
+  Thoughts:
+    build:
+      targets:
+        Thoughts: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
