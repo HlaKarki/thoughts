@@ -122,11 +122,17 @@ final class InputModel {
   }
 
   @discardableResult
+  func save(_ new: NewThought, pasteboardChangeCount: Int?) async throws -> Thought {
+    let store = ThoughtStore(folder: try location.resolve())
+    let saved = try await Task.detached { try store.add(new) }.value
+    onManualSave(ManualSave(file: saved.file, pasteboardChangeCount: pasteboardChangeCount))
+    return saved
+  }
+
+  @discardableResult
   private func add(_ new: NewThought, pasteboardChangeCount: Int?) async -> Bool {
     do {
-      let store = ThoughtStore(folder: try location.resolve())
-      let saved = try await Task.detached { try store.add(new) }.value
-      onManualSave(ManualSave(file: saved.file, pasteboardChangeCount: pasteboardChangeCount))
+      try await save(new, pasteboardChangeCount: pasteboardChangeCount)
       return true
     } catch let error as ThoughtsError {
       onFailure(ListModel.message(for: error))

@@ -1,5 +1,7 @@
 import ApplicationServices
+import Carbon.HIToolbox
 import Foundation
+import ThoughtsCore
 
 final class AXReader: Sendable {
   private static let messagingTimeout: Float = 0.25
@@ -24,6 +26,46 @@ final class AXReader: Sendable {
       webArea: attribute(kAXURLAttribute, of: webArea),
       document: attribute(kAXDocumentAttribute, of: window))
     return (url, BrowserPages.title(attribute(kAXTitleAttribute, of: window)))
+  }
+
+  func selection(pid: Int32) -> SelectionProbe {
+    guard AXIsProcessTrusted(), let element = focusedElement(pid: pid) else { return .unavailable }
+    if isSecure(element) || IsSecureEventInputEnabled() { return .secureField }
+    var answered = false
+    let plain = attribute(kAXSelectedTextAttribute, of: element) as? String
+    if let plain {
+      if !plain.isEmpty { return .text(plain) }
+      answered = true
+    }
+    if let marked = markedSelection(of: element) {
+      if !marked.isEmpty { return .text(marked) }
+      answered = true
+    }
+    return answered ? .empty : .unavailable
+  }
+
+  private func focusedElement(pid: Int32) -> AXUIElement? {
+    let app = AXUIElementCreateApplication(pid)
+    guard let value = attribute(kAXFocusedUIElementAttribute, of: app),
+      CFGetTypeID(value as CFTypeRef) == AXUIElementGetTypeID()
+    else { return nil }
+    return (value as! AXUIElement)
+  }
+
+  private func isSecure(_ element: AXUIElement) -> Bool {
+    let secure = "AXSecureTextField"
+    return [kAXRoleAttribute, kAXSubroleAttribute].contains {
+      attribute($0, of: element) as? String == secure
+    }
+  }
+
+  private func markedSelection(of element: AXUIElement) -> String? {
+    guard let range = attribute("AXSelectedTextMarkerRange", of: element) else { return nil }
+    var text: CFTypeRef?
+    let status = AXUIElementCopyParameterizedAttributeValue(
+      element, "AXStringForTextMarkerRange" as CFString, range, &text)
+    guard status == .success else { return nil }
+    return text as? String
   }
 
   private func focusedWindow(pid: Int32) -> AXUIElement? {

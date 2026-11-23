@@ -16,7 +16,13 @@ final class AppState {
   let actions: ThoughtActions
   let pasteboard: PasteboardWriter
   let preview: PreviewWindowController
+  let capture: CaptureCoordinator
+  let chip: EdgeChipPanel
+  let gesture: GestureMonitor
+  static let savedChipLifetime: TimeInterval = 1.2
+  static let hintChipLifetime: TimeInterval = 2.4
   private var summon: Task<Void, Never>?
+  private var captureTask: Task<Void, Never>?
 
   init(preferences: Preferences = Preferences()) throws {
     let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Thoughts"
@@ -30,7 +36,8 @@ final class AppState {
     self.list = list
     let tracker = FrontmostTracker(ownBundleID: Bundle.main.bundleIdentifier ?? "")
     tracker.start()
-    let recorder = SourceRecorder(tracker: tracker, ax: AXReader())
+    let ax = AXReader()
+    let recorder = SourceRecorder(tracker: tracker, ax: ax)
     let input = InputModel(location: location) { [list] in list.showHint($0) }
     input.source = {
       let source = await recorder.current()
@@ -58,6 +65,16 @@ final class AppState {
       list.now = Date()
       list.panelDidShow()
     }
+    let chip = EdgeChipPanel(
+      edge: { [panel] in panel.edge },
+      openPanelFrame: { [panel] in panel.isShown ? panel.frame : nil })
+    self.chip = chip
+    let capture = CaptureCoordinator(
+      frontmost: { tracker.frontmost }, ownBundleID: tracker.ownBundleID,
+      reader: SelectionReader(readSelection: { ax.selection(pid: $0) }),
+      source: { await recorder.current() }, input: input,
+      writer: pasteboard, sound: SavedSound(preferences: preferences))
+    self.capture = capture
     let monitor = DragSessionMonitor()
     let zone = EdgeDropZone(panel: panel, preferences: preferences, monitor: monitor)
     dragMonitor = monitor
@@ -90,11 +107,36 @@ final class AppState {
     }
     zone.start()
     list.start()
+    gesture = GestureMonitor(preferences: preferences)
+    gesture.onGesture = { [weak self] in self?.gestureFired() }
+    gesture.start()
     summon = SummonShortcut.listen { [panel] in panel.toggle() }
+  }
+
+  private func gestureFired() {
+    guard !capture.isCapturing else { return }
+    captureTask = Task { [capture, weak self] in
+      let outcome = await capture.capture()
+      self?.showFeedback(for: outcome)
+    }
+  }
+
+  private func showFeedback(for outcome: CaptureOutcome) {
+    switch outcome {
+    case .saved, .acceptedOffer:
+      if !panel.isShown { chip.show(HintChipView(kind: .saved), hideAfter: Self.savedChipLifetime) }
+    case .nothingToSave:
+      chip.show(HintChipView(kind: .nothingToSave), hideAfter: Self.hintChipLifetime)
+    case .failed(let message):
+      chip.show(HintChipView(kind: .failed(message)), hideAfter: Self.hintChipLifetime)
+    }
   }
 
   func stop() {
     summon?.cancel()
+    captureTask?.cancel()
+    gesture.stop()
+    chip.hide()
     dragMonitor.stop()
     live.stop()
   }

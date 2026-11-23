@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import ThoughtsCore
 
 @MainActor
 @Observable
@@ -18,16 +19,35 @@ final class Preferences {
     didSet { defaults.set(firstRunDone, forKey: Key.firstRunDone) }
   }
 
+  var gesture: Modifier? {
+    didSet { defaults.set(gesture?.rawValue ?? Self.gestureOff, forKey: Key.gesture) }
+  }
+
+  var soundEnabled: Bool {
+    didSet { defaults.set(soundEnabled, forKey: Key.soundEnabled) }
+  }
+
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
     edge = defaults.string(forKey: Key.edge).flatMap(PanelEdge.init(rawValue:)) ?? .right
     keepOpen = defaults.bool(forKey: Key.keepOpen)
     firstRunDone = defaults.bool(forKey: Key.firstRunDone)
+    gesture =
+      switch defaults.string(forKey: Key.gesture) {
+      case nil: .shift
+      case Self.gestureOff: nil
+      case let raw?: Modifier(rawValue: raw) ?? .shift
+      }
+    soundEnabled = defaults.object(forKey: Key.soundEnabled) as? Bool ?? true
   }
+
+  private static let gestureOff = "off"
 
   private enum Key {
     static let edge = "panelEdge"
     static let keepOpen = "keepOpen"
     static let firstRunDone = "firstRunDone"
+    static let gesture = "captureGesture"
+    static let soundEnabled = "soundEnabled"
   }
 }
