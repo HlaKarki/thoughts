@@ -1,6 +1,6 @@
 # Thoughts
 
-Thoughts is a Mac menu bar app for keeping text and screenshots from any app. Press a key to open the panel, type a thought or save what you have selected, and search it all later. Each thought is a Markdown file in a folder you choose, so you can open, sync and back it up like any other file.
+Thoughts is a Mac menu bar app with no Dock icon, for keeping text and screenshots from any app. Click the icon or press a key to open the panel, type a thought or save what you have selected, and search it all later. Each thought is a Markdown file in a folder you choose, so you can open, sync and back it up like any other file.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/images/panel-dark.png">
@@ -25,13 +25,13 @@ You can also download `Thoughts-<version>.zip` from the [releases page](https://
 sudo ln -s /Applications/Thoughts.app/Contents/Helpers/thoughts /usr/local/bin/thoughts
 ```
 
-Thoughts checks for updates once a day. When one is ready, "Update available" appears in the ⋯ menu. You can also choose "Check for updates…" there. The update check is the only network request Thoughts makes.
+Thoughts checks for updates once a day. When one is ready, "Update available" appears in the ⋯ menu and in the menu bar icon's menu, and the icon shows a dot. You can also choose "Check for updates…" in either menu. The update check is the only network request Thoughts makes.
 
 ## First run
 
 The first time Thoughts opens, it walks you through five steps.
 
-1. **Pick a key to open Thoughts.** The default is ⌥Space. Press it in any app to show or hide the panel.
+1. **Pick a key to open Thoughts.** The default is ⌥Space. Press it in any app to show or hide the panel. You can also click the Thoughts icon in the menu bar.
 2. **Pick how to save from any app.** Press Shift twice, or record your own shortcut. It saves the selected text, or a copied image, as a thought. JetBrains IDEs use double Shift for Search Everywhere, so pick a shortcut if you work in one.
 3. **Allow one permission.** Thoughts asks for Accessibility so the capture works in other apps. It reads the text you select and the title of the window you're in, so each thought records where it came from. Turn on Thoughts in System Settings, then come back.
 4. **Choose where thoughts are saved.** The default is `~/Thoughts`. Thoughts makes the folder if it isn't there. A folder inside iCloud Drive or Dropbox syncs to your other Macs.
@@ -42,6 +42,8 @@ The first time you keep a copied image, macOS asks if Thoughts can paste from ot
 Thoughts never asks for Input Monitoring.
 
 ## Keys
+
+The menu bar icon is on by default. Its menu has Show Thoughts, Settings…, Check for updates… and Quit Thoughts. To remove it, turn off "Show Thoughts in the menu bar" in Settings or Command-drag it out of the menu bar. The summon key, or opening Thoughts again from Applications, still shows the panel.
 
 Anywhere:
 
@@ -79,7 +81,7 @@ You can also drop text, images or files on the panel. Images and text are saved 
 
 ## Your files
 
-Thoughts saves to `~/Thoughts` unless you picked another folder. To move it, open Settings from the ⋯ menu and change the storage folder. Thoughts moves the files and leaves a link at the old path.
+Thoughts saves to `~/Thoughts` unless you picked another folder. To move it, open Settings from the ⋯ menu or the menu bar icon and change the storage folder. Thoughts moves the files and leaves a link at the old path.
 
 Each thought is one Markdown file named after the time it was saved and its ID. A screenshot is a PNG with the same name, next to its Markdown file. A thought saved from a web page looks like this:
 
