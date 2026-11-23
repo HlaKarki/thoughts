@@ -35,4 +35,25 @@ struct InboxImporterTests {
     #expect(saves.saved.count == 1)
     #expect(saves.failures.count == 1)
   }
+
+  @Test func failedRemoveAfterASaveIsReported() async throws {
+    let temp = TempFolder()
+    let folder = temp.url.appendingPathComponent("Inbox", isDirectory: true)
+    let inbox = Inbox(folder: folder)
+    let entry = try inbox.write(InboxItem(kind: .text, text: "Call the dentist"), attachment: nil)
+    let saves = Saves()
+    saves.failing = false
+    let importer = InboxImporter(
+      inbox: inbox, save: { saves.saved.append($0) }, source: { nil })
+    importer.onFailure = { saves.failures.append($0) }
+    try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder.path)
+    defer {
+      try? FileManager.default.setAttributes(
+        [.posixPermissions: 0o755], ofItemAtPath: folder.path)
+    }
+    await importer.importNow().value
+    #expect(saves.saved.count == 1)
+    #expect(saves.failures.count == 1)
+    #expect(try inbox.pending() == [entry])
+  }
 }

@@ -52,7 +52,6 @@ final class ShareViewController: NSObject, NSExtensionRequestHandling {
     }
     if written > 0 { await openImport() }
     if let failure {
-      showAlert(for: failure)
       request.context.cancelRequest(withError: failure)
     } else {
       request.context.completeRequest(returningItems: nil)
@@ -107,7 +106,7 @@ final class ShareViewController: NSObject, NSExtensionRequestHandling {
     if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier),
       let url = await loadURL(provider), url.isFileURL
     {
-      return file(url)
+      return await file(url, provider: provider, scratch: scratch)
     }
     if let type = provider.registeredContentTypes.first(where: { $0.conforms(to: .image) }),
       let data = await loadData(provider, type: type)
@@ -117,7 +116,7 @@ final class ShareViewController: NSObject, NSExtensionRequestHandling {
     if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier),
       let url = await loadURL(provider)
     {
-      if url.isFileURL { return file(url) }
+      if url.isFileURL { return await file(url, provider: provider, scratch: scratch) }
       return Shared(item: InboxItem(kind: .url, url: url, title: title))
     }
     if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier),
@@ -128,10 +127,42 @@ final class ShareViewController: NSObject, NSExtensionRequestHandling {
     return nil
   }
 
-  private static func file(_ url: URL) -> Shared {
-    let isImage = UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true
-    return Shared(
-      item: InboxItem(kind: .file, originalPath: url.path), attachment: isImage ? url : nil)
+  @MainActor
+  private static func file(_ url: URL, provider: NSItemProvider, scratch: URL) async -> Shared {
+    let item = InboxItem(kind: .file, originalPath: url.path)
+    guard UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true,
+      let copy = await copyImageFile(provider, name: url.lastPathComponent, scratch: scratch)
+    else { return Shared(item: item) }
+    return Shared(item: item, attachment: copy)
+  }
+
+  @MainActor
+  private static func copyImageFile(
+    _ provider: NSItemProvider, name: String, scratch: URL
+  ) async -> URL? {
+    guard
+      let identifier = provider.registeredTypeIdentifiers.first(where: {
+        UTType($0)?.conforms(to: .image) == true
+      })
+    else { return nil }
+    let target = scratch.appendingPathComponent(UUID().uuidString, isDirectory: true)
+      .appendingPathComponent(name)
+    return await withCheckedContinuation { continuation in
+      _ = provider.loadFileRepresentation(forTypeIdentifier: identifier) { temporary, _ in
+        guard let temporary else {
+          continuation.resume(returning: nil)
+          return
+        }
+        do {
+          try FileManager.default.createDirectory(
+            at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+          try FileManager.default.copyItem(at: temporary, to: target)
+          continuation.resume(returning: target)
+        } catch {
+          continuation.resume(returning: nil)
+        }
+      }
+    }
   }
 
   private static func image(_ data: Data, type: UTType, scratch: URL) -> Shared? {
@@ -183,17 +214,5 @@ final class ShareViewController: NSObject, NSExtensionRequestHandling {
     let configuration = NSWorkspace.OpenConfiguration()
     configuration.activates = false
     _ = try? await NSWorkspace.shared.open(url, configuration: configuration)
-  }
-
-  @MainActor
-  private static func showAlert(for error: Error) {
-    let alert = NSAlert()
-    alert.messageText = String(localized: "Thoughts can't add this")
-    if case .io(let detail) = error as? ThoughtsError {
-      alert.informativeText = detail
-    } else {
-      alert.informativeText = error.localizedDescription
-    }
-    alert.runModal()
   }
 }

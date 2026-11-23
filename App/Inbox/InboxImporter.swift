@@ -70,7 +70,7 @@ final class InboxImporter {
       guard let new = try? inbox.newThought(from: entry, source: fallback) else { continue }
       do {
         try await save(new)
-        try? inbox.remove(entry)
+        try inbox.remove(entry)
       } catch {
         failure = failure ?? CaptureCoordinator.message(for: error)
       }
