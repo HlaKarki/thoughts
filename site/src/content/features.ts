@@ -1,6 +1,6 @@
 import { highlight } from '@/lib/highlight'
 import { site } from './site'
-import { thoughts } from './thoughts'
+import { sourceLine, sources, thoughts } from './thoughts'
 import type { Rich } from './types'
 
 type Card<Tile> = {
@@ -100,7 +100,7 @@ export const features: Features = {
     ],
     tile: {
       label: 'A screenshot of a cat photo becomes a thought in the panel.',
-      windowTitle: 'IMG_0412.jpeg',
+      windowTitle: sources.catPhoto.window,
       photo: site.photos.cat,
       offerTitle: 'Image copied',
       offerSubtitle: 'Keep as a thought?',
@@ -117,13 +117,13 @@ export const features: Features = {
       label: `A search for ${searchQuery} finds a recipe screenshot and a note.`,
       query: searchQuery,
       page: {
-        source: 'Safari: Sourdough, step by step',
+        source: sourceLine(sources.recipe),
         text: highlight('Text in image: "Heat the oven to 250°C"', searchQuery),
         time: '9:58',
       },
       note: {
         text: highlight(thoughts.oven.text, searchQuery),
-        source: 'Preview: IMG_0412.jpeg',
+        source: sourceLine(sources.catPhoto),
         time: thoughts.oven.time,
       },
       newest: thoughts.dough,
@@ -145,9 +145,9 @@ export const features: Features = {
         'cleared: false',
         'image: 20261123-100512-m4q8tz2c.png',
         'source:',
-        '  app: Preview',
-        '  bundle: com.apple.Preview',
-        '  window: IMG_0412.jpeg',
+        `  app: ${sources.catPhoto.app}`,
+        `  bundle: ${sources.catPhoto.bundle}`,
+        `  window: ${sources.catPhoto.window}`,
         '---',
         thoughts.oven.text,
       ].join('\n'),

@@ -1,5 +1,5 @@
 import { site } from './site'
-import { thoughts } from './thoughts'
+import { sources, thoughts } from './thoughts'
 
 export type PanelRow =
   | {
@@ -50,16 +50,16 @@ type Hero = {
 }
 
 export const hero: Hero = {
-  label: 'The Thoughts panel sits beside a sourdough recipe in Safari, and the sentence you selected on the page is now the newest thought.',
+  label: `The Thoughts panel sits beside a sourdough recipe in ${sources.recipe.app}, and the sentence you selected on the page is now the newest thought.`,
   menuBar: {
-    app: 'Safari',
+    app: sources.recipe.app,
     menus: ['File', 'Edit', 'View', 'History', 'Bookmarks', 'Window', 'Help'],
     clock: `Mon Nov 23 ${thoughts.dough.time} AM`,
   },
   browser: {
     address: 'example.com',
     eyebrow: 'Recipes',
-    title: 'Sourdough, step by step',
+    title: sources.recipe.window,
     intro: 'Two days from start to finish, and the dough does most of the work.',
     photo: site.photos.bread,
     heading: 'Mix and rest',
