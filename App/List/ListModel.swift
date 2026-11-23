@@ -29,6 +29,7 @@ final class ListModel {
 
   private(set) var entries: [ThoughtEntry] = []
   private(set) var hint: String?
+  @ObservationIgnored private var isPanelShown = false
   private(set) var addedCount = 0
   private(set) var matches: Set<String>?
   var now = Date()
@@ -182,8 +183,23 @@ final class ListModel {
   }
 
   func showHint(_ text: String) {
-    hintTask?.cancel()
     hint = text
+    armHintDismissal()
+  }
+
+  func panelDidShow() {
+    isPanelShown = true
+    armHintDismissal()
+  }
+
+  func panelDidHide() {
+    isPanelShown = false
+    hintTask?.cancel()
+  }
+
+  private func armHintDismissal() {
+    hintTask?.cancel()
+    guard isPanelShown, hint != nil else { return }
     hintTask = Task { [weak self] in
       try? await Task.sleep(for: .seconds(4))
       guard !Task.isCancelled else { return }

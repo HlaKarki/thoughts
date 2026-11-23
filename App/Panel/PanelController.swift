@@ -12,6 +12,7 @@ final class PanelController {
   private var hiding = false
   private var transition = 0
   var onWillShow: (() -> Void)?
+  var onWillHide: (() -> Void)?
 
   init(content: NSView, preferences: Preferences) {
     self.panel = ThoughtsPanel(content: content)
@@ -63,6 +64,7 @@ final class PanelController {
 
   func hide() {
     guard isShown else { return }
+    onWillHide?()
     hiding = true
     transition += 1
     let current = transition

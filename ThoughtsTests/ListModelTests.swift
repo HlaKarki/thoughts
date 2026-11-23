@@ -52,4 +52,15 @@ struct ListModelTests {
     #expect(fixture.model.entries.count == 2)
     #expect(fixture.model.addedCount == 1)
   }
+
+  @Test func hintStaysWhileThePanelIsHidden() async throws {
+    let fixture = try ListFixture()
+    fixture.model.showHint("The folder is unavailable")
+    try await Task.sleep(for: .milliseconds(150))
+    #expect(fixture.model.hint == "The folder is unavailable")
+    fixture.model.panelDidShow()
+    #expect(fixture.model.hint == "The folder is unavailable")
+    fixture.model.panelDidHide()
+    #expect(fixture.model.hint == "The folder is unavailable")
+  }
 }

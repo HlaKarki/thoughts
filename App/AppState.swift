@@ -30,7 +30,9 @@ final class AppState {
       list.focus = .input
       list.selection = []
       list.now = Date()
+      list.panelDidShow()
     }
+    panel.onWillHide = { [list] in list.panelDidHide() }
     list.onCommand = { [panel] command in
       if command == .hidePanel { panel.hide() }
     }

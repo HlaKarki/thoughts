@@ -24,9 +24,9 @@ struct ListSnapshotTests {
     try fixture.addScreenshot(note: "", daysAgo: 4, done: true)
     let noted = try fixture.addScreenshot(note: "Reword the empty state", daysAgo: 3)
     try fixture.addUnreadable(name: "20261121-140200-k3f9.md", daysAgo: 3)
-    try fixture.addText("Ask Sam for the staging API key", daysAgo: 2.5)
+    try fixture.addText("Ask the team for the staging API key", daysAgo: 2.5)
     try fixture.addText(
-      "Read the crash log in ~/Desktop/sync.log and explain why the retry loop never stops, then propose a fix with a cap of 3 attempts. Include the exact line where the counter resets and say whether the reset is intended.",
+      "Read the crash log in the sync folder and explain why the retry loop never stops, then propose a fix with a cap of 3 attempts. Include the exact line where the counter resets and say whether the reset is intended.",
       daysAgo: 0.2)
     try fixture.addText("Should the empty state link to the import docs?", daysAgo: 0.1)
     try fixture.reload()

@@ -23,6 +23,10 @@ struct ThoughtListView: View {
           guard let last = model.visible.last else { return }
           scroller.scrollTo(last.fileName, anchor: .bottom)
         }
+        .onChange(of: model.selection.last) {
+          guard let name = model.selection.last else { return }
+          scroller.scrollTo(name, anchor: nil)
+        }
       }
     }
   }
