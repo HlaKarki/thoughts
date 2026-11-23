@@ -7,6 +7,8 @@ import { BrowserWindow } from './hero/BrowserWindow'
 import { HeroPanel } from './hero/HeroPanel'
 import { MenuBar } from './hero/MenuBar'
 
+const cropHeight = { default: 1000, [media.wide]: 800 }
+
 const settle = stylex.keyframes({
   from: { scale: 0.96, borderRadius: '8px' },
 })
@@ -39,7 +41,7 @@ const styles = stylex.create({
   crop: {
     position: 'relative',
     width: { default: '100%', [media.wide]: `min(${width.scene}, 100% - 2 * ${space.gutter})` },
-    height: { default: 1000, [media.wide]: 800 },
+    height: cropHeight,
     overflow: 'clip',
     borderRadius: { default: 0, [media.wide]: radius.r16 },
     animationName: {
@@ -69,7 +71,7 @@ const styles = stylex.create({
   icon: {
     position: 'absolute',
     left: '50%',
-    top: { default: 1000, [media.wide]: 800 },
+    top: cropHeight,
     width: { default: 96, [media.wide]: 128 },
     height: { default: 96, [media.wide]: 128 },
     translate: '-50% 0',
