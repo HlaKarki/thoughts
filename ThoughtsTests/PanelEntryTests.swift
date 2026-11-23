@@ -84,16 +84,17 @@ struct PanelEntryTests {
     #expect(target.maxX == second.maxX - PanelController.edgeInset)
   }
 
-  @Test func aMenuClosedWithNoChoiceGivesTheKeyBackUnlessFocusMovedAway() {
-    func outcome(lost: Bool, keepOpen: Bool, moved: Bool) -> MenuCloseOutcome {
-      PanelController.afterMenuClosed(
-        lostKeyToOwnIcon: lost, keepOpen: keepOpen, focusMovedAway: moved)
+  @Test func aClosedMenuRestoresKeyOnlyWithNoPickAndHidesAfterAnyOtherPick() {
+    func outcome(_ pick: MenuPick, lost: Bool, keepOpen: Bool) -> MenuCloseOutcome {
+      PanelController.afterMenuClosed(pick: pick, lostKeyToOwnIcon: lost, keepOpen: keepOpen)
     }
-    #expect(outcome(lost: true, keepOpen: false, moved: false) == .restoreKey)
-    #expect(outcome(lost: true, keepOpen: true, moved: false) == .restoreKey)
-    #expect(outcome(lost: true, keepOpen: false, moved: true) == .hide)
-    #expect(outcome(lost: true, keepOpen: true, moved: true) == .none)
-    #expect(outcome(lost: false, keepOpen: false, moved: false) == .none)
-    #expect(outcome(lost: false, keepOpen: false, moved: true) == .none)
+    #expect(outcome(.none, lost: true, keepOpen: false) == .restoreKey)
+    #expect(outcome(.none, lost: true, keepOpen: true) == .restoreKey)
+    #expect(outcome(.none, lost: false, keepOpen: false) == .none)
+    #expect(outcome(.other, lost: true, keepOpen: false) == .hide)
+    #expect(outcome(.other, lost: false, keepOpen: false) == .hide)
+    #expect(outcome(.other, lost: true, keepOpen: true) == .none)
+    #expect(outcome(.show, lost: true, keepOpen: false) == .none)
+    #expect(outcome(.show, lost: true, keepOpen: true) == .none)
   }
 }

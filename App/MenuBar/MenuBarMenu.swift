@@ -1,6 +1,12 @@
 import AppKit
 import KeyboardShortcuts
 
+enum MenuPick: Equatable {
+  case none
+  case show
+  case other
+}
+
 struct MenuShowGate {
   private(set) var isOpen = false
   private var pending = false
@@ -30,7 +36,9 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
 
   let menu = NSMenu()
   var onShow: @MainActor () -> Void = {}
-  var onClosed: @MainActor () -> Void = {}
+  var onClosed: @MainActor (MenuPick) -> Void = { _ in }
+  var onOpened: @MainActor () -> Void = {}
+  private var pick = MenuPick.none
   var isOpen: Bool { gate.isOpen }
   private var gate = MenuShowGate()
   private let afterTracking: @MainActor (@escaping @MainActor () -> Void) -> Void
@@ -100,8 +108,10 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
   @objc private func choose(_ sender: NSMenuItem) {
     guard let identifier = sender.identifier else { return }
     if identifier == Self.showID {
+      pick = .show
       if gate.chose() { showAfterTracking() }
     } else if let id = SharedMenuItem.ID(rawValue: identifier.rawValue) {
+      pick = .other
       shared.item(id).perform()
     }
   }
@@ -112,12 +122,19 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
 
   func menuWillOpen(_ menu: NSMenu) {
     gate.opened()
+    pick = .none
     setSummonEnabled(summon, false)
+    onOpened()
   }
 
   func menuDidClose(_ menu: NSMenu) {
     setSummonEnabled(summon, true)
-    afterTracking { [weak self] in self?.onClosed() }
+    afterTracking { [weak self] in
+      guard let self else { return }
+      let chosen = pick
+      pick = .none
+      onClosed(chosen)
+    }
     if gate.closed() { showAfterTracking() }
   }
 

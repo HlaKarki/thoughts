@@ -24,11 +24,7 @@ final class PanelController {
   private var hiding = false
   private var transition = 0
   var ownIconInUse: @MainActor () -> Bool = { false }
-  var frontmostApp: @MainActor () -> pid_t? = {
-    NSWorkspace.shared.frontmostApplication?.processIdentifier
-  }
   private var lostKeyToOwnIcon = false
-  private var frontmostAtLoss: pid_t?
   var onWillShow: (() -> Void)?
   var onWillHide: (() -> Void)?
   var onDidChangeShown: (() -> Void)?
@@ -76,11 +72,13 @@ final class PanelController {
   }
 
   static func afterMenuClosed(
-    lostKeyToOwnIcon: Bool, keepOpen: Bool, focusMovedAway: Bool
+    pick: MenuPick, lostKeyToOwnIcon: Bool, keepOpen: Bool
   ) -> MenuCloseOutcome {
-    guard lostKeyToOwnIcon else { return .none }
-    guard focusMovedAway else { return .restoreKey }
-    return keepOpen ? .none : .hide
+    switch pick {
+    case .show: .none
+    case .other: keepOpen ? .none : .hide
+    case .none: lostKeyToOwnIcon ? .restoreKey : .none
+    }
   }
 
   static func hidesOnKeyLoss(keepOpen: Bool, ownIconInUse: Bool) -> Bool {
@@ -143,14 +141,12 @@ final class PanelController {
     onDidChangeShown?()
   }
 
-  func ownMenuClosed() {
+  func ownMenuClosed(_ pick: MenuPick) {
     let lost = lostKeyToOwnIcon
     lostKeyToOwnIcon = false
     guard isShown else { return }
-    let otherWindowKey = NSApp.keyWindow.map { $0 !== panel } ?? false
     let outcome = Self.afterMenuClosed(
-      lostKeyToOwnIcon: lost, keepOpen: preferences.keepOpen,
-      focusMovedAway: otherWindowKey || frontmostApp() != frontmostAtLoss)
+      pick: pick, lostKeyToOwnIcon: lost, keepOpen: preferences.keepOpen)
     switch outcome {
     case .none: break
     case .restoreKey: panel.makeKeyAndOrderFront(nil)
@@ -186,7 +182,6 @@ final class PanelController {
     let ownIcon = ownIconInUse()
     if ownIcon, !lostKeyToOwnIcon {
       lostKeyToOwnIcon = true
-      frontmostAtLoss = frontmostApp()
     }
     guard Self.hidesOnKeyLoss(keepOpen: preferences.keepOpen, ownIconInUse: ownIcon) else {
       return

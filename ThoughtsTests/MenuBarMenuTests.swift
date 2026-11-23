@@ -41,7 +41,7 @@ struct MenuBarMenuTests {
         shared: shared, summon: name, setSummonEnabled: { log.summon.append(($0, $1)) },
         afterTracking: { [queue] work in queue.work.append(work) })
       menuBar.onShow = { log.events.append("show") }
-      menuBar.onClosed = { log.events.append("closed") }
+      menuBar.onClosed = { log.events.append("closed:\($0)") }
     }
 
     var queued: [@MainActor () -> Void] { queue.work }
@@ -158,16 +158,41 @@ struct MenuBarMenuTests {
     menu.performActionForItem(at: 0)
     #expect(rig.queued.isEmpty)
     rig.menuBar.menuDidClose(menu)
+    #expect(rig.queued.count == 2)
     #expect(rig.log.events.isEmpty)
     rig.runQueued()
-    #expect(rig.log.events == ["closed", "show"])
+    #expect(rig.log.events == ["closed:show", "show"])
 
     rig.menuBar.menuWillOpen(menu)
     rig.menuBar.menuDidClose(menu)
+    #expect(rig.queued.count == 1)
     menu.performActionForItem(at: 0)
-    #expect(rig.log.events == ["closed", "show"])
+    #expect(rig.queued.count == 2)
+    #expect(rig.log.events == ["closed:show", "show"])
     rig.runQueued()
-    #expect(rig.log.events == ["closed", "show", "closed", "show"])
+    #expect(rig.log.events == ["closed:show", "show", "closed:show", "show"])
+  }
+
+  @Test func theClosedCallbackCarriesWhatWasPickedWhicheverCallbackComesFirst() {
+    let rig = Rig()
+    let menu = rig.menuBar.menu
+    func close(pick index: Int?, before: Bool) -> String {
+      rig.log.events = []
+      rig.menuBar.menuWillOpen(menu)
+      if before, let index { menu.performActionForItem(at: index) }
+      rig.menuBar.menuDidClose(menu)
+      if !before, let index { menu.performActionForItem(at: index) }
+      rig.runQueued()
+      return rig.log.events.first { $0.hasPrefix("closed:") } ?? ""
+    }
+    #expect(close(pick: nil, before: true) == "closed:none")
+    #expect(close(pick: 0, before: true) == "closed:show")
+    #expect(close(pick: 0, before: false) == "closed:show")
+    #expect(close(pick: 2, before: true) == "closed:other")
+    #expect(close(pick: 2, before: false) == "closed:other")
+    #expect(close(pick: 3, before: false) == "closed:other")
+    #expect(close(pick: 5, before: true) == "closed:other")
+    #expect(close(pick: nil, before: false) == "closed:none")
   }
 
   @Test func closingTheMenuWithoutChoosingShowOnlyReportsTheCloseAfterTracking() {
@@ -176,9 +201,10 @@ struct MenuBarMenuTests {
     #expect(rig.menuBar.isOpen)
     rig.menuBar.menuDidClose(rig.menuBar.menu)
     #expect(!rig.menuBar.isOpen)
+    #expect(rig.queued.count == 1)
     #expect(rig.log.events.isEmpty)
     rig.runQueued()
-    #expect(rig.log.events == ["closed"])
+    #expect(rig.log.events == ["closed:none"])
   }
 
   @Test func theShowGateHoldsAPickUntilTheCloseAndThenResets() {
