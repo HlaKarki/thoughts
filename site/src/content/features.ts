@@ -8,7 +8,7 @@ type Card<Tile> = {
 }
 
 type Features = {
-  readonly heading: string
+  readonly heading: readonly [string, string]
   readonly headingMuted: string
   readonly body: string
   readonly selection: Card<{
@@ -75,7 +75,7 @@ type Features = {
 }
 
 export const features: Features = {
-  heading: 'Save it in the app where you found it.',
+  heading: ['Save it in the app', 'where you found it.'],
   headingMuted: 'Find it later in one list.',
   body: 'Text, screenshots and your own notes go to the same list at the edge of your screen. Saved text keeps the app and window it came from, so you can go back to it.',
   selection: {

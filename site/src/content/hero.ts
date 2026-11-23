@@ -16,6 +16,11 @@ export type PanelRow =
       readonly time: string
     }
 
+export type TextRun = {
+  readonly text: string
+  readonly selected?: boolean
+}
+
 export type KeyHint = {
   readonly label: string
   readonly keys: string
@@ -36,9 +41,7 @@ type Hero = {
     readonly photo: string
     readonly photoAlt: string
     readonly heading: string
-    readonly before: string
-    readonly selection: string
-    readonly after: string
+    readonly paragraph: ReadonlyArray<ReadonlyArray<TextRun>>
   }
   readonly panel: {
     readonly search: string
@@ -64,9 +67,11 @@ export const hero: Hero = {
     photo: site.photos.bread,
     photoAlt: 'A round sourdough loaf on a board.',
     heading: 'Mix and rest',
-    before: 'Mix the flour and water until no dry bits remain. ',
-    selection: 'Let the dough rest for 30 minutes before you add the salt.',
-    after: ' The rest gives the flour time to soak up the water, so the dough is easier to knead.',
+    paragraph: [
+      [{ text: 'Mix the flour and water until no dry bits remain. ' }, { text: 'Let the dough rest for 30', selected: true }],
+      [{ text: 'minutes before you add the salt.', selected: true }, { text: ' The rest gives the flour time to soak up the' }],
+      [{ text: 'water, so the dough is easier to knead.' }],
+    ],
   },
   panel: {
     search: 'Search thoughts',

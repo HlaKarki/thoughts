@@ -11,7 +11,7 @@ export const media = stylex.defineConsts({
 export const font = stylex.defineConsts({
   display: '"SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, sans-serif',
   text: '"SF Pro Text", -apple-system, BlinkMacSystemFont, system-ui, sans-serif',
-  mono: 'ui-monospace, Menlo, monospace',
+  mono: 'Menlo, ui-monospace, monospace',
 })
 
 export const size = stylex.defineConsts({
@@ -56,6 +56,13 @@ export const space = stylex.defineConsts({
   gutterWide: '80px',
   sectionTop: '96px',
   sectionTopWide: '160px',
+})
+
+export const width = stylex.defineConsts({
+  column: '592px',
+  columnWide: '1072px',
+  intro: '792px',
+  scene: '1280px',
 })
 
 export const radius = stylex.defineConsts({
