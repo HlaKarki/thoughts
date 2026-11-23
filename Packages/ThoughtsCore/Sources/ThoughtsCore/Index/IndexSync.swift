@@ -43,7 +43,7 @@ public struct IndexSync: Sendable {
         disk = nil
       }
       if !rereadAll, let disk, let state = known[name], !needsWork(state, disk: disk) { continue }
-      if let row = try load(name, url: url, disk: disk, state: known[name]) {
+      if let row = try load(name, url: url, disk: disk, state: known[name], rereadAll: rereadAll) {
         loaded.append(row)
       } else if known[name] != nil {
         removed.append(name)
@@ -86,9 +86,9 @@ public struct IndexSync: Sendable {
     try? AtomicFile.info(at: store.folder.appendingPathComponent(name)).version
   }
 
-  private func load(_ name: String, url: URL, disk: DiskInfo?, state: IndexState?) throws
-    -> IndexRow?
-  {
+  private func load(
+    _ name: String, url: URL, disk: DiskInfo?, state: IndexState?, rereadAll: Bool
+  ) throws -> IndexRow? {
     let entry: ThoughtEntry
     do {
       entry = try store.entry(at: url)
@@ -114,7 +114,11 @@ public struct IndexSync: Sendable {
           name: imageURL.lastPathComponent,
           version: imageVersion(named: imageURL.lastPathComponent))
         row.image = image
-        if let state, state.image == image { row.recognized = state.recognized }
+        if let state, state.image == image, let text = state.recognized,
+          !(rereadAll && text.isEmpty)
+        {
+          row.recognized = text
+        }
       }
     }
     return row
@@ -125,7 +129,8 @@ public struct IndexSync: Sendable {
     return rows.map { row in
       guard let image = row.image, image.version != nil, row.recognized == nil else { return row }
       var row = row
-      row.recognized = try? recognizer.text(in: store.folder.appendingPathComponent(image.name))
+      row.recognized =
+        (try? recognizer.text(in: store.folder.appendingPathComponent(image.name))) ?? ""
       return row
     }
   }

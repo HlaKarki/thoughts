@@ -10,6 +10,7 @@ import UniformTypeIdentifiers
 private final class FakeRecognizer: TextRecognizing, Sendable {
   private let counter = Mutex(0)
   private let output: String
+  private let failing = Mutex(Set<String>())
 
   init(_ output: String = "screenshot of an invoice") {
     self.output = output
@@ -17,8 +18,15 @@ private final class FakeRecognizer: TextRecognizing, Sendable {
 
   var calls: Int { counter.withLock { $0 } }
 
+  func fail(on name: String) {
+    failing.withLock { _ = $0.insert(name) }
+  }
+
   func text(in image: URL) throws -> String {
     counter.withLock { $0 += 1 }
+    if failing.withLock({ $0.contains(image.lastPathComponent) }) {
+      throw ThoughtsError.io("unreadable image")
+    }
     return output
   }
 }
@@ -209,6 +217,32 @@ private func tinyPNG() -> Data {
   try bigger.write(to: url)
   _ = try fx.sync.reconcile(nil)
   #expect(fx.recognizer.calls == 2)
+}
+
+@Test func failedRecognitionIsNotRetriedUntilImageChanges() throws {
+  let fx = Fixture()
+  let image = fx.addImage()
+  let url = try #require(fx.store.imageURL(of: image))
+  fx.recognizer.fail(on: url.lastPathComponent)
+  let first = try fx.sync.reconcile(nil)
+  #expect(first.added == [image.file.lastPathComponent])
+  #expect(fx.recognizer.calls == 1)
+
+  let second = try fx.sync.reconcile(nil)
+  #expect(second.isEmpty)
+  #expect(fx.recognizer.calls == 1)
+
+  var bigger = tinyPNG()
+  bigger.append(Data(repeating: 0, count: 16))
+  try bigger.write(to: url)
+  let changed = try fx.sync.reconcile(nil)
+  #expect(changed.updated == [image.file.lastPathComponent])
+  #expect(fx.recognizer.calls == 2)
+  #expect(try fx.sync.reconcile(nil).isEmpty)
+  #expect(fx.recognizer.calls == 2)
+
+  _ = try fx.sync.rebuild()
+  #expect(fx.recognizer.calls == 3)
 }
 
 @Test func recognizesLaterWhenNoRecognizerWasGiven() throws {
