@@ -18,14 +18,21 @@ final class PasteboardWriter {
     noteOwn(pasteboard.changeCount)
   }
 
+  enum ImageWrite: Equatable {
+    case written
+    case missing
+    case unreadable
+  }
+
   @discardableResult
-  func write(imageAt url: URL) -> Bool {
-    guard let png = Self.pngData(at: url) else { return false }
+  func write(imageAt url: URL) -> ImageWrite {
+    guard FileManager.default.fileExists(atPath: url.path) else { return .missing }
+    guard let png = Self.pngData(at: url) else { return .unreadable }
     pasteboard.clearContents()
     pasteboard.setData(png, forType: .png)
     pasteboard.setString(url.absoluteString, forType: .fileURL)
     noteOwn(pasteboard.changeCount)
-    return true
+    return .written
   }
 
   func noteOwn(_ changeCount: Int) {

@@ -218,6 +218,33 @@ struct ActionFeedbackTests {
     #expect(rig.fixture.model.feedback?.text == "That image file isn't there anymore")
   }
 
+  @Test func copyOfAnImageThatCannotBeConvertedSaysItCannotBeRead() throws {
+    let (rig, _) = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    let thought = try rig.fixture.addScreenshot(note: "", daysAgo: 1)
+    try rig.fixture.reload()
+    let image = try #require(rig.fixture.store.imageURL(of: thought))
+    try Data("not an image".utf8).write(to: image)
+    rig.fixture.model.selection = [thought.file.lastPathComponent]
+    rig.actions.perform(.copy)
+    #expect(rig.fixture.model.feedback?.kind == .message)
+    #expect(rig.fixture.model.feedback?.text == "That image file can't be read")
+  }
+
+  @Test func showInFinderRevealsWhatExistsAndSaysWhenSomeAreGone() throws {
+    let (rig, _) = try Self.rig()
+    let kept = try rig.fixture.addText("kept", daysAgo: 2)
+    let gone = try rig.fixture.addText("gone", daysAgo: 1)
+    try rig.fixture.reload()
+    rig.fixture.model.selection = [kept.file.lastPathComponent, gone.file.lastPathComponent]
+    try FileManager.default.removeItem(at: gone.file)
+    rig.actions.perform(.showInFinder)
+    #expect(rig.log.revealed.count == 1)
+    #expect(rig.log.revealed.first?.map(\.lastPathComponent) == [kept.file.lastPathComponent])
+    #expect(rig.fixture.model.feedback?.kind == .message)
+    #expect(rig.fixture.model.feedback?.text == "Some of those files aren't there anymore")
+  }
+
   @Test func copyPathConfirmsOnceForOneAndOnceForMany() throws {
     let (rig, _) = try Self.rig()
     defer { rig.board.releaseGlobally() }

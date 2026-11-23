@@ -65,8 +65,15 @@ final class ThoughtActions {
     case .text(let text):
       pasteboard.write(text: text)
     case .image:
-      guard let image = store.imageURL(of: only), pasteboard.write(imageAt: image) else {
+      let image = store.imageURL(of: only)
+      switch image.map({ pasteboard.write(imageAt: $0) }) ?? .missing {
+      case .written:
+        break
+      case .missing:
         list.tell(String(localized: "That image file isn't there anymore"))
+        return
+      case .unreadable:
+        list.tell(String(localized: "That image file can't be read"))
         return
       }
     }
@@ -188,6 +195,9 @@ final class ThoughtActions {
       return
     }
     opener.reveal(present)
+    if present.count < files.count {
+      list.tell(String(localized: "Some of those files aren't there anymore"))
+    }
   }
 
   private func makeStore() -> ThoughtStore? {
