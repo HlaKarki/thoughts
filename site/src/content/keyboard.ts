@@ -21,7 +21,7 @@ type Keyboard = {
 export const keyboard: Keyboard = {
   heading: 'Thoughts works from the keyboard.',
   headingMuted: 'Two keys work in any app, and the rest work in the panel.',
-  body: 'Press ⌘K with a thought selected to see every action you can take on it.',
+  body: 'Thoughts runs with no Dock icon and waits until you call it. Press ⌘K with a thought selected to see every action you can take on it.',
   anywhere: {
     title: 'Anywhere',
     shortcuts: [

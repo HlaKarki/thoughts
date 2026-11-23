@@ -20,6 +20,6 @@ export const install: Install = {
   download: intro.download,
   requirement: 'Needs macOS 15.4 or later',
   brewTitle: 'Or install it with Homebrew',
-  brew: intro.brew,
+  brew: 'brew install --cask hlakarki/tap/thoughts',
   footnote: ['The cask also puts the ', { code: 'thoughts' }, ' command line tool on your PATH.'],
 }

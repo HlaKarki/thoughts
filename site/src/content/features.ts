@@ -84,7 +84,7 @@ const ovenName = `${ovenFile.file}-${ovenFile.id}`
 export const features: Features = {
   heading: ['Save it in the app', 'where you found it.'],
   headingMuted: 'Find it later in one list.',
-  body: 'Text, screenshots and your own notes go to the same list at the edge of your screen. Saved text keeps the app and window it came from, so you can go back to it.',
+  body: 'Text, todos and screenshots from any app go to one list at the edge of your screen, and each one is a Markdown file. Saved text keeps the app and window it came from, so you can go back to it.',
   selection: {
     heading: 'Press Shift twice to keep a selection',
     body: [

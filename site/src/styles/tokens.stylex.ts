@@ -101,7 +101,6 @@ export const color = stylex.defineVars({
   hairline: { default: '#00000014', [DARK]: '#FFFFFF14' },
   accent: { default: '#007AFF', [DARK]: '#0A84FF' },
   onAccent: '#FFFFFF',
-  pill: { default: '#0000000A', [DARK]: '#FFFFFF0F' },
   card: { default: '#F5F5F7', [DARK]: '#141414' },
   inset: { default: '#FFFFFF', [DARK]: '#0E0E0E' },
   keycap: { default: '#EEEEEE', [DARK]: '#333333' },
