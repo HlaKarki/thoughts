@@ -35,6 +35,10 @@ final class Preferences {
     didSet { defaults.set(offersEnabled, forKey: Key.offersEnabled) }
   }
 
+  var showsMenuBarIcon: Bool {
+    didSet { defaults.set(showsMenuBarIcon, forKey: Key.showsMenuBarIcon) }
+  }
+
   var watchedFolders: [URL] {
     didSet { defaults.set(watchedFolders.map(\.path), forKey: Key.watchedFolders) }
   }
@@ -53,6 +57,7 @@ final class Preferences {
     captureShortcut = defaults.bool(forKey: Key.captureShortcut)
     soundEnabled = defaults.object(forKey: Key.soundEnabled) as? Bool ?? true
     offersEnabled = defaults.object(forKey: Key.offersEnabled) as? Bool ?? true
+    showsMenuBarIcon = defaults.object(forKey: Key.showsMenuBarIcon) as? Bool ?? true
     watchedFolders = (defaults.stringArray(forKey: Key.watchedFolders) ?? []).map {
       URL(fileURLWithPath: $0, isDirectory: true)
     }
@@ -87,6 +92,7 @@ final class Preferences {
     static let captureShortcut = "captureShortcut"
     static let soundEnabled = "soundEnabled"
     static let offersEnabled = "offersEnabled"
+    static let showsMenuBarIcon = "showsMenuBarIcon"
     static let watchedFolders = "watchedFolders"
   }
 }
