@@ -34,13 +34,13 @@ public struct SavedLedger: Sendable, Equatable {
     SavedLedger(entries: entries.filter { exists($0.file) })
   }
 
-  public func holdsImage(counts: [Int]) -> Bool {
-    entries.contains { entry in entry.clipboardCounts.contains { counts.contains($0) } }
+  public func newestHoldingImage(counts: [Int]) -> SavedEntry? {
+    entries.last { entry in entry.clipboardCounts.contains { counts.contains($0) } }
   }
 
-  public func newestIsText(_ text: String, from source: Source) -> Bool {
-    guard let newest = entries.last, let saved = newest.text else { return false }
-    return Self.trimmed(saved) == Self.trimmed(text) && newest.source == source
+  public func newestMatchingText(_ text: String, from source: Source) -> SavedEntry? {
+    guard let newest = entries.last, let saved = newest.text else { return nil }
+    return Self.trimmed(saved) == Self.trimmed(text) && newest.source == source ? newest : nil
   }
 
   private static func trimmed(_ text: String) -> String {

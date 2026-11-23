@@ -133,6 +133,12 @@ final class InputModel {
     ledger.pruned { FileManager.default.fileExists(atPath: $0.path) }
   }
 
+  func thought(at file: URL) -> Thought? {
+    let store = ThoughtStore(folder: file.deletingLastPathComponent())
+    guard case .thought(let thought)? = try? store.entry(at: file) else { return nil }
+    return thought
+  }
+
   @discardableResult
   func save(_ new: NewThought, pasteboardChangeCount: Int?) async throws -> Thought {
     let store = ThoughtStore(folder: try location.resolve())

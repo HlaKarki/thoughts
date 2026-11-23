@@ -58,7 +58,7 @@ public enum CaptureAction: Sendable, Equatable {
   case saveText(String)
   case copyFallback
   case saveClipboardImage
-  case alreadySaved
+  case alreadySaved(URL)
   case nothingToSave
 }
 
@@ -71,8 +71,10 @@ public enum CaptureDecision {
     case .secureField:
       return .nothingToSave
     case .text(let text) where !isBlank(text):
-      return context.saved.newestIsText(text, from: context.source)
-        ? .alreadySaved : .saveText(text)
+      if let match = context.saved.newestMatchingText(text, from: context.source) {
+        return .alreadySaved(match.file)
+      }
+      return .saveText(text)
     case .text, .unavailable:
       if context.fallbackAllowed { return .copyFallback }
     case .empty, .copyDisabled, .copiedNothing:
@@ -80,7 +82,10 @@ public enum CaptureDecision {
     }
     guard hasRecentImage(context) else { return .nothingToSave }
     let counts = [context.changeCount] + context.equivalentCounts
-    return context.saved.holdsImage(counts: counts) ? .alreadySaved : .saveClipboardImage
+    if let match = context.saved.newestHoldingImage(counts: counts) {
+      return .alreadySaved(match.file)
+    }
+    return .saveClipboardImage
   }
 
   private static func hasRecentImage(_ context: CaptureContext) -> Bool {

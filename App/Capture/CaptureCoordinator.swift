@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 enum CaptureOutcome: Equatable {
   case saved(Thought)
   case acceptedOffer(Thought)
-  case alreadySaved
+  case alreadySaved(Thought?)
   case nothingToSave
   case failed(String)
 }
@@ -86,8 +86,8 @@ final class CaptureCoordinator {
     case .saveClipboardImage:
       let imageCount = pasteboard.changeCount
       return await saveClipboardImage(recordedSource, expecting: imageCount)
-    case .alreadySaved:
-      return .alreadySaved
+    case .alreadySaved(let file):
+      return .alreadySaved(input.thought(at: file))
     case .copyFallback, .nothingToSave:
       return .nothingToSave
     }

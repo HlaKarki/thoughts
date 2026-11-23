@@ -223,12 +223,12 @@ struct CaptureCoordinatorTests {
   @Test func shiftShiftTwiceOnOneImageCopySavesItOnce() async throws {
     let rig = try Self.imageRig()
     defer { rig.board.releaseGlobally() }
-    guard case .saved = await rig.coordinator.capture() else {
+    guard case .saved(let first) = await rig.coordinator.capture() else {
       Issue.record("expected the first press to save")
       return
     }
-    #expect(await rig.coordinator.capture() == .alreadySaved)
-    #expect(await rig.coordinator.capture() == .alreadySaved)
+    #expect(await rig.coordinator.capture() == .alreadySaved(first))
+    #expect(await rig.coordinator.capture() == .alreadySaved(first))
     #expect(try rig.fixture.store.entries().compactMap(\.thought).count == 1)
   }
 
@@ -261,12 +261,12 @@ struct CaptureCoordinatorTests {
       rig.board.clearContents()
       rig.board.setData(png, forType: .png)
     }
-    guard case .saved = await rig.coordinator.capture() else {
+    guard case .saved(let first) = await rig.coordinator.capture() else {
       Issue.record("expected the first press to save")
       return
     }
     #expect(rig.board.changeCount != rig.count)
-    #expect(await rig.coordinator.capture() == .alreadySaved)
+    #expect(await rig.coordinator.capture() == .alreadySaved(first))
     #expect(rig.reader.copies == 2)
     #expect(try rig.fixture.store.entries().compactMap(\.thought).count == 1)
   }
@@ -286,8 +286,8 @@ struct CaptureCoordinatorTests {
       accessBehavior: { .ask })
     center.receive(.clipboard(changeCount: rig.count, file: nil, at: Date()))
     await OfferCenterTests.wait { center.current != nil }
-    _ = try await center.accept()
-    #expect(await rig.coordinator.capture() == .alreadySaved)
+    let kept = try await center.accept()
+    #expect(await rig.coordinator.capture() == .alreadySaved(kept))
     #expect(try rig.fixture.store.entries().compactMap(\.thought).count == 1)
   }
 
@@ -295,11 +295,11 @@ struct CaptureCoordinatorTests {
     let rig = try Self.rig()
     defer { rig.board.releaseGlobally() }
     rig.reader.probeResult = .text("buy oat milk")
-    guard case .saved = await rig.coordinator.capture() else {
+    guard case .saved(let first) = await rig.coordinator.capture() else {
       Issue.record("expected the first press to save")
       return
     }
-    #expect(await rig.coordinator.capture() == .alreadySaved)
+    #expect(await rig.coordinator.capture() == .alreadySaved(first))
     #expect(rig.plays.count == 1)
     #expect(try rig.fixture.store.entries().compactMap(\.thought).count == 1)
     rig.reader.probeResult = .text("buy eggs")

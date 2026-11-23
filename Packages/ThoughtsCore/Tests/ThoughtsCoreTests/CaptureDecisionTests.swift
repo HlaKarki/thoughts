@@ -113,7 +113,7 @@ struct CaptureDecisionTests {
     let saved = Self.ledger(SavedEntry(file: Self.file, text: "milk", source: Self.page))
     let again = CaptureDecision.decide(
       Self.context(selection: .text(" milk\n"), saved: saved))
-    #expect(again == .alreadySaved)
+    #expect(again == .alreadySaved(Self.file))
   }
 
   @Test func differentTextOrASourceThatDiffersSavesAgain() {
@@ -134,7 +134,7 @@ struct CaptureDecisionTests {
         == .saveText("milk"))
     #expect(
       CaptureDecision.decide(Self.context(selection: .text("eggs"), saved: saved))
-        == .alreadySaved)
+        == .alreadySaved(URL(fileURLWithPath: "/tmp/thoughts/b.md")))
   }
 
   @Test func textSavesAgainOnceTheNewestThoughtIsDeleted() {
@@ -146,14 +146,24 @@ struct CaptureDecisionTests {
     #expect(
       CaptureDecision.decide(
         Self.context(selection: .text("milk"), saved: saved.pruned { _ in true }))
-        == .alreadySaved)
+        == .alreadySaved(Self.file))
   }
 
   @Test func aClipboardImageThatWasSavedIsSavedOnlyOnce() {
     let saved = Self.ledger(SavedEntry(file: Self.file, clipboardCounts: [7]))
     let again = CaptureDecision.decide(
       Self.context(selection: .copiedNothing, imageAge: 10, saved: saved))
-    #expect(again == .alreadySaved)
+    #expect(again == .alreadySaved(Self.file))
+  }
+
+  @Test func theMatchNamesTheNewestThoughtHoldingTheImage() {
+    let newer = URL(fileURLWithPath: "/tmp/thoughts/b.md")
+    let saved = Self.ledger(
+      SavedEntry(file: Self.file, clipboardCounts: [7]),
+      SavedEntry(file: newer, clipboardCounts: [7]))
+    let again = CaptureDecision.decide(
+      Self.context(selection: .copiedNothing, imageAge: 10, saved: saved))
+    #expect(again == .alreadySaved(newer))
   }
 
   @Test func aNewCopyOfTheSameImageSavesAgain() {
@@ -169,7 +179,7 @@ struct CaptureDecisionTests {
     #expect(
       CaptureDecision.decide(
         Self.context(selection: .unavailable, fallbackAllowed: false, imageAge: 40, saved: kept))
-        == .alreadySaved)
+        == .alreadySaved(Self.file))
   }
 
   @Test func theCountBeforeACopyRoundTripStillNamesTheSavedImage() {
@@ -178,7 +188,7 @@ struct CaptureDecisionTests {
       Self.context(
         selection: .copiedNothing, imageAge: 10, imageCount: 9, changeCount: 9,
         equivalentCounts: [7], saved: saved))
-    #expect(afterRoundTrip == .alreadySaved)
+    #expect(afterRoundTrip == .alreadySaved(Self.file))
   }
 
   @Test func anImageSavesAgainOnceItsThoughtIsDeleted() {
@@ -197,8 +207,8 @@ struct CaptureDecisionTests {
         SavedEntry(file: URL(fileURLWithPath: "/tmp/\(index).md"), clipboardCounts: [index]))
     }
     #expect(ledger.entries.count == SavedLedger.remembered)
-    #expect(!ledger.holdsImage(counts: [0]))
-    #expect(ledger.holdsImage(counts: [SavedLedger.remembered + 4]))
+    #expect(ledger.newestHoldingImage(counts: [0]) == nil)
+    #expect(ledger.newestHoldingImage(counts: [SavedLedger.remembered + 4]) != nil)
   }
 
   @Test func appsThatCopyALineOrCellWithNothingSelectedSkipTheCopy() {
