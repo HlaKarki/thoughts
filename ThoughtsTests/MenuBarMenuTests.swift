@@ -48,7 +48,7 @@ struct MenuBarMenuTests {
     func runQueued() {
       let work = queue.work
       queue.work = []
-      work.forEach { $0() }
+      for item in work { item() }
     }
 
     deinit {
