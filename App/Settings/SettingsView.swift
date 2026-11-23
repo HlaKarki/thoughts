@@ -78,13 +78,13 @@ struct KeysSettings: View {
 
   var body: some View {
     SettingsRow(title: "Summon key") {
-      KeyboardShortcuts.Recorder(for: .summon).frame(width: 150)
+      ShortcutRecorder(for: .summon).frame(width: 150)
     }
     RowDivider()
     SettingsRow(title: "Capture gesture") {
       HStack(spacing: 8) {
         if preferences.captureMethod == .shortcut {
-          KeyboardShortcuts.Recorder(for: .capture).frame(width: 130)
+          ShortcutRecorder(for: .capture).frame(width: 130)
         }
         MethodPicker(selection: $preferences.captureMethod).frame(width: 160)
       }

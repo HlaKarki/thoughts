@@ -142,7 +142,7 @@ private struct SummonKeyStep: View {
         step: .summonKey, title: "Pick a key to open Thoughts",
         message: Text("Press it in any app to show or hide the panel."))
       FieldLabel(text: "Summon key").padding(.top, 24)
-      KeyboardShortcuts.Recorder(for: .summon) { model.summonKeyChanged($0) }
+      ShortcutRecorder(for: .summon) { model.summonKeyChanged($0) }
         .frame(width: 220, alignment: .leading)
         .padding(.top, 6)
       HelpText(text: "Click the field and press a new key to change it.").padding(.top, 6)
@@ -199,7 +199,7 @@ private struct GestureStep: View {
           .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        KeyboardShortcuts.Recorder(for: .capture) { _ in
+        ShortcutRecorder(for: .capture) { _ in
           if !usesShortcut { preferences.captureMethod = .shortcut }
           model.captureChanged()
         }
