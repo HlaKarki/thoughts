@@ -3,8 +3,13 @@ import Synchronization
 
 final class CancellationFlag: Sendable {
   private let state = Mutex(false)
+  private let interrupted: @Sendable () -> Bool
 
-  var isCancelled: Bool { state.withLock { $0 } }
+  init(interrupted: @escaping @Sendable () -> Bool = { false }) {
+    self.interrupted = interrupted
+  }
+
+  var isCancelled: Bool { state.withLock { $0 } || interrupted() }
 
   func cancel() {
     state.withLock { $0 = true }
