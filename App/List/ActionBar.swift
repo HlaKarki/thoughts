@@ -16,14 +16,16 @@ struct ActionBar: View {
           row(hints)
         }
       }
+      .frame(maxWidth: .infinity, alignment: .trailing)
       .opacity(feedback == nil ? 1 : 0)
       .accessibilityHidden(feedback != nil)
       if let feedback {
         FeedbackLine(feedback: feedback)
+          .frame(maxWidth: .infinity, alignment: .trailing)
           .transition(.opacity)
       }
     }
-    .frame(maxWidth: .infinity, minHeight: 16, alignment: .trailing)
+    .frame(maxWidth: .infinity, minHeight: 16)
     .animation(.easeOut(duration: 0.15), value: feedback?.id)
     .onChange(of: feedback?.id) {
       guard let text = feedback?.text else { return }
