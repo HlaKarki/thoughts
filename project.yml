@@ -14,11 +14,13 @@ settings:
       THOUGHTS_DISPLAY_NAME: Thoughts Dev
       THOUGHTS_APP_GROUP: $(TeamIdentifierPrefix)dev.hla.thoughts.debug
       THOUGHTS_URL_SCHEME: thoughts-dev
+      THOUGHTS_AUTOMATIC_UPDATE_CHECKS: NO
     Release:
       THOUGHTS_BUNDLE_ID: dev.hla.thoughts
       THOUGHTS_DISPLAY_NAME: Thoughts
       THOUGHTS_APP_GROUP: $(TeamIdentifierPrefix)dev.hla.thoughts
       THOUGHTS_URL_SCHEME: thoughts
+      THOUGHTS_AUTOMATIC_UPDATE_CHECKS: YES
 packages:
   ThoughtsCore:
     path: Packages/ThoughtsCore
@@ -48,7 +50,7 @@ targets:
         ThoughtsAppGroup: $(THOUGHTS_APP_GROUP)
         SUFeedURL: https://github.com/HlaKarki/thoughts/releases/latest/download/appcast.xml
         SUPublicEDKey: 0hBOwDutzPP3kabws9Vn3HIfHAyG3dOsH0IQgzBSiGY=
-        SUEnableAutomaticChecks: true
+        SUEnableAutomaticChecks: $(THOUGHTS_AUTOMATIC_UPDATE_CHECKS)
         SUScheduledCheckInterval: 86400
     entitlements:
       path: Config/Thoughts.entitlements
