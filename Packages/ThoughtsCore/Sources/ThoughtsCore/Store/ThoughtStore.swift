@@ -156,7 +156,7 @@ extension ThoughtStore {
     else { throw ThoughtsError.storageUnavailable(folder.path) }
   }
 
-  private func markdownFiles() throws -> [URL] {
+  func markdownFiles() throws -> [URL] {
     try requireFolder()
     let names: [String]
     do {
@@ -219,34 +219,17 @@ extension ThoughtStore {
   }
 
   private func resolvingDuplicateIDs(_ loaded: [ThoughtEntry]) -> [ThoughtEntry] {
-    var groups: [ThoughtID: [Thought]] = [:]
-    for case .thought(let thought) in loaded { groups[thought.id, default: []].append(thought) }
-    var demoted: [URL: String] = [:]
-    for (id, group) in groups where group.count > 1 {
-      let owners = group.filter { owns($0.file, id) }
-      if owners.count == 1 {
-        let owner = owners[0].file.lastPathComponent
-        for thought in group where thought.file != owners[0].file {
-          demoted[thought.file] = "Duplicate id \(id), owned by \(owner)"
-        }
-      } else {
-        let names = group.map(\.file.lastPathComponent).sorted().joined(separator: ", ")
-        for thought in group {
-          demoted[thought.file] = "Several files share the id \(id): \(names)"
-        }
-      }
+    let items = loaded.compactMap { entry -> (id: ThoughtID, name: String)? in
+      guard case .thought(let thought) = entry else { return nil }
+      return (thought.id, thought.file.lastPathComponent)
     }
+    let demoted = DuplicateIDs.demotions(items)
     return loaded.map { entry in
-      if case .thought(let thought) = entry, let reason = demoted[thought.file] {
+      if case .thought(let thought) = entry, let reason = demoted[thought.file.lastPathComponent] {
         return .malformed(file: thought.file, reason: reason)
       }
       return entry
     }
-  }
-
-  private func owns(_ file: URL, _ id: ThoughtID) -> Bool {
-    let stem = file.deletingPathExtension().lastPathComponent
-    return stem == id.rawValue || stem.hasSuffix("-" + id.rawValue)
   }
 
   private func ownImageURL(of thought: Thought) -> URL? {
@@ -268,7 +251,8 @@ extension ThoughtStore {
     for entry in loaded {
       switch entry {
       case .thought(let thought) where thought.id == id: return .found(thought)
-      case .malformed(let file, _) where owns(file, id): sawMalformed = true
+      case .malformed(let file, _) where DuplicateIDs.owns(file.lastPathComponent, id):
+        sawMalformed = true
       default: continue
       }
     }

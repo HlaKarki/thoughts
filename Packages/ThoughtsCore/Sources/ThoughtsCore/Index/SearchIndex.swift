@@ -1,0 +1,412 @@
+import Foundation
+import GRDB
+import Synchronization
+
+struct IndexedImage: Equatable {
+  var name: String
+  var version: FileVersion?
+}
+
+struct IndexRow {
+  var name: String
+  var entry: ThoughtEntry
+  var version: FileVersion
+  var created: Date
+  var birth: Date
+  var image: IndexedImage?
+  var recognized: String?
+}
+
+struct IndexState {
+  var version: FileVersion
+  var image: IndexedImage?
+  var recognized: String?
+}
+
+public final class SearchIndex: Sendable {
+  static let schemaVersion = 1
+
+  private let pool: DatabasePool
+  private let folder: Mutex<URL>
+
+  public init(url: URL, folder: URL) throws {
+    do {
+      try FileManager.default.createDirectory(
+        at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    } catch {
+      throw ThoughtsError.io("The search index folder could not be created")
+    }
+    pool = try Self.wrapped { try Self.openPool(url) }
+    self.folder = Mutex(folder)
+    try Self.wrapped { try Self.prepare(pool, folder: folder) }
+  }
+
+  public func entries(includeCleared: Bool) throws -> [ThoughtEntry] {
+    let folder = folder.withLock { $0 }
+    let rows = try Self.wrapped {
+      try pool.read {
+        try Row.fetchAll(
+          $0,
+          sql: """
+            SELECT file, modified, size, entry, demotion FROM thoughts
+            ORDER BY CASE WHEN malformed = 1 OR demotion IS NOT NULL THEN birth ELSE created END,
+              file
+            """)
+      }
+    }
+    return rows.compactMap { row -> ThoughtEntry? in
+      let url = folder.appendingPathComponent(row["file"] as String)
+      if let reason = row["demotion"] as String? { return .malformed(file: url, reason: reason) }
+      let version = FileVersion(
+        modified: Date(timeIntervalSinceReferenceDate: row["modified"]), size: row["size"])
+      let entry = StoredEntry.decode(row["entry"], file: url, version: version)
+      if !includeCleared, case .thought(let thought) = entry, thought.cleared { return nil }
+      return entry
+    }
+  }
+
+  public func search(_ query: String) throws -> [ThoughtID] {
+    let words = query.split(whereSeparator: \.isWhitespace)
+    guard !words.isEmpty else { return [] }
+    let pattern =
+      words
+      .map { "\"" + $0.replacingOccurrences(of: "\"", with: "\"\"") + "\"*" }
+      .joined(separator: " AND ")
+    let ids = try Self.wrapped {
+      try pool.read {
+        try String.fetchAll(
+          $0,
+          sql: """
+            SELECT thoughts.id FROM thoughts_fts
+            JOIN thoughts ON thoughts.seq = thoughts_fts.rowid
+            WHERE thoughts_fts MATCH ? AND thoughts.malformed = 0 AND thoughts.demotion IS NULL
+            ORDER BY thoughts.created, thoughts.file
+            """,
+          arguments: [pattern])
+      }
+    }
+    return ids.compactMap { ThoughtID(rawValue: $0) }
+  }
+
+  public func relocate(to folder: URL) throws {
+    try Self.wrapped {
+      try pool.writeWithoutTransaction { db in
+        try db.inTransaction(.immediate) {
+          try db.execute(
+            sql: "UPDATE meta SET folder = ?", arguments: [Self.path(of: folder)])
+          return .commit
+        }
+      }
+    }
+    self.folder.withLock { $0 = folder }
+  }
+}
+
+extension SearchIndex {
+  func states() throws -> [String: IndexState] {
+    let rows = try Self.wrapped {
+      try pool.read {
+        try Row.fetchAll(
+          $0,
+          sql: """
+            SELECT file, modified, size, image_name, image_modified, image_size, recognized
+            FROM thoughts
+            """)
+      }
+    }
+    var states: [String: IndexState] = [:]
+    for row in rows {
+      var image: IndexedImage?
+      if let name = row["image_name"] as String? {
+        let modified = row["image_modified"] as Double?
+        let size = row["image_size"] as Int?
+        let version: FileVersion? =
+          if let modified, let size {
+            FileVersion(modified: Date(timeIntervalSinceReferenceDate: modified), size: size)
+          } else {
+            nil
+          }
+        image = IndexedImage(name: name, version: version)
+      }
+      states[row["file"]] = IndexState(
+        version: FileVersion(
+          modified: Date(timeIntervalSinceReferenceDate: row["modified"]), size: row["size"]),
+        image: image,
+        recognized: row["recognized"]
+      )
+    }
+    return states
+  }
+
+  func apply(_ rows: [IndexRow], removing names: [String]) throws -> [String] {
+    try Self.wrapped {
+      try pool.writeWithoutTransaction { db in
+        var changed: [String] = []
+        try db.inTransaction(.immediate) {
+          for name in names {
+            try db.execute(sql: "DELETE FROM thoughts WHERE file = ?", arguments: [name])
+          }
+          for row in rows { try Self.upsert(row, in: db) }
+          changed = try Self.refreshDemotions(in: db)
+          return .commit
+        }
+        return changed
+      }
+    }
+  }
+}
+
+extension SearchIndex {
+  private static func wrapped<T>(_ body: () throws -> T) throws -> T {
+    do {
+      return try body()
+    } catch let error as ThoughtsError {
+      throw error
+    } catch let error as DatabaseError {
+      throw ThoughtsError.io("The search index failed: \(error.description)")
+    } catch {
+      throw ThoughtsError.io("The search index failed: \(error.localizedDescription)")
+    }
+  }
+
+  private static func path(of folder: URL) -> String {
+    folder.standardizedFileURL.path
+  }
+
+  private static func openPool(_ url: URL) throws -> DatabasePool {
+    var configuration = Configuration()
+    configuration.busyMode = .timeout(5)
+    do {
+      let pool = try DatabasePool(path: url.path, configuration: configuration)
+      let version = try pool.read { try Int.fetchOne($0, sql: "PRAGMA user_version") ?? 0 }
+      guard version == 0 || version == schemaVersion else {
+        try pool.close()
+        return try recreate(url, configuration)
+      }
+      return pool
+    } catch let error as DatabaseError
+      where error.resultCode.primaryResultCode == .SQLITE_NOTADB
+      || error.resultCode.primaryResultCode == .SQLITE_CORRUPT
+    {
+      return try recreate(url, configuration)
+    }
+  }
+
+  private static func recreate(_ url: URL, _ configuration: Configuration) throws -> DatabasePool {
+    for suffix in ["", "-wal", "-shm"] {
+      try? FileManager.default.removeItem(atPath: url.path + suffix)
+    }
+    return try DatabasePool(path: url.path, configuration: configuration)
+  }
+
+  private static func prepare(_ pool: DatabasePool, folder: URL) throws {
+    try pool.writeWithoutTransaction { db in
+      try db.inTransaction(.immediate) {
+        if try Int.fetchOne(db, sql: "PRAGMA user_version") == 0 {
+          try createSchema(in: db)
+        }
+        let stored = try String.fetchOne(db, sql: "SELECT folder FROM meta")
+        let current = path(of: folder)
+        if stored == nil {
+          try db.execute(sql: "INSERT INTO meta (id, folder) VALUES (1, ?)", arguments: [current])
+        } else if stored != current {
+          try db.execute(sql: "DELETE FROM thoughts")
+          try db.execute(sql: "UPDATE meta SET folder = ?", arguments: [current])
+        }
+        return .commit
+      }
+    }
+  }
+
+  private static func createSchema(in db: Database) throws {
+    try db.execute(
+      sql: """
+        CREATE TABLE meta (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          folder TEXT NOT NULL
+        );
+        CREATE TABLE thoughts (
+          seq INTEGER PRIMARY KEY,
+          file TEXT NOT NULL UNIQUE,
+          modified REAL NOT NULL,
+          size INTEGER NOT NULL,
+          created REAL NOT NULL,
+          birth REAL NOT NULL,
+          id TEXT,
+          entry TEXT NOT NULL,
+          malformed INTEGER NOT NULL,
+          demotion TEXT,
+          text TEXT NOT NULL,
+          note TEXT NOT NULL,
+          source_text TEXT NOT NULL,
+          recognized TEXT,
+          image_name TEXT,
+          image_modified REAL,
+          image_size INTEGER
+        );
+        CREATE INDEX thoughts_created ON thoughts (created, file);
+        """)
+    try db.create(virtualTable: "thoughts_fts", using: FTS5()) { table in
+      table.synchronize(withTable: "thoughts")
+      table.tokenizer = .unicode61()
+      table.column("text")
+      table.column("note")
+      table.column("recognized")
+      table.column("source_text")
+    }
+    try db.execute(sql: "PRAGMA user_version = \(schemaVersion)")
+  }
+
+  private static func upsert(_ row: IndexRow, in db: Database) throws {
+    let stored = StoredEntry(row.entry)
+    let json = String(decoding: try JSONEncoder().encode(stored), as: UTF8.self)
+    var id: String?
+    var text = ""
+    var note = ""
+    var source = ""
+    var malformed = true
+    if case .thought(let thought) = row.entry {
+      malformed = false
+      id = thought.id.rawValue
+      switch thought.content {
+      case .text(let value): text = value
+      case .image(_, let value): note = value
+      }
+      source = sourceText(thought.source)
+    }
+    try db.execute(
+      sql: """
+        INSERT INTO thoughts (
+          file, modified, size, created, birth, id, entry, malformed, text, note, source_text,
+          recognized, image_name, image_modified, image_size
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(file) DO UPDATE SET
+          modified = excluded.modified, size = excluded.size, created = excluded.created, birth = excluded.birth,
+          id = excluded.id, entry = excluded.entry, malformed = excluded.malformed,
+          text = excluded.text, note = excluded.note, source_text = excluded.source_text,
+          recognized = excluded.recognized, image_name = excluded.image_name,
+          image_modified = excluded.image_modified, image_size = excluded.image_size
+        """,
+      arguments: [
+        row.name,
+        row.version.modified.timeIntervalSinceReferenceDate,
+        row.version.size,
+        row.created.timeIntervalSinceReferenceDate,
+        row.birth.timeIntervalSinceReferenceDate,
+        id,
+        json,
+        malformed ? 1 : 0,
+        text,
+        note,
+        source,
+        row.recognized,
+        row.image?.name,
+        row.image?.version?.modified.timeIntervalSinceReferenceDate,
+        row.image?.version?.size,
+      ])
+  }
+
+  private static func sourceText(_ source: Source?) -> String {
+    guard let source else { return "" }
+    return [
+      source.app, source.bundleID, source.window, source.url?.absoluteString, source.title,
+      source.file,
+    ]
+    .compactMap { $0 }
+    .joined(separator: " ")
+  }
+
+  private static func refreshDemotions(in db: Database) throws -> [String] {
+    let items = try Row.fetchAll(db, sql: "SELECT file, id FROM thoughts WHERE malformed = 0")
+      .compactMap { row -> (id: ThoughtID, name: String)? in
+        guard let id = ThoughtID(rawValue: row["id"]) else { return nil }
+        return (id, row["file"])
+      }
+    let wanted = DuplicateIDs.demotions(items)
+    var current: [String: String] = [:]
+    for row in try Row.fetchAll(
+      db, sql: "SELECT file, demotion FROM thoughts WHERE demotion IS NOT NULL")
+    {
+      current[row["file"]] = row["demotion"]
+    }
+    var changed: [String] = []
+    for name in Set(wanted.keys).union(current.keys) where wanted[name] != current[name] {
+      try db.execute(
+        sql: "UPDATE thoughts SET demotion = ? WHERE file = ?", arguments: [wanted[name], name])
+      changed.append(name)
+    }
+    return changed.sorted()
+  }
+}
+
+private struct StoredEntry: Codable {
+  var id: String?
+  var created: Double?
+  var done: Double?
+  var cleared: Bool
+  var image: String?
+  var text: String
+  var source: Source?
+  var extraFrontMatter: String
+  var extraSource: String
+  var reason: String?
+
+  init(_ entry: ThoughtEntry) {
+    switch entry {
+    case .thought(let thought):
+      id = thought.id.rawValue
+      created = thought.created.timeIntervalSinceReferenceDate
+      done = thought.done?.timeIntervalSinceReferenceDate
+      cleared = thought.cleared
+      switch thought.content {
+      case .text(let value):
+        text = value
+        image = nil
+      case .image(let fileName, let note):
+        text = note
+        image = fileName
+      }
+      source = thought.source
+      extraFrontMatter = thought.extraFrontMatter
+      extraSource = thought.extraSource
+      reason = nil
+    case .malformed(_, let message):
+      id = nil
+      created = nil
+      done = nil
+      cleared = false
+      image = nil
+      text = ""
+      source = nil
+      extraFrontMatter = ""
+      extraSource = ""
+      reason = message
+    }
+  }
+
+  static func decode(_ json: String, file: URL, version: FileVersion) -> ThoughtEntry {
+    let unreadable = ThoughtEntry.malformed(
+      file: file, reason: "The search index entry is unreadable")
+    guard let stored = try? JSONDecoder().decode(StoredEntry.self, from: Data(json.utf8)) else {
+      return unreadable
+    }
+    if let reason = stored.reason { return .malformed(file: file, reason: reason) }
+    guard let rawID = stored.id, let id = ThoughtID(rawValue: rawID), let created = stored.created
+    else { return unreadable }
+    let content: ThoughtContent =
+      stored.image.map { .image(fileName: $0, note: stored.text) } ?? .text(stored.text)
+    return .thought(
+      Thought(
+        id: id,
+        created: Date(timeIntervalSinceReferenceDate: created),
+        done: stored.done.map { Date(timeIntervalSinceReferenceDate: $0) },
+        cleared: stored.cleared,
+        content: content,
+        source: stored.source,
+        extraFrontMatter: stored.extraFrontMatter,
+        extraSource: stored.extraSource,
+        file: file,
+        version: version
+      ))
+  }
+}
