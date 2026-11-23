@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PanelRootView: View {
   let preferences: Preferences
+  @Environment(\.colorScheme) private var colorScheme
   @State private var query = ""
   @State private var draft = ""
 
@@ -33,12 +34,16 @@ struct PanelRootView: View {
       }
       .padding(.horizontal, 10)
       .frame(height: 32)
-      .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 9))
+      .background(Color.primary.opacity(0.06), in: FieldShape(cornerRadius: 9))
       MoreMenu(preferences: preferences)
     }
     .padding(.top, 12)
     .padding(.bottom, 10)
     .padding(.horizontal, 12)
+  }
+
+  private var inputFill: Color {
+    colorScheme == .dark ? Color.white.opacity(0.03) : Color.white.opacity(0.7)
   }
 
   private var emptyState: some View {
@@ -69,8 +74,9 @@ struct PanelRootView: View {
       .focusEffectDisabled()
       .padding(.horizontal, 10)
       .frame(height: 38)
+      .background(inputFill, in: FieldShape(cornerRadius: 10))
       .overlay {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
+        FieldShape(cornerRadius: 10)
           .strokeBorder(Color.primary.opacity(0.13), lineWidth: 1)
       }
       HStack(spacing: 14) {

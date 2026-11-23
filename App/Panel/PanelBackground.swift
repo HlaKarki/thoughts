@@ -31,3 +31,21 @@ private struct TranslucentMaterial: NSViewRepresentable {
 
   func updateNSView(_ view: NSVisualEffectView, context: Context) {}
 }
+
+struct FieldShape: InsettableShape {
+  let cornerRadius: CGFloat
+  var inset: CGFloat = 0
+
+  func path(in rect: CGRect) -> Path {
+    let rect = rect.insetBy(dx: inset, dy: inset)
+    if #available(macOS 26, *) {
+      return Capsule().path(in: rect)
+    }
+    return RoundedRectangle(cornerRadius: max(cornerRadius - inset, 0), style: .continuous)
+      .path(in: rect)
+  }
+
+  func inset(by amount: CGFloat) -> FieldShape {
+    FieldShape(cornerRadius: cornerRadius, inset: inset + amount)
+  }
+}
