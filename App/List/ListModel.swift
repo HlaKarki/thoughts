@@ -21,6 +21,24 @@ extension ThoughtEntry {
   }
 }
 
+struct EditSession: Equatable {
+  let name: String
+  let id: ThoughtID
+  let file: URL
+  var version: FileVersion
+  let original: String
+  let allowsBlank: Bool
+  var text: String
+  var isSaving = false
+}
+
+enum EditOutcome: Sendable {
+  case saved(Thought)
+  case changed(Thought?)
+  case deleted
+  case failed(String)
+}
+
 @MainActor
 @Observable
 final class ListModel {
@@ -29,6 +47,8 @@ final class ListModel {
   @ObservationIgnored private let location: StorageLocation
   @ObservationIgnored private var hintTask: Task<Void, Never>?
   @ObservationIgnored private var birthDates: [String: Date] = [:]
+  @ObservationIgnored private var searchTask: Task<Void, Never>?
+  @ObservationIgnored private let searchDelay: Duration
   @ObservationIgnored var onCommand: ((KeyCommand) -> Void)?
   @ObservationIgnored var onPreviewChange: ((Thought?) -> Void)?
 
@@ -60,19 +80,32 @@ final class ListModel {
     }
   }
   var menuHighlight = 0
-  var focus: Focus = .input
+  private(set) var editing: EditSession?
+  var focus: Focus = .input {
+    didSet {
+      if oldValue == .edit, focus != .edit, editing?.isSaving == false { editing = nil }
+    }
+  }
   var query = "" {
     didSet {
       guard query != oldValue else { return }
-      refreshMatches()
-      pruneSelection()
+      scheduleSearch()
     }
   }
 
-  init(index: SearchIndex, live: LiveIndex, location: StorageLocation) {
+  init(
+    index: SearchIndex, live: LiveIndex, location: StorageLocation,
+    searchDelay: Duration = .milliseconds(80)
+  ) {
     self.index = index
     self.live = live
     self.location = location
+    self.searchDelay = searchDelay
+  }
+
+  var editText: String {
+    get { editing?.text ?? "" }
+    set { editing?.text = newValue }
   }
 
   var visible: [ThoughtEntry] {
@@ -122,6 +155,10 @@ final class ListModel {
     }
   }
 
+  var searchTerms: [String] {
+    SearchHighlight.terms(in: query)
+  }
+
   var isSearching: Bool {
     !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
   }
@@ -169,6 +206,7 @@ final class ListModel {
       now = Date()
       refreshMatches()
       pruneSelection()
+      endEditIfDeleted()
     } catch let error as ThoughtsError {
       showHint(Self.message(for: error))
     } catch {
@@ -208,6 +246,7 @@ final class ListModel {
   }
 
   func select(_ name: String, extend: Bool) {
+    if editing?.name == name { return }
     focus = .list
     let names = visible.map(\.fileName)
     guard let target = names.firstIndex(of: name) else { return }
@@ -262,10 +301,114 @@ final class ListModel {
       return
     case .edit:
       isPreviewing = false
+      beginEdit()
+      return
+    case .cancelEdit:
+      cancelEdit()
+      return
     default:
       break
     }
     onCommand?(command)
+  }
+
+  private func beginEdit() {
+    guard selection.count == 1, let thought = selectedEntries.first?.thought else { return }
+    let name = thought.file.lastPathComponent
+    if editing?.name == name {
+      focus = .edit
+      return
+    }
+    let text: String
+    let allowsBlank: Bool
+    switch thought.content {
+    case .text(let value):
+      text = value
+      allowsBlank = false
+    case .image(_, let note):
+      text = note
+      allowsBlank = true
+    }
+    editing = EditSession(
+      name: name, id: thought.id, file: thought.file, version: thought.version, original: text,
+      allowsBlank: allowsBlank, text: text)
+    focus = .edit
+  }
+
+  private func cancelEdit() {
+    guard editing?.isSaving != true else { return }
+    editing = nil
+    if focus == .edit { focus = .list }
+  }
+
+  private func endEdit() {
+    editing = nil
+    if focus == .edit { focus = .list }
+  }
+
+  private func endEditIfDeleted() {
+    guard let name = editing?.name, !entries.contains(where: { $0.fileName == name }) else {
+      return
+    }
+    endEdit()
+    showHint(String(localized: "This thought was deleted."))
+  }
+
+  func markEditSaving() {
+    editing?.isSaving = true
+  }
+
+  func finishEdit(_ outcome: EditOutcome) {
+    switch outcome {
+    case .saved(let thought):
+      replace(thought)
+      endEdit()
+    case .changed(let fresh):
+      load()
+      guard editing != nil else { return }
+      guard let fresh else {
+        endEdit()
+        showHint(String(localized: "That thought changed on disk"))
+        return
+      }
+      replace(fresh)
+      editing?.version = fresh.version
+      editing?.isSaving = false
+      showHint(String(localized: "Changed on disk. Press Enter again to save your text."))
+    case .deleted:
+      endEdit()
+      load()
+      showHint(String(localized: "This thought was deleted."))
+    case .failed(let message):
+      editing?.isSaving = false
+      showHint(message)
+    }
+  }
+
+  private func replace(_ thought: Thought) {
+    guard
+      let position = entries.firstIndex(where: { $0.fileName == thought.file.lastPathComponent })
+    else { return }
+    entries[position] = .thought(thought)
+  }
+
+  private func scheduleSearch() {
+    searchTask?.cancel()
+    searchTask = nil
+    guard isSearching, searchDelay > .zero else {
+      runSearch()
+      return
+    }
+    searchTask = Task { [weak self, searchDelay] in
+      try? await Task.sleep(for: searchDelay)
+      guard !Task.isCancelled else { return }
+      self?.runSearch()
+    }
+  }
+
+  private func runSearch() {
+    refreshMatches()
+    pruneSelection()
   }
 
   func closeMenu() {
@@ -328,6 +471,7 @@ final class ListModel {
     isPreviewing = false
     isMenuOpen = false
     menuQuery = ""
+    cancelEdit()
     hintTask?.cancel()
   }
 
@@ -375,7 +519,7 @@ final class ListModel {
     return stride(from: anchor, through: cursor, by: step).map { names[$0] }
   }
 
-  static func message(for error: ThoughtsError) -> String {
+  nonisolated static func message(for error: ThoughtsError) -> String {
     switch error {
     case .storageUnavailable(let path):
       String(localized: "The thoughts folder isn't available: \(path)")

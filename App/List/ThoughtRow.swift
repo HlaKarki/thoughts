@@ -34,23 +34,27 @@ struct ThoughtRow: View {
   let thought: Thought
   let time: String
   let selected: Bool
+  var terms: [String]?
 
   private static let doneOpacity = 0.45
   private static let doneTextOpacity = 0.7
 
   var body: some View {
     RowFrame(time: time, selected: selected) {
-      switch thought.content {
-      case .text(let text):
-        label(of: text)
-      case .image(let fileName, let note):
-        VStack(alignment: .leading, spacing: 6) {
-          RowThumbnail(
-            url: thought.file.deletingLastPathComponent().appendingPathComponent(fileName)
-          )
-          .opacity(isDone ? Self.doneOpacity : 1)
-          if !note.isEmpty { label(of: note) }
+      VStack(alignment: .leading, spacing: 2) {
+        switch thought.content {
+        case .text(let text):
+          label(of: text)
+        case .image(let fileName, let note):
+          VStack(alignment: .leading, spacing: 6) {
+            RowThumbnail(
+              url: thought.file.deletingLastPathComponent().appendingPathComponent(fileName)
+            )
+            .opacity(isDone ? Self.doneOpacity : 1)
+            if !note.isEmpty { label(of: note) }
+          }
         }
+        if let terms { SourceLine(thought: thought, terms: terms) }
       }
     }
     .accessibilityElement(children: .ignore)
@@ -60,7 +64,7 @@ struct ThoughtRow: View {
   private var isDone: Bool { thought.done != nil }
 
   private func label(of text: String) -> some View {
-    Text(verbatim: text)
+    Text(SearchHighlight.attributed(text, terms: terms ?? []))
       .font(.system(size: 13))
       .lineSpacing(2)
       .padding(.vertical, 1)
@@ -85,6 +89,7 @@ struct ThoughtRow: View {
       if !note.isEmpty { parts.append(note) }
     }
     parts.append(time)
+    if thought.cleared { parts.append(String(localized: "Cleared")) }
     if isDone { parts.append(String(localized: "done")) }
     return parts.joined(separator: ", ")
   }

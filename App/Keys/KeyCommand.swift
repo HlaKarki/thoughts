@@ -5,6 +5,7 @@ enum Focus: Equatable, Hashable {
   case search
   case list
   case menu
+  case edit
 }
 
 enum KeyCommand: Equatable {
@@ -17,6 +18,8 @@ enum KeyCommand: Equatable {
   case move(Int)
   case extend(Int)
   case edit
+  case saveEdit
+  case cancelEdit
   case toggleDone
   case copy
   case copyPath

@@ -25,13 +25,15 @@ struct ActionsSnapshotTests {
     }
     fixture.model.select(shot.file.lastPathComponent, extend: false)
     let closed = try ListSnapshotTests.image(
-      of: fixture.model, appearance: appearance, name: "actions-closed-\(suffix)")
+      of: fixture.model, input: fixture.input, appearance: appearance,
+      name: "actions-closed-\(suffix)")
     fixture.model.perform(.actionsMenu)
     #expect(fixture.model.isMenuOpen)
     #expect(fixture.model.focus == .menu)
     #expect(fixture.model.menuItems.count == 8)
     let open = try ListSnapshotTests.image(
-      of: fixture.model, appearance: appearance, name: "actions-menu-\(suffix)")
+      of: fixture.model, input: fixture.input, appearance: appearance,
+      name: "actions-menu-\(suffix)")
     #expect(SnapshotTests.colorCount(of: open) > SnapshotTests.colorCount(of: closed))
     await ListFixture.settle()
   }

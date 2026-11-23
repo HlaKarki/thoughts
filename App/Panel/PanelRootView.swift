@@ -3,8 +3,7 @@ import SwiftUI
 struct PanelRootView: View {
   let preferences: Preferences
   @Bindable var list: ListModel
-  @Environment(\.colorScheme) private var colorScheme
-  @State private var draft = ""
+  @Bindable var input: InputModel
   @FocusState private var field: Focus?
 
   var body: some View {
@@ -22,20 +21,23 @@ struct PanelRootView: View {
       KeyRoutingView { stroke in
         guard
           let command = KeyRouter.command(
-            for: stroke, focus: list.focus, inputIsEmpty: draft.isEmpty, hasAttachment: false)
+            for: stroke, focus: list.focus, inputIsEmpty: input.text.isEmpty,
+            hasAttachment: input.attachment != nil)
         else { return false }
         list.perform(command)
         return true
       }
     }
     .onChange(of: list.focus) { _, focus in
-      field = focus == .list ? nil : focus
+      field = Self.fieldTarget(for: focus)
     }
     .onChange(of: field) { _, focus in
       if let focus, list.focus != focus { list.focus = focus }
     }
     .animation(.easeOut(duration: PanelController.duration), value: list.isMenuOpen)
-    .onAppear { field = list.focus == .list ? nil : list.focus }
+    .animation(.easeOut(duration: PanelController.duration), value: input.attachment != nil)
+    .animation(.easeOut(duration: PanelController.duration), value: input.isDropTargeted)
+    .onAppear { field = Self.fieldTarget(for: list.focus) }
   }
 
   @ViewBuilder
@@ -55,35 +57,13 @@ struct PanelRootView: View {
 
   static let menuBottomInset: CGFloat = 74
 
+  private static func fieldTarget(for focus: Focus) -> Focus? {
+    focus == .search || focus == .menu ? focus : nil
+  }
+
   private var header: some View {
     HStack(spacing: 8) {
-      HStack(spacing: 7) {
-        Image(systemName: "magnifyingglass")
-          .font(.system(size: 13, weight: .medium))
-          .foregroundStyle(Color(nsColor: .systemGray))
-        TextField(
-          "", text: $list.query,
-          prompt: Text("Search thoughts").foregroundStyle(Color(nsColor: .tertiaryLabelColor))
-        )
-        .textFieldStyle(.plain)
-        .font(.system(size: 13))
-        .focusEffectDisabled()
-        .focused($field, equals: .search)
-        if !list.query.isEmpty {
-          Button {
-            list.query = ""
-          } label: {
-            Image(systemName: "xmark.circle.fill")
-              .font(.system(size: 13))
-              .foregroundStyle(Color(nsColor: .systemGray))
-          }
-          .buttonStyle(.plain)
-          .accessibilityLabel("Clear search")
-        }
-      }
-      .padding(.horizontal, 10)
-      .frame(height: 32)
-      .background(Color.primary.opacity(0.06), in: FieldShape(cornerRadius: 9))
+      SearchField(list: list, field: $field)
       MoreMenu(preferences: preferences, onClearDone: { list.clearDone() })
     }
     .padding(.top, 12)
@@ -102,41 +82,35 @@ struct PanelRootView: View {
         EmptyListView()
       }
     }
-    .overlay(alignment: .bottom) { HintLine(text: list.hint) }
+    .overlay {
+      ListScrim()
+        .opacity(input.attachment != nil && list.focus == .input ? 1 : 0)
+        .animation(.easeOut(duration: PanelController.duration), value: list.focus == .input)
+    }
+    .overlay(alignment: .bottom) {
+      HintLine(text: list.hint)
+        .padding(.bottom, previewInset)
+    }
+    .overlay(alignment: .bottom) {
+      if case .image(_, let preview) = input.attachment {
+        AttachmentPreview(image: preview, onRemove: { input.removeAttachment() })
+          .padding(.horizontal, 12)
+          .padding(.bottom, AttachmentPreview.verticalInset)
+          .transition(.opacity)
+      }
+    }
+    .overlay {
+      if input.isDropTargeted { DropTargetView().transition(.opacity) }
+    }
   }
 
-  private var inputFill: Color {
-    colorScheme == .dark ? Color.white.opacity(0.03) : Color.white.opacity(0.7)
+  private var previewInset: CGFloat {
+    guard case .image(_, let preview) = input.attachment else { return 0 }
+    return AttachmentPreview.height(for: preview, width: PanelController.width - 24)
+      + AttachmentPreview.verticalInset
   }
 
   private var composer: some View {
-    VStack(spacing: 8) {
-      TextField(
-        "", text: $draft,
-        prompt: Text("Add a thought").foregroundStyle(Color(nsColor: .tertiaryLabelColor))
-      )
-      .textFieldStyle(.plain)
-      .font(.system(size: 13))
-      .focusEffectDisabled()
-      .focused($field, equals: .input)
-      .padding(.horizontal, 10)
-      .frame(height: 38)
-      .background(inputFill, in: FieldShape(cornerRadius: 10))
-      .overlay {
-        FieldShape(cornerRadius: 10)
-          .strokeBorder(Color.primary.opacity(0.13), lineWidth: 1)
-      }
-      ActionBar(
-        focus: list.focus,
-        hasEntries: !list.visible.isEmpty,
-        inputIsEmpty: draft.isEmpty,
-        hasAttachment: false)
-    }
-    .padding(.top, 10)
-    .padding(.bottom, 12)
-    .padding(.horizontal, 12)
-    .overlay(alignment: .top) {
-      Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 1)
-    }
+    InputView(list: list, input: input)
   }
 }

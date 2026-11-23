@@ -36,30 +36,40 @@ struct ThoughtListView: View {
     let name = entry.fileName
     let selected = model.selection.contains(name)
     let time = timeLabel(for: entry)
+    let editing = model.editing?.name == name
     Group {
       switch entry {
+      case .thought(let thought) where editing:
+        EditRow(thought: thought, time: time, list: model)
       case .thought(let thought):
-        ThoughtRow(thought: thought, time: time, selected: selected)
-          .onDrag { DragOut.provider(for: thought) }
+        ThoughtRow(
+          thought: thought, time: time, selected: selected,
+          terms: model.isSearching ? model.searchTerms : nil
+        )
+        .onDrag { DragOut.provider(for: thought) }
       case .malformed(let file, let reason):
         WarningRow(fileName: file.lastPathComponent, reason: reason, time: time, selected: selected)
       }
     }
     .id(name)
     .onTapGesture(count: 2) {
+      guard !editing else { return }
       model.select(name, extend: false)
       model.perform(.edit)
     }
     .simultaneousGesture(
       TapGesture().onEnded {
+        guard !editing else { return }
         model.select(name, extend: NSEvent.modifierFlags.contains(.shift))
       }
     )
     .overlay {
-      RightClickCatcher {
-        if !model.selection.contains(name) { model.select(name, extend: false) }
-        model.focus = .list
-        model.perform(.actionsMenu)
+      if !editing {
+        RightClickCatcher {
+          if !model.selection.contains(name) { model.select(name, extend: false) }
+          model.focus = .list
+          model.perform(.actionsMenu)
+        }
       }
     }
     .accessibilityAddTraits(selected ? .isSelected : [])

@@ -25,6 +25,11 @@ final class PanelController {
     }
   }
 
+  var onPaste: ((NSPasteboard) -> Bool)? {
+    get { panel.onPaste }
+    set { panel.onPaste = newValue }
+  }
+
   var frame: CGRect { panel.frame }
   var edge: PanelEdge { preferences.edge }
 

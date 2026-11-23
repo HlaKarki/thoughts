@@ -8,6 +8,9 @@ final class AppState {
   let index: SearchIndex
   let live: LiveIndex
   let list: ListModel
+  let input: InputModel
+  let dragMonitor: DragSessionMonitor
+  let dropZone: EdgeDropZone
   let preferences: Preferences
   let panel: PanelController
   let actions: ThoughtActions
@@ -25,8 +28,12 @@ final class AppState {
     self.preferences = preferences
     let list = ListModel(index: index, live: live, location: location)
     self.list = list
-    let content = NSHostingView(rootView: PanelRootView(preferences: preferences, list: list))
-    content.sizingOptions = []
+    let input = InputModel(location: location) { [list] in list.showHint($0) }
+    self.input = input
+    let hosting = NSHostingView(
+      rootView: PanelRootView(preferences: preferences, list: list, input: input))
+    hosting.sizingOptions = []
+    let content = DropDestinationView(content: hosting)
     let panel = PanelController(content: content, preferences: preferences)
     self.panel = panel
     let pasteboard = PasteboardWriter()
@@ -44,20 +51,43 @@ final class AppState {
       list.now = Date()
       list.panelDidShow()
     }
-    panel.onWillHide = { [list, preview] in
+    let monitor = DragSessionMonitor()
+    let zone = EdgeDropZone(panel: panel, preferences: preferences, monitor: monitor)
+    dragMonitor = monitor
+    dropZone = zone
+    zone.onTargetChange = { [input] in input.isDropTargeted = $0 }
+    zone.onDrop = { [input] in input.drop($0) }
+    content.onEnter = { [input] in input.isDropTargeted = true }
+    content.onExit = { [input] in input.isDropTargeted = false }
+    content.onDrop = { [input, zone] pasteboard in
+      zone.noteDrop()
+      return input.drop(pasteboard)
+    }
+    panel.onPaste = { [list, input] pasteboard in
+      list.focus == .input && input.takeImage(from: pasteboard)
+    }
+    panel.onWillHide = { [list, preview, input] in
       list.panelDidHide()
       preview.hide()
+      input.isDropTargeted = false
     }
-    list.onCommand = { [panel, actions] command in
-      if command == .hidePanel { panel.hide() }
+    list.onCommand = { [panel, actions, input] command in
+      switch command {
+      case .hidePanel: panel.hide()
+      case .add: Task { await input.submit() }
+      case .removeAttachment: input.removeAttachment()
+      default: break
+      }
       actions.perform(command)
     }
+    zone.start()
     list.start()
     summon = SummonShortcut.listen { [panel] in panel.toggle() }
   }
 
   func stop() {
     summon?.cancel()
+    dragMonitor.stop()
     live.stop()
   }
 }

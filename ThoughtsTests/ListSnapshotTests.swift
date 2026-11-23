@@ -16,7 +16,7 @@ struct ListSnapshotTests {
     defer { withExtendedLifetime(empty) {} }
     try empty.reload()
     let emptyImage = try Self.image(
-      of: empty.model, appearance: appearance, name: "list-empty-\(suffix)")
+      of: empty.model, input: empty.input, appearance: appearance, name: "list-empty-\(suffix)")
 
     let fixture = try ListFixture()
     defer { withExtendedLifetime(fixture) {} }
@@ -44,17 +44,19 @@ struct ListSnapshotTests {
       }
     }
     let listImage = try Self.image(
-      of: fixture.model, appearance: appearance, name: "list-\(suffix)")
+      of: fixture.model, input: fixture.input, appearance: appearance, name: "list-\(suffix)")
     #expect(SnapshotTests.colorCount(of: listImage) > SnapshotTests.colorCount(of: emptyImage))
     await ListFixture.settle()
   }
 
-  static func image(of model: ListModel, appearance: NSAppearance.Name, name: String) throws
+  static func image(
+    of model: ListModel, input: InputModel, appearance: NSAppearance.Name, name: String
+  ) throws
     -> NSBitmapImageRep
   {
     let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
     let url = try SnapshotRenderer.render(
-      PanelRootView(preferences: Preferences(defaults: defaults), list: model),
+      PanelRootView(preferences: Preferences(defaults: defaults), list: model, input: input),
       size: panelSize, appearance: appearance, name: name)
     let image = try #require(NSBitmapImageRep(data: Data(contentsOf: url)))
     #expect(image.pixelsWide == Int(panelSize.width) * SnapshotRenderer.scale)

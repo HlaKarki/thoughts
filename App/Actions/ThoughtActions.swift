@@ -35,6 +35,7 @@ final class ThoughtActions {
     case .delete: delete()
     case .openSource: openSource()
     case .showInFinder: showInFinder()
+    case .saveEdit: saveEdit()
     default: break
     }
   }
@@ -95,6 +96,40 @@ final class ThoughtActions {
     run(
       { store in try store.delete(ids) },
       rollback: { [list] in list.releaseRemoval(of: names) })
+  }
+
+  private func saveEdit() {
+    guard let session = list.editing, !session.isSaving else { return }
+    let text = session.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if text == session.original.trimmingCharacters(in: .whitespacesAndNewlines) {
+      list.perform(.cancelEdit)
+      return
+    }
+    if text.isEmpty, !session.allowsBlank {
+      list.showHint(String(localized: "A thought can't be empty"))
+      return
+    }
+    guard let store = makeStore() else { return }
+    list.markEditSaving()
+    let previous = pending
+    pending = Task { [weak list] in
+      await previous?.value
+      let outcome = await Task.detached { () -> EditOutcome in
+        do {
+          return .saved(try store.setText(text, of: session.id, expected: session.version))
+        } catch ThoughtsError.changedOnDisk {
+          let fresh = try? store.entry(at: session.file).thought
+          return .changed(fresh)
+        } catch ThoughtsError.deletedOnDisk {
+          return .deleted
+        } catch let error as ThoughtsError {
+          return .failed(ListModel.message(for: error))
+        } catch {
+          return .failed(error.localizedDescription)
+        }
+      }.value
+      list?.finishEdit(outcome)
+    }
   }
 
   private func openSource() {

@@ -25,6 +25,12 @@ struct ActionBar: View {
         Hint(label: "Done", key: "⌘↵"),
         Hint(label: "Actions", key: "⌘K"),
       ]
+    case .edit:
+      return [
+        Hint(label: "Save", key: "↵"),
+        Hint(label: "New line", key: "⇧↵"),
+        Hint(label: "Cancel", key: "esc"),
+      ]
     case .search:
       return [Hint(label: "Select", key: "↓"), Hint(label: "Clear", key: "esc")]
     case .input:

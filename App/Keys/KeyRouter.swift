@@ -8,7 +8,7 @@ enum KeyRouter {
     if press.key == .escape, modifiers.isEmpty {
       return escape(focus: focus, hasAttachment: hasAttachment)
     }
-    if press.key == KeyEquivalent("f"), modifiers == .command, focus != .menu {
+    if press.key == KeyEquivalent("f"), modifiers == .command, focus != .menu, focus != .edit {
       return .focusSearch
     }
     switch focus {
@@ -16,6 +16,7 @@ enum KeyRouter {
     case .search: return search(press)
     case .list: return list(press)
     case .menu: return menu(press)
+    case .edit: return editing(press)
     }
   }
 
@@ -25,6 +26,7 @@ enum KeyRouter {
     case .search: .clearSearch
     case .list: .backToInput
     case .menu: .menuClose
+    case .edit: .cancelEdit
     }
   }
 
@@ -39,6 +41,13 @@ enum KeyRouter {
   private static func search(_ press: KeyStroke) -> KeyCommand? {
     switch (press.key, press.modifiers) {
     case (.downArrow, []): .move(1)
+    default: nil
+    }
+  }
+
+  private static func editing(_ press: KeyStroke) -> KeyCommand? {
+    switch (press.key, press.modifiers) {
+    case (.return, []): .saveEdit
     default: nil
     }
   }

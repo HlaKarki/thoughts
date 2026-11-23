@@ -17,7 +17,7 @@ struct KeyRouterCase: Sendable, CustomTestStringConvertible {
 }
 
 enum KeyRouterCases {
-  static let all: [KeyRouterCase] = input + search + list + menu
+  static let all: [KeyRouterCase] = input + search + list + menu + edit
 
   static let input: [KeyRouterCase] = [
     KeyRouterCase(name: "Return in the input adds", key: .return, expected: .add),
@@ -98,6 +98,27 @@ enum KeyRouterCases {
       name: "Command F in the list jumps to search", key: KeyEquivalent("f"),
       modifiers: .command, focus: .list, expected: .focusSearch),
     KeyRouterCase(name: "Delete alone does nothing", key: .delete, focus: .list, expected: nil),
+  ]
+
+  static let edit: [KeyRouterCase] = [
+    KeyRouterCase(name: "Return in an edit saves", key: .return, focus: .edit, expected: .saveEdit),
+    KeyRouterCase(
+      name: "Shift Return in an edit adds a line", key: .return, modifiers: .shift, focus: .edit,
+      expected: nil),
+    KeyRouterCase(
+      name: "Esc in an edit cancels", key: .escape, focus: .edit, expected: .cancelEdit),
+    KeyRouterCase(
+      name: "Command F in an edit is left to the field", key: KeyEquivalent("f"),
+      modifiers: .command, focus: .edit, expected: nil),
+    KeyRouterCase(
+      name: "Up in an edit is left to the field", key: .upArrow, focus: .edit, expected: nil),
+    KeyRouterCase(
+      name: "Down in an edit is left to the field", key: .downArrow, focus: .edit, expected: nil),
+    KeyRouterCase(
+      name: "Command V in an edit is left to the field", key: KeyEquivalent("v"),
+      modifiers: .command, focus: .edit, expected: nil),
+    KeyRouterCase(
+      name: "Space in an edit is left to the field", key: .space, focus: .edit, expected: nil),
   ]
 
   static let menu: [KeyRouterCase] = [

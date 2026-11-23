@@ -24,13 +24,14 @@ final class ListFixture {
   let folder: URL
   let location: StorageLocation
   let model: ListModel
+  let input: InputModel
   let store: ThoughtStore
   let sync: IndexSync
   private let cleanup: TempFolder
 
   static let now = Date(timeIntervalSince1970: 1_795_000_000)
 
-  init() throws {
+  init(searchDelay: Duration = .zero) throws {
     cleanup = TempFolder()
     root = cleanup.url
     folder = root.appendingPathComponent("Thoughts", isDirectory: true)
@@ -43,7 +44,8 @@ final class ListFixture {
     sync = IndexSync(store: store, index: index, recognizer: nil)
     model = ListModel(
       index: index, live: LiveIndex(location: location, index: index, recognizer: nil),
-      location: location)
+      location: location, searchDelay: searchDelay)
+    input = InputModel(location: location, now: { Self.now }, onFailure: { _ in })
   }
 
   static func settle() async {

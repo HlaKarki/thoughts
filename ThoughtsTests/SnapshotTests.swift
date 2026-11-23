@@ -14,7 +14,8 @@ struct SnapshotTests {
     defer { withExtendedLifetime(fixture) {} }
     let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
     let url = try SnapshotRenderer.render(
-      PanelRootView(preferences: Preferences(defaults: defaults), list: fixture.model),
+      PanelRootView(
+        preferences: Preferences(defaults: defaults), list: fixture.model, input: fixture.input),
       size: Self.panelSize,
       appearance: appearance,
       name: "panel-empty-\(appearance == .aqua ? "light" : "dark")")
