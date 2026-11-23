@@ -24,6 +24,9 @@ public struct CaptureContext: Sendable, Equatable {
   public var fallbackAllowed: Bool
   public var clipboardImage: ClipboardImage?
   public var changeCount: Int
+  public var equivalentCounts: [Int]
+  public var saved: SavedLedger
+  public var source: Source
   public var now: Date
 
   public init(
@@ -32,6 +35,9 @@ public struct CaptureContext: Sendable, Equatable {
     fallbackAllowed: Bool,
     clipboardImage: ClipboardImage? = nil,
     changeCount: Int,
+    equivalentCounts: [Int] = [],
+    saved: SavedLedger = SavedLedger(),
+    source: Source = Source(),
     now: Date
   ) {
     self.offer = offer
@@ -39,6 +45,9 @@ public struct CaptureContext: Sendable, Equatable {
     self.fallbackAllowed = fallbackAllowed
     self.clipboardImage = clipboardImage
     self.changeCount = changeCount
+    self.equivalentCounts = equivalentCounts
+    self.saved = saved
+    self.source = source
     self.now = now
   }
 }
@@ -48,6 +57,7 @@ public enum CaptureAction: Sendable, Equatable {
   case saveText(String)
   case copyFallback
   case saveClipboardImage
+  case alreadySaved
   case nothingToSave
 }
 
@@ -60,13 +70,16 @@ public enum CaptureDecision {
     case .secureField:
       return .nothingToSave
     case .text(let text) where !isBlank(text):
-      return .saveText(text)
+      return context.saved.newestIsText(text, from: context.source)
+        ? .alreadySaved : .saveText(text)
     case .text, .empty, .unavailable:
       if context.fallbackAllowed { return .copyFallback }
     case .copiedNothing:
       break
     }
-    return hasRecentImage(context) ? .saveClipboardImage : .nothingToSave
+    guard hasRecentImage(context) else { return .nothingToSave }
+    let counts = [context.changeCount] + context.equivalentCounts
+    return context.saved.holdsImage(counts: counts) ? .alreadySaved : .saveClipboardImage
   }
 
   private static func hasRecentImage(_ context: CaptureContext) -> Bool {

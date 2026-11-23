@@ -229,6 +229,8 @@ final class AppState {
     switch outcome {
     case .saved, .acceptedOffer:
       if !panel.isShown { showHint(.saved, lifetime: Self.savedChipLifetime) }
+    case .alreadySaved:
+      showHint(.alreadySaved, lifetime: Self.hintChipLifetime)
     case .nothingToSave:
       showHint(.nothingToSave, lifetime: Self.hintChipLifetime)
     case .failed(let message):

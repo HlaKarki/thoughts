@@ -19,6 +19,7 @@ struct HintChipTests {
     for (kind, name) in [
       (HintChipView.Kind.nothingToSave, "nothing-to-save"),
       (.saved, "saved"),
+      (.alreadySaved, "already-saved"),
       (.failed("The thoughts folder isn't available: Thoughts"), "failed"),
     ] {
       let url = try SnapshotRenderer.render(

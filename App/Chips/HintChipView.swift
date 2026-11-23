@@ -67,6 +67,7 @@ struct ChipText: View {
 struct HintChipView: View {
   enum Kind: Equatable {
     case saved
+    case alreadySaved
     case nothingToSave
     case failed(String)
   }
@@ -83,6 +84,9 @@ struct HintChipView: View {
       switch kind {
       case .saved:
         ChipText(title: "Saved", message: nil)
+      case .alreadySaved:
+        ChipText(
+          title: "Already saved", message: String(localized: "It is already in your thoughts"))
       case .nothingToSave:
         ChipText(
           title: "Nothing to save", message: String(localized: "Select text or copy an image first")
@@ -97,7 +101,7 @@ struct HintChipView: View {
   private var symbol: String {
     switch kind {
     case .saved: "checkmark.circle"
-    case .nothingToSave: "info.circle"
+    case .alreadySaved, .nothingToSave: "info.circle"
     case .failed: "exclamationmark.triangle"
     }
   }
@@ -105,7 +109,7 @@ struct HintChipView: View {
   private var tint: Color {
     switch kind {
     case .saved: Color(nsColor: .systemGreen)
-    case .nothingToSave: Color(nsColor: .systemGray)
+    case .alreadySaved, .nothingToSave: Color(nsColor: .systemGray)
     case .failed: Color(nsColor: .systemOrange)
     }
   }

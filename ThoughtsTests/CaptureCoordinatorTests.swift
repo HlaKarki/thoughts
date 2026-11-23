@@ -19,6 +19,7 @@ struct CaptureCoordinatorTests {
     var probeResult = SelectionProbe.unavailable
     var copyResult = SelectionProbe.copiedNothing
     var copyCounts: [Int] = []
+    var onCopy: @MainActor () -> Void = {}
 
     func probe(pid: Int32) async -> SelectionProbe {
       probed.append(pid)
@@ -27,6 +28,7 @@ struct CaptureCoordinatorTests {
 
     func copySelection() async -> (SelectionProbe, ownChangeCounts: [Int]) {
       copies += 1
+      onCopy()
       return (copyResult, copyCounts)
     }
   }
@@ -166,6 +168,136 @@ struct CaptureCoordinatorTests {
       return
     }
     #expect(saves.first?.pasteboardChangeCount == count)
+  }
+
+  static func imageRig(
+    probe: SelectionProbe = .empty, front: AppSnapshot? = editor
+  ) throws -> (
+    fixture: ListFixture, board: NSPasteboard, reader: FakeReader, coordinator: CaptureCoordinator,
+    count: Int
+  ) {
+    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    board.clearContents()
+    board.setData(try ListFixture.png(), forType: .png)
+    let count = board.changeCount
+    let fixture = try ListFixture()
+    let reader = FakeReader()
+    reader.probeResult = probe
+    let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+    let coordinator = CaptureCoordinator(
+      frontmost: { front }, ownBundleID: own, ownWindowIsKey: { false }, reader: reader,
+      source: { page }, input: fixture.input, writer: PasteboardWriter(pasteboard: board),
+      sound: SavedSound(preferences: Preferences(defaults: defaults), player: {}),
+      pasteboard: board, now: { ListFixture.now },
+      clipboardImage: {
+        ClipboardImage(
+          changeCount: board.changeCount, seen: ListFixture.now.addingTimeInterval(-30))
+      })
+    return (fixture, board, reader, coordinator, count)
+  }
+
+  @Test func shiftShiftTwiceOnOneImageCopySavesItOnce() async throws {
+    let rig = try Self.imageRig()
+    defer { rig.board.releaseGlobally() }
+    guard case .saved = await rig.coordinator.capture() else {
+      Issue.record("expected the first press to save")
+      return
+    }
+    #expect(await rig.coordinator.capture() == .alreadySaved)
+    #expect(await rig.coordinator.capture() == .alreadySaved)
+    #expect(try rig.fixture.store.entries().compactMap(\.thought).count == 1)
+  }
+
+  @Test func theImageSavesAgainAfterItsThoughtIsDeletedOrTheImageIsCopiedAgain() async throws {
+    let rig = try Self.imageRig()
+    defer { rig.board.releaseGlobally() }
+    guard case .saved(let first) = await rig.coordinator.capture() else {
+      Issue.record("expected the first press to save")
+      return
+    }
+    try FileManager.default.removeItem(at: first.file)
+    guard case .saved = await rig.coordinator.capture() else {
+      Issue.record("expected a save after the delete")
+      return
+    }
+    rig.board.clearContents()
+    rig.board.setData(try ListFixture.png(), forType: .png)
+    guard case .saved = await rig.coordinator.capture() else {
+      Issue.record("expected a save for a new copy")
+      return
+    }
+    #expect(try rig.fixture.store.entries().compactMap(\.thought).count == 2)
+  }
+
+  @Test func theCopyRoundTripOfAnAppWithNoSelectionAnswerDoesNotSaveTheImageTwice() async throws {
+    let rig = try Self.imageRig(probe: .unavailable, front: Self.notes)
+    defer { rig.board.releaseGlobally() }
+    let png = try ListFixture.png()
+    rig.reader.onCopy = {
+      rig.board.clearContents()
+      rig.board.setData(png, forType: .png)
+    }
+    guard case .saved = await rig.coordinator.capture() else {
+      Issue.record("expected the first press to save")
+      return
+    }
+    #expect(rig.board.changeCount != rig.count)
+    #expect(await rig.coordinator.capture() == .alreadySaved)
+    #expect(rig.reader.copies == 2)
+    #expect(try rig.fixture.store.entries().compactMap(\.thought).count == 1)
+  }
+
+  @Test func anImageKeptThroughTheOfferIsAlreadySavedForShiftShift() async throws {
+    let rig = try Self.imageRig()
+    defer { rig.board.releaseGlobally() }
+    let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+    let temp = TempFolder()
+    let preferences = Preferences(defaults: defaults)
+    let center = OfferCenter(
+      preferences: preferences, input: rig.fixture.input,
+      clipboard: ClipboardWatcher(pasteboard: rig.board, accessBehavior: { .ask }),
+      screenshots: ScreenshotFolderWatcher(storageFolder: { rig.fixture.folder }),
+      sound: SavedSound(preferences: preferences, player: {}), source: { Self.page },
+      pasteboard: rig.board, location: ScreenshotLocation(defaults: nil, home: temp.url),
+      accessBehavior: { .ask })
+    center.receive(.clipboard(changeCount: rig.count, file: nil, at: Date()))
+    await OfferCenterTests.wait { center.current != nil }
+    _ = try await center.accept()
+    #expect(await rig.coordinator.capture() == .alreadySaved)
+    #expect(try rig.fixture.store.entries().compactMap(\.thought).count == 1)
+  }
+
+  @Test func shiftShiftTwiceOnOneSelectionSavesOneThought() async throws {
+    let rig = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    rig.reader.probeResult = .text("buy oat milk")
+    guard case .saved = await rig.coordinator.capture() else {
+      Issue.record("expected the first press to save")
+      return
+    }
+    #expect(await rig.coordinator.capture() == .alreadySaved)
+    #expect(rig.plays.count == 1)
+    #expect(try rig.fixture.store.entries().compactMap(\.thought).count == 1)
+    rig.reader.probeResult = .text("buy eggs")
+    guard case .saved = await rig.coordinator.capture() else {
+      Issue.record("expected a different text to save")
+      return
+    }
+  }
+
+  @Test func theSameTextSavesAgainAfterTheOwnerDeletesIt() async throws {
+    let rig = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    rig.reader.probeResult = .text("buy oat milk")
+    guard case .saved(let first) = await rig.coordinator.capture() else {
+      Issue.record("expected the first press to save")
+      return
+    }
+    try FileManager.default.removeItem(at: first.file)
+    guard case .saved = await rig.coordinator.capture() else {
+      Issue.record("expected a save after the delete")
+      return
+    }
   }
 
   @Test func aNonImageFileOnTheClipboardIsNotSavedAsItsIcon() throws {

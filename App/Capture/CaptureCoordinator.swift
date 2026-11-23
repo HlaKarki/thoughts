@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 enum CaptureOutcome: Equatable {
   case saved(Thought)
   case acceptedOffer(Thought)
+  case alreadySaved
   case nothingToSave
   case failed(String)
 }
@@ -65,25 +66,28 @@ final class CaptureCoordinator {
     let offer = currentOffer?()
     let ownWindow = ownWindowIsKey()
     let selection = offer == nil && !ownWindow ? await probe(app) : .empty
+    let recordedSource = await recorded
     let fallbackAllowed =
       !ownWindow
       && CopyFallbackPolicy.allowed(bundleID: app?.bundleID, ownBundleID: ownBundleID)
     var action = CaptureDecision.decide(
-      context(offer: offer, selection: selection, fallbackAllowed: fallbackAllowed))
+      context(
+        offer: offer, selection: selection, fallbackAllowed: fallbackAllowed,
+        source: recordedSource))
     if action == .copyFallback {
-      action = await decideAfterCopy()
+      action = await decideAfterCopy(source: recordedSource)
     }
     switch action {
     case .acceptOffer:
       return await accept()
     case .saveText(let text):
-      let recordedSource = await recorded
       return await save(
         .text(text.trimmingCharacters(in: .whitespacesAndNewlines)), recordedSource)
     case .saveClipboardImage:
       let imageCount = pasteboard.changeCount
-      let recordedSource = await recorded
       return await saveClipboardImage(recordedSource, expecting: imageCount)
+    case .alreadySaved:
+      return .alreadySaved
     case .copyFallback, .nothingToSave:
       return .nothingToSave
     }
@@ -96,21 +100,25 @@ final class CaptureCoordinator {
   }
 
   private func context(
-    offer: OfferID?, selection: SelectionProbe, fallbackAllowed: Bool,
-    image: ClipboardImage? = nil
+    offer: OfferID?, selection: SelectionProbe, fallbackAllowed: Bool, source: Source,
+    image: ClipboardImage? = nil, equivalentCounts: [Int] = []
   ) -> CaptureContext {
     CaptureContext(
       offer: offer, selection: selection, fallbackAllowed: fallbackAllowed,
-      clipboardImage: image ?? clipboardImage?(), changeCount: pasteboard.changeCount, now: now())
+      clipboardImage: image ?? clipboardImage?(), changeCount: pasteboard.changeCount,
+      equivalentCounts: equivalentCounts, saved: input.savedLedger(), source: source, now: now())
   }
 
-  private func decideAfterCopy() async -> CaptureAction {
-    let before = clipboardImage?().flatMap { $0.changeCount == pasteboard.changeCount ? $0 : nil }
+  private func decideAfterCopy(source: Source) async -> CaptureAction {
+    let countBefore = pasteboard.changeCount
+    let before = clipboardImage?().flatMap { $0.changeCount == countBefore ? $0 : nil }
     let (copied, counts) = await reader.copySelection()
     for count in counts { writer.noteOwn(count) }
     let image = before.map { ClipboardImage(changeCount: pasteboard.changeCount, seen: $0.seen) }
     return CaptureDecision.decide(
-      context(offer: nil, selection: copied, fallbackAllowed: false, image: image))
+      context(
+        offer: nil, selection: copied, fallbackAllowed: false, source: source, image: image,
+        equivalentCounts: before == nil ? [] : [countBefore]))
   }
 
   private func accept() async -> CaptureOutcome {

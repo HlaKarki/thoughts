@@ -44,6 +44,7 @@ final class InputModel {
   @ObservationIgnored private let now: () -> Date
   @ObservationIgnored private let onFailure: (String) -> Void
   @ObservationIgnored private var attachmentChangeCount: Int?
+  @ObservationIgnored private var ledger = SavedLedger()
 
   init(
     location: StorageLocation,
@@ -128,10 +129,20 @@ final class InputModel {
     for thought in thoughts { await add(thought, pasteboardChangeCount: nil) }
   }
 
+  func savedLedger() -> SavedLedger {
+    ledger.pruned { FileManager.default.fileExists(atPath: $0.path) }
+  }
+
   @discardableResult
   func save(_ new: NewThought, pasteboardChangeCount: Int?) async throws -> Thought {
     let store = ThoughtStore(folder: try location.resolve())
     let saved = try await Task.detached { try store.add(new) }.value
+    var text: String?
+    if case .text(let value) = new.content { text = value }
+    ledger.record(
+      SavedEntry(
+        file: saved.file, clipboardCounts: pasteboardChangeCount.map { [$0] } ?? [], text: text,
+        source: new.source ?? Source()))
     let sourceFile = new.source?.file.map { URL(fileURLWithPath: $0) }
     onManualSave(
       ManualSave(
