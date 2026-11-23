@@ -1,15 +1,20 @@
-import * as stylex from '@stylexjs/stylex'
 import { createFileRoute } from '@tanstack/react-router'
-import { color } from '@/styles/tokens.stylex'
+import { Header } from './Header'
+import { Hero } from './Hero'
+import { Intro } from './Intro'
 
 export const Route = createFileRoute('/')({
   component: Home,
 })
 
 function Home() {
-  return <main {...stylex.props(styles.main)}>Thoughts</main>
+  return (
+    <>
+      <Header />
+      <main>
+        <Intro />
+        <Hero />
+      </main>
+    </>
+  )
 }
-
-const styles = stylex.create({
-  main: { color: color.text },
-})
