@@ -2,6 +2,7 @@ import * as stylex from '@stylexjs/stylex'
 import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { site } from '@/content/site'
+import { NotFound } from './NotFound'
 import globalCss from '@/styles/global.css?url'
 import { color, font } from '@/styles/tokens.stylex'
 
@@ -35,6 +36,7 @@ export const Route = createRootRoute({
     ],
   }),
   component: RootDocument,
+  notFoundComponent: NotFound,
 })
 
 function RootDocument() {
