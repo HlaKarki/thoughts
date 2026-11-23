@@ -102,6 +102,12 @@ private func thought(_ name: String, _ content: ThoughtContent) -> Thought {
   let output = CopyFormat.markdownList(
     [thought("aaaa1111", .text("one\n\ntwo\n"))], store: store)
   #expect(output == "- one\n\n  two")
+  #expect(
+    CopyFormat.markdownList([thought("aaaa1111", .text("a\n   \nb"))], store: store)
+      == "- a\n\n  b")
+  #expect(
+    CopyFormat.markdownList([thought("aaaa1111", .text("   \nfoo"))], store: store)
+      == "-\n  foo")
   #expect(CopyFormat.markdownList([], store: store) == "")
 }
 

@@ -23,8 +23,12 @@ public enum CopyFormat {
 
   private static func bullet(_ text: String) -> [String] {
     let lines = trimmed(text).components(separatedBy: .newlines)
-    let first = lines[0].isEmpty ? "-" : "- " + lines[0]
-    return [first] + lines.dropFirst().map { $0.isEmpty ? "" : "  " + $0 }
+    let first = blank(lines[0]) ? "-" : "- " + lines[0]
+    return [first] + lines.dropFirst().map { blank($0) ? "" : "  " + $0 }
+  }
+
+  private static func blank(_ line: String) -> Bool {
+    line.allSatisfy(\.isWhitespace)
   }
 
   private static func trimmed(_ text: String) -> String {
