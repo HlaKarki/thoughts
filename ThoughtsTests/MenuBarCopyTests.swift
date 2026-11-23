@@ -17,6 +17,17 @@ struct MenuBarCopyTests {
     }
   }
 
+  @Test func theIconCopyNamesTheMenuChoiceAndNeverClaimsAClickShowsThePanel() {
+    for text in [
+      MenuBarCopy.summonKeyMessage(iconShown: true),
+      MenuBarCopy.settingsExplanation(iconShown: true),
+    ] {
+      #expect(text.contains("Show Thoughts"))
+      #expect(text.contains("menu bar"))
+      #expect(!text.localizedCaseInsensitiveContains("click"))
+    }
+  }
+
   @Test func theCopyAlwaysSaysHowToReachThePanelWithTheSummonKeyOrAnotherWay() {
     #expect(MenuBarCopy.summonKeyMessage(iconShown: false).contains("show or hide the panel"))
     #expect(MenuBarCopy.summonKeyMessage(iconShown: true).contains("show or hide the panel"))

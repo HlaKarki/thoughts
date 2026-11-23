@@ -1,6 +1,6 @@
 # Thoughts
 
-Thoughts is a Mac menu bar app with no Dock icon, for keeping text and screenshots from any app. Click the icon or press a key to open the panel, type a thought or save what you have selected, and search it all later. Each thought is a Markdown file in a folder you choose, so you can open, sync and back it up like any other file.
+Thoughts is a Mac menu bar app with no Dock icon, for keeping text and screenshots from any app. Press a key, or choose Show Thoughts from the menu bar icon, to open the panel, type a thought or save what you have selected, and search it all later. Each thought is a Markdown file in a folder you choose, so you can open, sync and back it up like any other file.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/images/panel-dark.png">
@@ -31,7 +31,7 @@ Thoughts checks for updates once a day. When one is ready, "Update available" ap
 
 The first time Thoughts opens, it walks you through five steps.
 
-1. **Pick a key to open Thoughts.** The default is ⌥Space. Press it in any app to show or hide the panel. You can also click the Thoughts icon in the menu bar.
+1. **Pick a key to open Thoughts.** The default is ⌥Space. Press it in any app to show or hide the panel. You can also choose Show Thoughts from the Thoughts icon in the menu bar.
 2. **Pick how to save from any app.** Press Shift twice, or record your own shortcut. It saves the selected text, or a copied image, as a thought. JetBrains IDEs use double Shift for Search Everywhere, so pick a shortcut if you work in one.
 3. **Allow one permission.** Thoughts asks for Accessibility so the capture works in other apps. It reads the text you select and the title of the window you're in, so each thought records where it came from. Turn on Thoughts in System Settings, then come back.
 4. **Choose where thoughts are saved.** The default is `~/Thoughts`. Thoughts makes the folder if it isn't there. A folder inside iCloud Drive or Dropbox syncs to your other Macs.
