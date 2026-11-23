@@ -27,6 +27,14 @@ final class Preferences {
     didSet { defaults.set(soundEnabled, forKey: Key.soundEnabled) }
   }
 
+  var offersEnabled: Bool {
+    didSet { defaults.set(offersEnabled, forKey: Key.offersEnabled) }
+  }
+
+  var watchedFolders: [URL] {
+    didSet { defaults.set(watchedFolders.map(\.path), forKey: Key.watchedFolders) }
+  }
+
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
     edge = defaults.string(forKey: Key.edge).flatMap(PanelEdge.init(rawValue:)) ?? .right
@@ -39,6 +47,10 @@ final class Preferences {
       case let raw?: Modifier(rawValue: raw) ?? .shift
       }
     soundEnabled = defaults.object(forKey: Key.soundEnabled) as? Bool ?? true
+    offersEnabled = defaults.object(forKey: Key.offersEnabled) as? Bool ?? true
+    watchedFolders = (defaults.stringArray(forKey: Key.watchedFolders) ?? []).map {
+      URL(fileURLWithPath: $0, isDirectory: true)
+    }
   }
 
   private static let gestureOff = "off"
@@ -49,5 +61,7 @@ final class Preferences {
     static let firstRunDone = "firstRunDone"
     static let gesture = "captureGesture"
     static let soundEnabled = "soundEnabled"
+    static let offersEnabled = "offersEnabled"
+    static let watchedFolders = "watchedFolders"
   }
 }

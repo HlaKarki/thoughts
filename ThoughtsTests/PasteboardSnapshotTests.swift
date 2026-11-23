@@ -71,7 +71,28 @@ struct PasteboardSnapshotTests {
     #expect(probe == .text("the selection"))
     #expect(Self.contents(of: board) == before)
     #expect(counts.last == board.changeCount)
-    #expect(counts.count >= 2)
+    #expect(counts.count == 2)
+  }
+
+  @Test func copyReportsOnlyTheCopyAndTheRestore() async {
+    let board = Self.privateBoard()
+    defer { board.releaseGlobally() }
+    Self.fill(board)
+    let before = board.changeCount
+    var settled = 0
+    let reader = SelectionReader(
+      pasteboard: board,
+      postCopy: {
+        board.clearContents()
+        board.setString("first", forType: .string)
+        board.clearContents()
+        board.setString("the selection", forType: .string)
+        settled = board.changeCount
+      },
+      secureInput: { false })
+    let (_, counts) = await reader.copySelection()
+    #expect(counts == [settled, board.changeCount])
+    #expect(!counts.contains(before + 1))
   }
 
   @Test func copyWithNoChangeFindsNothingAndTouchesNothing() async {

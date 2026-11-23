@@ -102,9 +102,10 @@ final class SelectionReader: SelectionReading {
       try? await Task.sleep(for: Self.settle)
       if pasteboard.changeCount == seen { break }
     }
+    let copied = pasteboard.changeCount
     let text = pasteboard.string(forType: .string)
     let restored = snapshot.restore(to: pasteboard)
-    let counts = Array((before + 1)...restored)
+    let counts = [copied, restored]
     guard let text, !text.allSatisfy(\.isWhitespace) else { return (.copiedNothing, counts) }
     return (.text(text), counts)
   }

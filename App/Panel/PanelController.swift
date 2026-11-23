@@ -13,6 +13,8 @@ final class PanelController {
   private var transition = 0
   var onWillShow: (() -> Void)?
   var onWillHide: (() -> Void)?
+  var onDidChangeShown: (() -> Void)?
+  private(set) var restingFrame: CGRect?
 
   init(content: NSView, preferences: Preferences) {
     self.panel = ThoughtsPanel(content: content)
@@ -71,6 +73,7 @@ final class PanelController {
     transition += 1
     hiding = false
     let target = Self.frame(in: screenUnderPointer().visibleFrame, edge: preferences.edge)
+    restingFrame = target
     if reduceMotion {
       panel.setFrame(target, display: false)
       panel.alphaValue = 0
@@ -84,12 +87,15 @@ final class PanelController {
       panel.orderFrontRegardless()
     }
     animate(frame: target, alpha: 1, completion: nil)
+    onDidChangeShown?()
   }
 
   func hide() {
     guard isShown else { return }
     onWillHide?()
     hiding = true
+    restingFrame = nil
+    onDidChangeShown?()
     transition += 1
     let current = transition
     let target =

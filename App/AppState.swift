@@ -19,10 +19,14 @@ final class AppState {
   let capture: CaptureCoordinator
   let chip: EdgeChipPanel
   let gesture: GestureMonitor
+  let clipboard: ClipboardWatcher
+  let offers: OfferCenter
   static let savedChipLifetime: TimeInterval = 1.2
   static let hintChipLifetime: TimeInterval = 2.4
   private var summon: Task<Void, Never>?
   private var captureTask: Task<Void, Never>?
+  private var acceptTask: Task<Void, Never>?
+  private var offerChipShown = false
 
   init(preferences: Preferences = Preferences()) throws {
     let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Thoughts"
@@ -67,15 +71,39 @@ final class AppState {
     }
     let chip = EdgeChipPanel(
       edge: { [panel] in panel.edge },
-      openPanelFrame: { [panel] in panel.isShown ? panel.frame : nil })
+      openPanelFrame: { [panel] in panel.isShown ? panel.restingFrame : nil })
     self.chip = chip
+    panel.onDidChangeShown = { [chip] in chip.reposition() }
+    let sound = SavedSound(preferences: preferences)
+    let clipboard = ClipboardWatcher(isOwnChange: { [pasteboard] in
+      pasteboard.ownChangeCounts.contains($0)
+    })
+    self.clipboard = clipboard
+    let screenshots = ScreenshotFolderWatcher(storageFolder: { [location] in try? location.resolve()
+    })
+    let offers = OfferCenter(
+      preferences: preferences, input: input, clipboard: clipboard, screenshots: screenshots,
+      sound: sound,
+      source: {
+        let source = await recorder.current()
+        return source == Source() ? nil : source
+      })
+    self.offers = offers
+    pasteboard.onOwnChange = { [offers] in offers.noteOwn($0) }
+    input.onManualSave = { [offers] in
+      offers.noteSaved(changeCount: $0.pasteboardChangeCount, file: $0.file)
+    }
     let capture = CaptureCoordinator(
       frontmost: { tracker.frontmost }, ownBundleID: tracker.ownBundleID,
       ownWindowIsKey: { NSApp.keyWindow != nil },
       reader: SelectionReader(readSelection: { ax.selection(pid: $0) }),
       source: { await recorder.current() }, input: input,
-      writer: pasteboard, sound: SavedSound(preferences: preferences))
+      writer: pasteboard, sound: sound,
+      currentOffer: { offers.current?.id },
+      acceptOffer: { try await offers.accept() },
+      clipboardImage: { clipboard.lastImage })
     self.capture = capture
+    clipboard.isPaused = { [capture] in capture.isCapturing }
     let monitor = DragSessionMonitor()
     let zone = EdgeDropZone(panel: panel, preferences: preferences, monitor: monitor)
     dragMonitor = monitor
@@ -111,6 +139,8 @@ final class AppState {
     gesture = GestureMonitor(preferences: preferences)
     gesture.onGesture = { [weak self] in self?.gestureFired() }
     gesture.start()
+    offers.onChange = { [weak self] offer, thumbnail in self?.present(offer, thumbnail: thumbnail) }
+    offers.start()
     summon = SummonShortcut.listen { [panel] in panel.toggle() }
   }
 
@@ -125,18 +155,51 @@ final class AppState {
   private func showFeedback(for outcome: CaptureOutcome) {
     switch outcome {
     case .saved, .acceptedOffer:
-      if !panel.isShown { chip.show(HintChipView(kind: .saved), hideAfter: Self.savedChipLifetime) }
+      if !panel.isShown { showHint(.saved, lifetime: Self.savedChipLifetime) }
     case .nothingToSave:
-      chip.show(HintChipView(kind: .nothingToSave), hideAfter: Self.hintChipLifetime)
+      showHint(.nothingToSave, lifetime: Self.hintChipLifetime)
     case .failed(let message):
-      chip.show(HintChipView(kind: .failed(message)), hideAfter: Self.hintChipLifetime)
+      showHint(.failed(message), lifetime: Self.hintChipLifetime)
+    }
+  }
+
+  private func showHint(_ kind: HintChipView.Kind, lifetime: TimeInterval) {
+    offerChipShown = false
+    chip.show(HintChipView(kind: kind), hideAfter: lifetime)
+  }
+
+  private func present(_ offer: Offer?, thumbnail: NSImage?) {
+    guard let offer else {
+      guard offerChipShown else { return }
+      offerChipShown = false
+      chip.hide()
+      return
+    }
+    offerChipShown = true
+    chip.show(
+      OfferChipView(
+        kind: offer.file == nil ? .clipboard : .file, thumbnail: thumbnail,
+        gesture: preferences.gesture),
+      onClick: { [weak self] in self?.acceptByClick() })
+  }
+
+  private func acceptByClick() {
+    acceptTask = Task { [offers, weak self] in
+      do {
+        let thought = try await offers.accept()
+        self?.showFeedback(for: .acceptedOffer(thought))
+      } catch {
+        self?.showFeedback(for: .failed(CaptureCoordinator.message(for: error)))
+      }
     }
   }
 
   func stop() {
     summon?.cancel()
     captureTask?.cancel()
+    acceptTask?.cancel()
     gesture.stop()
+    offers.stop()
     chip.hide()
     dragMonitor.stop()
     live.stop()

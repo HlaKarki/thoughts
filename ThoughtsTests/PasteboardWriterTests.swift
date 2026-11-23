@@ -1,5 +1,6 @@
 import AppKit
 import Testing
+import ThoughtsCore
 
 @testable import Thoughts
 
@@ -59,5 +60,21 @@ struct PasteboardWriterTests {
     writer.noteOwn(41)
     #expect(writer.ownChangeCounts == [41])
     #expect(reported == [41])
+  }
+
+  @Test func ownWritesNeverBecomeOffers() throws {
+    let board = Self.privateBoard()
+    defer { board.releaseGlobally() }
+    let writer = PasteboardWriter(pasteboard: board)
+    var queue = OfferQueue()
+    writer.onOwnChange = { queue.noteOwn(changeCount: $0) }
+    let now = Date(timeIntervalSince1970: 1_795_000_000)
+    _ = queue.add(.clipboard(changeCount: 90, file: nil, at: now), source: nil)
+    writer.noteOwn(90)
+    #expect(queue.current == nil)
+    writer.write(text: "copied by thoughts")
+    let written = board.changeCount
+    let update = queue.add(.clipboard(changeCount: written, file: nil, at: now), source: nil)
+    #expect(update == .ignore)
   }
 }
