@@ -39,16 +39,18 @@ export function MiniLine({ width }: { readonly width: number }) {
 
 type SelectionProps = {
   readonly text: string
+  readonly xstyle?: stylex.StyleXStyles
+  readonly linesXstyle?: stylex.StyleXStyles
   readonly highlightXstyle?: stylex.StyleXStyles
 }
 
-export function MiniSelection({ text, highlightXstyle }: SelectionProps) {
+export function MiniSelection({ text, xstyle, linesXstyle, highlightXstyle }: SelectionProps) {
   return (
-    <span {...stylex.props(styles.lineRow)}>
-      <span {...stylex.props(styles.selection)}>
-        <span {...stylex.props(styles.highlight, highlightXstyle)} />
-        <span {...stylex.props(styles.selectionText)}>{text}</span>
+    <span {...stylex.props(styles.selection, xstyle)}>
+      <span {...stylex.props(styles.selectionLayer, styles.highlightLayer, linesXstyle)}>
+        <span {...stylex.props(styles.highlight, highlightXstyle)}>{text}</span>
       </span>
+      <span {...stylex.props(styles.selectionLayer, styles.textLayer, linesXstyle)}>{text}</span>
     </span>
   )
 }
@@ -135,19 +137,30 @@ const styles = stylex.create({
   }),
   selection: {
     position: 'relative',
-    display: 'flex',
-  },
-  highlight: {
-    position: 'absolute',
-    inset: 0,
-    backgroundColor: color.selection,
-  },
-  selectionText: {
-    position: 'relative',
-    color: color.selectionTextMini,
+    display: 'block',
+    flexShrink: 0,
     fontFamily: font.text,
     fontSize: size.s11,
     lineHeight: leading.l16,
-    whiteSpace: 'pre',
+  },
+  selectionLayer: {
+    display: '-webkit-box',
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden',
+  },
+  highlightLayer: {
+    position: 'absolute',
+    inset: 0,
+    color: 'transparent',
+  },
+  highlight: {
+    paddingBlock: 1.5,
+    backgroundImage: `linear-gradient(${color.selection}, ${color.selection})`,
+    backgroundRepeat: 'no-repeat',
+    backgroundSize: '100% 100%',
+  },
+  textLayer: {
+    position: 'relative',
+    color: color.selectionTextMini,
   },
 })

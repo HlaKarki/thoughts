@@ -5,21 +5,18 @@ import { MiniLine, MiniPage, MiniSelection } from '@/components/MiniPage'
 import { MiniWindow } from '@/components/MiniWindow'
 import { features } from '@/content/features'
 import { site } from '@/content/site'
-import { wrapWords } from '@/lib/wrapWords'
 import { layout } from '@/styles/layout'
 import { loop } from '@/styles/loop'
-import { sequenceStyles } from '@/styles/sequence'
-import { reveal } from '@/styles/sequence.stylex'
 import { color, font, leading, media, radius, size } from '@/styles/tokens.stylex'
 import { Tile } from './Tile'
 
 const tile = features.selection.tile
 
 const sweep = stylex.keyframes({
-  '0%': { opacity: 1, clipPath: reveal.clipShown },
-  '4%': { opacity: 0, clipPath: reveal.clipShown },
-  '4.01%, 5%': { opacity: 1, clipPath: reveal.clipHidden },
-  '15%, 100%': { opacity: 1, clipPath: reveal.clipShown },
+  '0%': { opacity: 1, backgroundSize: '100% 100%' },
+  '4%': { opacity: 0, backgroundSize: '100% 100%' },
+  '4.01%, 5%': { opacity: 1, backgroundSize: '0% 100%' },
+  '15%, 100%': { opacity: 1, backgroundSize: '100% 100%' },
 })
 
 const pressFirst = stylex.keyframes({
@@ -45,18 +42,15 @@ const panelIn = stylex.keyframes({
   '53%, 100%': { opacity: 1, translate: '0 0' },
 })
 
-const wideColumns = 33
-const narrowColumns = 22
-
-function Selection({ columns }: { readonly columns: number }) {
-  const lines = wrapWords(tile.row, columns)
-  return lines.map((line, index) => (
+function Selection() {
+  return (
     <MiniSelection
-      key={index}
-      text={line}
-      highlightXstyle={[loop.long, styles.sweeping, sequenceStyles.at(index, lines.length)]}
+      text={tile.row}
+      xstyle={styles.measure}
+      linesXstyle={styles.roomForLines}
+      highlightXstyle={[loop.long, styles.sweeping]}
     />
-  ))
+  )
 }
 
 export function SelectionTile() {
@@ -66,12 +60,12 @@ export function SelectionTile() {
         <MiniPage photo={site.photos.bread} compactWhenNarrow>
           <span {...stylex.props(layout.wideFlex, styles.lines)}>
             <MiniLine width={212} />
-            <Selection columns={wideColumns} />
+            <Selection />
             <MiniLine width={150} />
           </span>
           <span {...stylex.props(layout.narrowFlex, styles.lines)}>
             <MiniLine width={120} />
-            <Selection columns={narrowColumns} />
+            <Selection />
             <MiniLine width={96} />
           </span>
         </MiniPage>
@@ -107,6 +101,12 @@ const styles = stylex.create({
   },
   lines: {
     flexDirection: 'column',
+  },
+  measure: {
+    maxWidth: { default: 120, [media.wide]: 200 },
+  },
+  roomForLines: {
+    WebkitLineClamp: { default: 3, [media.wide]: 2 },
   },
   sweeping: {
     animationName: { default: null, [media.motion]: sweep },
