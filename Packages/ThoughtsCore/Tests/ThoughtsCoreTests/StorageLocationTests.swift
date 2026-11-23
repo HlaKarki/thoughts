@@ -215,3 +215,88 @@ private final class Fixture {
   #expect(fixture.settings(location)["folder"] as? String == destination.path)
   #expect(try location.resolve().path == destination.path)
 }
+
+@Test func crossVolumeMoveKeepsFilesWrittenMidMove() throws {
+  let fixture = Fixture()
+  let location = fixture.location()
+  let old = try location.resolve()
+  fixture.write("one", to: old.appendingPathComponent("a.md"))
+  let destination = fixture.url("Elsewhere/Thoughts")
+  #expect {
+    try location.move(
+      to: destination, rename: { _, _ in EXDEV },
+      afterCopy: { fixture.write("late", to: old.appendingPathComponent("late.md")) })
+  } throws: { error in
+    guard case ThoughtsError.io(let reason) = error else { return false }
+    return reason.contains("late.md")
+  }
+  #expect(!fixture.isSymlink(old))
+  #expect(fixture.names(old) == ["late.md"])
+  #expect(fixture.text(old.appendingPathComponent("late.md")) == "late")
+  #expect(fixture.names(destination) == ["a.md"])
+  #expect(fixture.settings(location)["folder"] as? String == destination.path)
+}
+
+@Test func crossVolumeMoveRollsBackWhenAFileChangesMidCopy() throws {
+  let fixture = Fixture()
+  let location = fixture.location()
+  let old = try location.resolve()
+  fixture.write("one", to: old.appendingPathComponent("a.md"))
+  let destination = fixture.url("Elsewhere/Thoughts")
+  #expect(throws: ThoughtsError.io("a.md changed while it was being copied")) {
+    try location.move(
+      to: destination, rename: { _, _ in EXDEV },
+      afterCopy: { fixture.write("two", to: old.appendingPathComponent("a.md")) })
+  }
+  #expect(fixture.text(old.appendingPathComponent("a.md")) == "two")
+  #expect(!fixture.exists(destination))
+  #expect(!fixture.exists(location.settingsFile))
+}
+
+@Test func moveRefusesWhileThoughtsDirIsSet() throws {
+  let fixture = Fixture()
+  let custom = fixture.url("Custom")
+  let location = fixture.location(["THOUGHTS_DIR": custom.path])
+  try location.setFolder(fixture.url("Real"))
+  #expect {
+    try location.move(to: fixture.url("Elsewhere"))
+  } throws: { error in
+    guard case ThoughtsError.io(let reason) = error else { return false }
+    return reason.contains("THOUGHTS_DIR")
+  }
+  #expect(!fixture.exists(custom))
+  #expect(!fixture.exists(fixture.url("Elsewhere")))
+  #expect(fixture.settings(location)["folder"] as? String == fixture.url("Real").path)
+}
+
+@Test func moveBackToOldPathMovesTheFolder() throws {
+  let fixture = Fixture()
+  let location = fixture.location()
+  let a = try location.resolve()
+  let b = fixture.url("Moved")
+  fixture.write("hello", to: a.appendingPathComponent("a.md"))
+  try location.move(to: b)
+  try location.move(to: a)
+  #expect(!fixture.isSymlink(a))
+  #expect(fixture.text(a.appendingPathComponent("a.md")) == "hello")
+  #expect(fixture.isSymlink(b))
+  #expect(fixture.text(b.appendingPathComponent("a.md")) == "hello")
+  #expect(try location.resolve().path == a.path)
+  #expect(fixture.settings(location)["folder"] as? String == a.path)
+}
+
+@Test func moveRefusesSymlinkToElsewhere() throws {
+  let fixture = Fixture()
+  let location = fixture.location()
+  let old = try location.resolve()
+  fixture.write("x", to: old.appendingPathComponent("a.md"))
+  let elsewhere = fixture.url("Elsewhere")
+  try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: false)
+  let link = fixture.url("Link")
+  try FileManager.default.createSymbolicLink(at: link, withDestinationURL: elsewhere)
+  #expect(throws: ThoughtsError.folderNotEmpty(["Link"])) {
+    try location.move(to: link)
+  }
+  #expect(fixture.isSymlink(link))
+  #expect(fixture.exists(old.appendingPathComponent("a.md")))
+}

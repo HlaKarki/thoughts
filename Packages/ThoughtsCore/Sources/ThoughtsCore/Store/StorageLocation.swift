@@ -55,25 +55,51 @@ public struct StorageLocation: Sendable {
     try move(to: destination, rename: Self.renameFolder)
   }
 
-  func move(to destination: URL, rename: (URL, URL) -> Int32) throws {
+  func move(
+    to destination: URL, rename: (URL, URL) -> Int32, afterCopy: () -> Void = {}
+  ) throws {
+    guard environmentFolder == nil else {
+      throw ThoughtsError.io("The folder can't move while THOUGHTS_DIR is set")
+    }
     let source = try resolve().resolvingSymlinksInPath()
     let target = expand(destination.path)
     let resolvedTarget = target.resolvingSymlinksInPath().path
-    guard resolvedTarget != source.path else { return }
-    guard !resolvedTarget.hasPrefix(source.path + "/") else {
-      throw ThoughtsError.io("A folder can't move into itself")
+    let linkToSource = Self.isSymlink(target)
+    if linkToSource {
+      guard resolvedTarget == source.path else {
+        throw ThoughtsError.folderNotEmpty([target.lastPathComponent])
+      }
+    } else {
+      guard resolvedTarget != source.path else { return }
+      guard !resolvedTarget.hasPrefix(source.path + "/") else {
+        throw ThoughtsError.io("A folder can't move into itself")
+      }
     }
     let foreign = try Self.foreignNames(in: source)
     guard foreign.isEmpty else { throw ThoughtsError.folderNotEmpty(foreign) }
-    try checkDestination(target)
+    if !linkToSource { try checkDestination(target) }
 
-    switch rename(source, target) {
-    case 0:
-      try commitRename(from: source, to: target)
-    case EXDEV:
-      try commitCopy(from: source, to: target)
-    case let code:
-      throw ThoughtsError.io(String(cString: strerror(code)))
+    if linkToSource {
+      do {
+        try FileManager.default.removeItem(at: target)
+      } catch {
+        throw ThoughtsError.io(error.localizedDescription)
+      }
+    }
+    do {
+      switch rename(source, target) {
+      case 0:
+        try commitRename(from: source, to: target)
+      case EXDEV:
+        try commitCopy(from: source, to: target, afterCopy: afterCopy)
+      case let code:
+        throw ThoughtsError.io(String(cString: strerror(code)))
+      }
+    } catch {
+      if linkToSource, Self.isAbsent(target) {
+        try? FileManager.default.createSymbolicLink(at: target, withDestinationURL: source)
+      }
+      throw error
     }
   }
 
@@ -170,18 +196,20 @@ public struct StorageLocation: Sendable {
     }
   }
 
-  private func commitCopy(from source: URL, to target: URL) throws {
+  private func commitCopy(from source: URL, to target: URL, afterCopy: () -> Void) throws {
     let fileManager = FileManager.default
     let createdTarget = !fileManager.fileExists(atPath: target.path)
     var copied: [String] = []
     do {
+      let snapshot = try Self.snapshot(of: source)
       try Self.createFolder(target)
-      for name in try Self.names(in: source) {
+      for (name, _) in snapshot {
         try fileManager.copyItem(
           at: source.appendingPathComponent(name), to: target.appendingPathComponent(name))
         copied.append(name)
       }
-      try Self.verifyCopy(of: source, in: target)
+      afterCopy()
+      try Self.verifyCopy(snapshot, from: source, in: target)
       try writeSettings(folder: target)
     } catch {
       if createdTarget {
@@ -191,12 +219,20 @@ public struct StorageLocation: Sendable {
       }
       throw error
     }
+    for name in copied {
+      try? fileManager.removeItem(at: source.appendingPathComponent(name))
+    }
+    guard rmdir(source.path) == 0 else {
+      let left = ((try? Self.names(in: source)) ?? []).sorted().joined(separator: ", ")
+      throw ThoughtsError.io(
+        "Your thoughts are now in \(target.path), but the old folder was kept because it still holds \(left)"
+      )
+    }
     do {
-      try fileManager.removeItem(at: source)
       try fileManager.createSymbolicLink(at: source, withDestinationURL: target)
     } catch {
       throw ThoughtsError.io(
-        "Your thoughts are now in \(target.path), but the old folder could not be cleaned up: \(error.localizedDescription)"
+        "Your thoughts are now in \(target.path), but no link was left at the old path: \(error.localizedDescription)"
       )
     }
   }
@@ -225,17 +261,31 @@ public struct StorageLocation: Sendable {
     }
   }
 
-  private static func verifyCopy(of source: URL, in target: URL) throws {
-    let fileManager = FileManager.default
-    for name in try names(in: source) {
-      let original = try? fileManager.attributesOfItem(
-        atPath: source.appendingPathComponent(name).path)
-      let copy = try? fileManager.attributesOfItem(
-        atPath: target.appendingPathComponent(name).path)
-      guard let copy, copy[.size] as? Int == original?[.size] as? Int else {
-        throw ThoughtsError.io("The copy of \(name) does not match the original")
+  private static func snapshot(of folder: URL) throws -> [(String, FileVersion)] {
+    try names(in: folder).map { name in
+      (name, try AtomicFile.info(at: folder.appendingPathComponent(name)).version)
+    }
+  }
+
+  private static func verifyCopy(
+    _ snapshot: [(String, FileVersion)], from source: URL, in target: URL
+  ) throws {
+    for (name, version) in snapshot {
+      let current = try? AtomicFile.info(at: source.appendingPathComponent(name)).version
+      let copy = try? AtomicFile.info(at: target.appendingPathComponent(name)).version
+      guard current == version, copy?.size == version.size else {
+        throw ThoughtsError.io("\(name) changed while it was being copied")
       }
     }
+  }
+
+  private static func isSymlink(_ url: URL) -> Bool {
+    (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path)) != nil
+  }
+
+  private static func isAbsent(_ url: URL) -> Bool {
+    var info = stat()
+    return lstat(url.path, &info) != 0
   }
 
   private static func foreignNames(in folder: URL) throws -> [String] {
