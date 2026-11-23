@@ -1,9 +1,14 @@
 enum ScriptComments {
-  static func lines(in contents: String, jsx: Bool) -> [Int] {
+  struct Result: Equatable {
+    let lines: [Int]
+    let unparsedLine: Int?
+  }
+
+  static func scan(_ contents: String, jsx: Bool) -> Result {
     var scanner = Scanner(bytes: Array(contents.utf8), jsx: jsx)
     scanner.skipShebang()
     scanner.scanCode(nested: false)
-    return scanner.lines
+    return Result(lines: scanner.lines, unparsedLine: scanner.unparsedLine)
   }
 }
 
@@ -12,6 +17,7 @@ private struct Scanner {
   let jsx: Bool
   var index = 0
   var lines: [Int] = []
+  var unparsedLine: Int?
   var expectsExpression = true
 
   init(bytes: [UInt8], jsx: Bool) {
@@ -44,7 +50,15 @@ private struct Scanner {
     }
   }
 
-  mutating func scanCode(nested: Bool) {
+  private mutating func markUnparsed(at position: Int) {
+    if unparsedLine == nil {
+      unparsedLine = line(at: position)
+    }
+  }
+
+  @discardableResult
+  mutating func scanCode(nested: Bool) -> Bool {
+    let start = index
     var depth = 0
     while let byte = peek() {
       switch byte {
@@ -54,7 +68,10 @@ private struct Scanner {
         skipString(quote: byte)
         expectsExpression = false
       case ascii("`"):
-        skipTemplate()
+        let opening = index
+        if !skipTemplate() {
+          markUnparsed(at: opening)
+        }
         expectsExpression = false
       case ascii("/"):
         if peek(1) == ascii("/") {
@@ -64,15 +81,17 @@ private struct Scanner {
           lines.append(line(at: index))
           skipBlockComment()
         } else if expectsExpression {
-          skipRegex()
+          let opening = index
+          if !skipRegex() {
+            markUnparsed(at: opening)
+          }
           expectsExpression = false
         } else {
           index += 1
           expectsExpression = true
         }
       case ascii("<") where jsx && expectsExpression && startsElement():
-        scanElement()
-        expectsExpression = false
+        scanElementOrTypeParameters()
       case ascii("{"):
         depth += 1
         index += 1
@@ -80,7 +99,7 @@ private struct Scanner {
       case ascii("}"):
         if nested && depth == 0 {
           index += 1
-          return
+          return true
         }
         depth -= 1
         index += 1
@@ -88,6 +107,15 @@ private struct Scanner {
       case ascii(")"), ascii("]"):
         index += 1
         expectsExpression = false
+      case ascii("+"), ascii("-"):
+        if !expectsExpression && peek(1) == byte {
+          index += 2
+        } else {
+          index += 1
+          expectsExpression = true
+        }
+      case ascii("!") where !expectsExpression && peek(1) != ascii("="):
+        index += 1
       default:
         if isWordByte(byte) {
           let word = readWord()
@@ -98,6 +126,10 @@ private struct Scanner {
         }
       }
     }
+    if nested {
+      markUnparsed(at: start)
+    }
+    return !nested
   }
 
   private func isWordByte(_ byte: UInt8) -> Bool {
@@ -151,29 +183,30 @@ private struct Scanner {
     }
   }
 
-  private mutating func skipTemplate() {
+  private mutating func skipTemplate() -> Bool {
     index += 1
     while let byte = peek() {
       if byte == ascii("\\") {
         index += 2
       } else if byte == ascii("`") {
         index += 1
-        return
+        return true
       } else if byte == ascii("$") && peek(1) == ascii("{") {
         index += 2
         expectsExpression = true
-        scanCode(nested: true)
+        guard scanCode(nested: true) else { return false }
       } else {
         index += 1
       }
     }
+    return false
   }
 
-  private mutating func skipRegex() {
+  private mutating func skipRegex() -> Bool {
     index += 1
     var inClass = false
-    while let byte = peek() {
-      if byte == ascii("\n") { return }
+    var closed = false
+    while let byte = peek(), byte != ascii("\n") {
       index += 1
       if byte == ascii("\\") {
         index += 1
@@ -182,12 +215,14 @@ private struct Scanner {
       } else if byte == ascii("]") {
         inClass = false
       } else if byte == ascii("/") && !inClass {
+        closed = true
         break
       }
     }
     while let byte = peek(), isWordByte(byte) {
       index += 1
     }
+    return closed
   }
 
   private func startsElement() -> Bool {
@@ -196,22 +231,59 @@ private struct Scanner {
       || (ascii("A")...ascii("Z")).contains(next)
   }
 
-  private mutating func scanElement() {
+  private mutating func scanElementOrTypeParameters() {
+    let opening = index
+    let saved = (lines: lines, unparsedLine: unparsedLine)
+    if scanElement() {
+      expectsExpression = false
+      return
+    }
+    index = opening
+    lines = saved.lines
+    unparsedLine = saved.unparsedLine
+    if !startsTypeParameters() {
+      markUnparsed(at: opening)
+    }
     index += 1
-    if scanTag() {
-      scanChildren()
+    expectsExpression = true
+  }
+
+  private func startsTypeParameters() -> Bool {
+    var position = index + 1
+    while position < bytes.count, isWordByte(bytes[position]) {
+      position += 1
+    }
+    while position < bytes.count, bytes[position] == ascii(" ") {
+      position += 1
+    }
+    guard position < bytes.count else { return false }
+    let rest = bytes[position...]
+    return rest.starts(with: Array(",".utf8)) || rest.starts(with: Array("extends ".utf8))
+      || rest.starts(with: Array(">(".utf8))
+  }
+
+  private enum Tag {
+    case open, selfClosing, unclosed
+  }
+
+  private mutating func scanElement() -> Bool {
+    index += 1
+    switch scanTag() {
+    case .open: return scanChildren()
+    case .selfClosing: return true
+    case .unclosed: return false
     }
   }
 
-  private mutating func scanTag() -> Bool {
+  private mutating func scanTag() -> Tag {
     while let byte = peek() {
       switch byte {
       case ascii(">"):
         index += 1
-        return true
+        return .open
       case ascii("/") where peek(1) == ascii(">"):
         index += 2
-        return false
+        return .selfClosing
       case ascii("/") where peek(1) == ascii("/"):
         lines.append(line(at: index))
         skipLineComment()
@@ -223,32 +295,34 @@ private struct Scanner {
       case ascii("{"):
         index += 1
         expectsExpression = true
-        scanCode(nested: true)
+        guard scanCode(nested: true) else { return .unclosed }
       default:
         index += 1
       }
     }
-    return false
+    return .unclosed
   }
 
-  private mutating func scanChildren() {
+  private mutating func scanChildren() -> Bool {
     while let byte = peek() {
       if byte == ascii("<") && peek(1) == ascii("/") {
         while let closing = peek(), closing != ascii(">") {
           index += 1
         }
+        guard peek() != nil else { return false }
         index += 1
-        return
+        return true
       } else if byte == ascii("<") {
-        scanElement()
+        guard scanElement() else { return false }
       } else if byte == ascii("{") {
         index += 1
         expectsExpression = true
-        scanCode(nested: true)
+        guard scanCode(nested: true) else { return false }
       } else {
         index += 1
       }
     }
+    return false
   }
 }
 

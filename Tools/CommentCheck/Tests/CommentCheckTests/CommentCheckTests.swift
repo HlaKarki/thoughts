@@ -129,15 +129,18 @@ struct CommentCheckTests {
   @Test func ignoresSlashesInRegexLiterals() {
     let regex = CommentChecker.hits(path: "a.js", contents: "const r = /\\/\\/[/*]+/g.test(s)")
     let division = CommentChecker.hits(path: "a.js", contents: "const h = a / b / c")
-    let returned = CommentChecker.hits(path: "a.js", contents: "function f() { return /\\/\\//.source }")
+    let returned = CommentChecker.hits(
+      path: "a.js", contents: "function f() { return /\\/\\//.source }")
     #expect(regex.isEmpty)
     #expect(division.isEmpty)
     #expect(returned.isEmpty)
   }
 
   @Test func flagsJSXComments() {
-    let child = CommentChecker.hits(path: "a.tsx", contents: "const a = (\n  <div>\n    {/* x */}\n  </div>\n)")
-    let attribute = CommentChecker.hits(path: "a.tsx", contents: "const a = <div\n  // x\n  id=\"b\" />")
+    let child = CommentChecker.hits(
+      path: "a.tsx", contents: "const a = (\n  <div>\n    {/* x */}\n  </div>\n)")
+    let attribute = CommentChecker.hits(
+      path: "a.tsx", contents: "const a = <div\n  // x\n  id=\"b\" />")
     #expect(child == [Hit(path: "a.tsx", line: 3)])
     #expect(attribute == [Hit(path: "a.tsx", line: 2)])
   }
@@ -145,7 +148,8 @@ struct CommentCheckTests {
   @Test func ignoresSlashesInJSXText() {
     let hits = CommentChecker.hits(
       path: "a.tsx",
-      contents: "const a = <p>Go to https://a/b, it's /* fine */ <a href=\"//c\">{d}</a></p>\nconst e = <>{f}</>"
+      contents:
+        "const a = <p>Go to https://a/b, it's /* fine */ <a href=\"//c\">{d}</a></p>\nconst e = <>{f}</>"
     )
     #expect(hits.isEmpty)
   }
@@ -170,5 +174,53 @@ struct CommentCheckTests {
       to: root.appendingPathComponent("a.ts"), atomically: true, encoding: .utf8)
     let hits = try CommentChecker.check(root: root)
     #expect(hits == [Hit(path: "a.ts", line: 1)])
+  }
+
+  @Test func readsTypeLevelGenericsInTSX() {
+    let alias = CommentChecker.hits(
+      path: "a.tsx", contents: "type F = <T>(x: T) => T\nconst a = 1 // x")
+    let annotation = CommentChecker.hits(
+      path: "a.tsx", contents: "let f: <T>(x: T) => T\nconst g = <T,>(x: T) => x // x")
+    #expect(alias == [Hit(path: "a.tsx", line: 2)])
+    #expect(annotation == [Hit(path: "a.tsx", line: 2)])
+  }
+
+  @Test func readsDivisionAfterPostfixOperators() {
+    let increment = CommentChecker.hits(path: "a.ts", contents: "const c = a++ / b // x")
+    let assertion = CommentChecker.hits(path: "a.ts", contents: "const d = a! / b // x")
+    let parenthesis = CommentChecker.hits(path: "a.ts", contents: "const e = (a) / b // x")
+    #expect(increment == [Hit(path: "a.ts", line: 1)])
+    #expect(assertion == [Hit(path: "a.ts", line: 1)])
+    #expect(parenthesis == [Hit(path: "a.ts", line: 1)])
+  }
+
+  @Test func skipsScriptShebang() {
+    let hits = CommentChecker.hits(
+      path: "run.mjs", contents: "#!/usr/bin/env bun\nconst a = 1 // x")
+    #expect(hits == [Hit(path: "run.mjs", line: 2)])
+  }
+
+  @Test func reportsUnclosedElementAsUnparsed() {
+    let hits = CommentChecker.hits(path: "a.tsx", contents: "const a = <div>\nconst b = 1")
+    #expect(hits == [Hit(path: "a.tsx", line: 1, kind: .unparsed)])
+  }
+
+  @Test func reportsUnclosedRegexAndTemplateAsUnparsed() {
+    let regex = CommentChecker.hits(path: "a.js", contents: "const r = /abc\nconst b = 1")
+    let template = CommentChecker.hits(path: "a.ts", contents: "const a = 1\nconst t = `abc")
+    #expect(regex == [Hit(path: "a.js", line: 1, kind: .unparsed)])
+    #expect(template == [Hit(path: "a.ts", line: 2, kind: .unparsed)])
+  }
+
+  @Test func failsTheCheckOnUnparsedFiles() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("comment-check-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try Git.run(["init", "-q"], in: root)
+    try "const a = <div>\n".write(
+      to: root.appendingPathComponent("a.tsx"), atomically: true, encoding: .utf8)
+    let hits = try CommentChecker.check(root: root)
+    #expect(hits == [Hit(path: "a.tsx", line: 1, kind: .unparsed)])
   }
 }

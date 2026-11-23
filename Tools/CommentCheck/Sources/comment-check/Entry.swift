@@ -11,7 +11,13 @@ struct Entry {
     do {
       let hits = try CommentChecker.check(root: URL(fileURLWithPath: root))
       for hit in hits {
-        print("\(hit.path):\(hit.line): comment")
+        switch hit.kind {
+        case .comment: print("\(hit.path):\(hit.line): comment")
+        case .unparsed:
+          print(
+            "\(hit.path):\(hit.line): could not parse here, so comments after this line may be missed"
+          )
+        }
       }
       exit(hits.isEmpty ? 0 : 1)
     } catch {
