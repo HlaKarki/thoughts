@@ -1,6 +1,6 @@
 # Thoughts
 
-Thoughts is a Mac menu bar app for keeping text and screenshots from any app. Press a key to open the panel, type a thought or save what you have selected, and search it all later. Each thought is a Markdown file in a folder you choose, so you can open, sync and back it up like any other file.
+Thoughts is a Mac app with no Dock icon that keeps text and screenshots from any app. Press a key to open the panel, type a thought or save what you have selected, and search it all later. Each thought is a Markdown file in a folder you choose, so you can open, sync and back it up like any other file.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/images/panel-dark.png">
