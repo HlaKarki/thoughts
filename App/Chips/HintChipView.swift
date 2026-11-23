@@ -64,10 +64,23 @@ struct ChipText: View {
   }
 }
 
+struct ChipThumbnail: View {
+  let image: NSImage
+
+  var body: some View {
+    Image(nsImage: image)
+      .resizable()
+      .scaledToFill()
+      .frame(width: 40, height: 40)
+      .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+      .accessibilityHidden(true)
+  }
+}
+
 struct HintChipView: View {
   enum Kind: Equatable {
-    case saved
-    case alreadySaved
+    case saved(SavedPreview)
+    case alreadySaved(SavedPreview)
     case nothingToSave
     case failed(String)
   }
@@ -76,41 +89,51 @@ struct HintChipView: View {
 
   var body: some View {
     ChipSurface {
-      ChipSlot {
-        Image(systemName: symbol)
-          .font(.system(size: 18))
-          .foregroundStyle(tint)
+      if let thumbnail {
+        ChipSlot { ChipThumbnail(image: thumbnail) }
       }
-      switch kind {
-      case .saved:
-        ChipText(title: "Saved", message: nil)
-      case .alreadySaved:
-        ChipText(
-          title: "Already saved", message: String(localized: "It is already in your thoughts"))
-      case .nothingToSave:
-        ChipText(
-          title: "Nothing to save", message: String(localized: "Select text or copy an image first")
-        )
-      case .failed(let message):
-        ChipText(title: "Couldn't save", message: message)
-      }
+      ChipText(title: titleKey, message: line)
+        .padding(.leading, thumbnail == nil ? 6 : 0)
     }
-    .accessibilityElement(children: .combine)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(spokenText)
   }
 
-  private var symbol: String {
+  var spokenText: String {
+    guard let line else { return titleText }
+    return "\(titleText), \(line)"
+  }
+
+  var thumbnail: NSImage? {
     switch kind {
-    case .saved: "checkmark.circle"
-    case .alreadySaved, .nothingToSave: "info.circle"
-    case .failed: "exclamationmark.triangle"
+    case .saved(let preview), .alreadySaved(let preview): preview.thumbnail
+    case .nothingToSave, .failed: nil
     }
   }
 
-  private var tint: Color {
+  var line: String? {
     switch kind {
-    case .saved: Color(nsColor: .systemGreen)
-    case .alreadySaved, .nothingToSave: Color(nsColor: .systemGray)
-    case .failed: Color(nsColor: .systemOrange)
+    case .saved(let preview), .alreadySaved(let preview): preview.line
+    case .nothingToSave: String(localized: "Select text or copy an image first")
+    case .failed(let message): message
+    }
+  }
+
+  private var titleKey: LocalizedStringKey {
+    switch kind {
+    case .saved: "Saved"
+    case .alreadySaved: "Already saved"
+    case .nothingToSave: "Nothing to save"
+    case .failed: "Couldn't save"
+    }
+  }
+
+  private var titleText: String {
+    switch kind {
+    case .saved: String(localized: "Saved")
+    case .alreadySaved: String(localized: "Already saved")
+    case .nothingToSave: String(localized: "Nothing to save")
+    case .failed: String(localized: "Couldn't save")
     }
   }
 }

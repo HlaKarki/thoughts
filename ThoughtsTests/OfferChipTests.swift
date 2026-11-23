@@ -42,7 +42,7 @@ struct OfferChipTests {
   @Test func offerChipIsTheSameSizeAsAHintChip() throws {
     let offer = NSHostingView(
       rootView: OfferChipView(kind: .file, thumbnail: nil, keycap: .doubled(.shift)))
-    let hint = NSHostingView(rootView: HintChipView(kind: .saved))
+    let hint = NSHostingView(rootView: HintChipView(kind: .nothingToSave))
     #expect(offer.fittingSize == hint.fittingSize)
     #expect(offer.fittingSize.width >= 300)
   }

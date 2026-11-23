@@ -221,16 +221,20 @@ final class AppState {
     guard !capture.isCapturing else { return }
     captureTask = Task { [capture, weak self] in
       let outcome = await capture.capture()
-      self?.showFeedback(for: outcome)
+      await self?.showFeedback(for: outcome)
     }
   }
 
-  private func showFeedback(for outcome: CaptureOutcome) {
+  private func showFeedback(for outcome: CaptureOutcome) async {
     switch outcome {
-    case .saved, .acceptedOffer:
-      if !panel.isShown { showHint(.saved, lifetime: Self.savedChipLifetime) }
-    case .alreadySaved:
-      showHint(.alreadySaved, lifetime: Self.hintChipLifetime)
+    case .saved(let thought), .acceptedOffer(let thought):
+      if !panel.isShown {
+        showHint(.saved(await SavedPreview.load(thought)), lifetime: Self.savedChipLifetime)
+      }
+    case .alreadySaved(let thought):
+      var preview = SavedPreview.withoutThought
+      if let thought { preview = await SavedPreview.load(thought) }
+      showHint(.alreadySaved(preview), lifetime: Self.hintChipLifetime)
     case .nothingToSave:
       showHint(.nothingToSave, lifetime: Self.hintChipLifetime)
     case .failed(let message):
@@ -266,9 +270,9 @@ final class AppState {
     acceptTask = Task { [offers, weak self] in
       do {
         let thought = try await offers.accept()
-        self?.showFeedback(for: .acceptedOffer(thought))
+        await self?.showFeedback(for: .acceptedOffer(thought))
       } catch {
-        self?.showFeedback(for: .failed(CaptureCoordinator.message(for: error)))
+        await self?.showFeedback(for: .failed(CaptureCoordinator.message(for: error)))
       }
     }
   }

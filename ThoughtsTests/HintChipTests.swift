@@ -16,10 +16,18 @@ struct HintChipTests {
       width: ChipSurface<EmptyView>.size.width + 2 * EdgeChipPanel.shadowMargin,
       height: ChipSurface<EmptyView>.size.height + 2 * EdgeChipPanel.shadowMargin)
     let tone = appearance == .aqua ? "light" : "dark"
+    let image = try OfferChipTests.thumbnail()
+    let prose = "It fills up after 10, so get on early at Martim Moniz. Bring a book and a coat."
     for (kind, name) in [
       (HintChipView.Kind.nothingToSave, "nothing-to-save"),
-      (.saved, "saved"),
-      (.alreadySaved, "already-saved"),
+      (.saved(SavedPreview(line: prose, thumbnail: nil)), "saved"),
+      (
+        .saved(SavedPreview(line: "Screenshot 2026-11-23 at 10.05.12", thumbnail: image)),
+        "saved-image"
+      ),
+      (.saved(SavedPreview(line: nil, thumbnail: image)), "saved-image-bare"),
+      (.alreadySaved(SavedPreview(line: prose, thumbnail: nil)), "already-saved"),
+      (.alreadySaved(SavedPreview(line: "cat photo.png", thumbnail: image)), "already-saved-image"),
       (.failed("The thoughts folder isn't available: Thoughts"), "failed"),
     ] {
       let url = try SnapshotRenderer.render(

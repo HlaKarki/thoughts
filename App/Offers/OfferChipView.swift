@@ -15,11 +15,7 @@ struct OfferChipView: View {
     ChipSurface {
       ChipSlot {
         if let thumbnail {
-          Image(nsImage: thumbnail)
-            .resizable()
-            .scaledToFill()
-            .frame(width: 40, height: 40)
-            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+          ChipThumbnail(image: thumbnail)
         } else {
           Image(systemName: "photo")
             .font(.system(size: 18, weight: .light))
