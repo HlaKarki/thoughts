@@ -109,6 +109,31 @@ struct ClipboardWatcherTests {
     #expect(watcher.lastImage == ClipboardImage(changeCount: count, seen: Self.now))
   }
 
+  @Test func finderCopyOfANonImageFileWithItsIconIsNotAnImage() async throws {
+    let rig = Self.rig(type: .pdf)
+    defer { rig.board.releaseGlobally() }
+    let temp = try Self.copyFile(named: "report.pdf", to: rig.board)
+    rig.board.addTypes([.tiff], owner: nil)
+    rig.board.setData(try ListFixture.tiff(), forType: .tiff)
+    rig.watcher.poll()
+    await Self.settle()
+    #expect(rig.signals.all.isEmpty)
+    #expect(rig.watcher.lastImage == nil)
+    withExtendedLifetime(temp) {}
+  }
+
+  @Test func fileCopyWithNoDetectedTypeIsDecidedByItsExtension() async throws {
+    let rig = Self.rig(type: nil)
+    defer { rig.board.releaseGlobally() }
+    let temp = try Self.copyFile(named: "notes.txt", to: rig.board)
+    rig.board.addTypes([.tiff], owner: nil)
+    rig.board.setData(try ListFixture.tiff(), forType: .tiff)
+    rig.watcher.poll()
+    await Self.settle()
+    #expect(rig.signals.all.isEmpty)
+    withExtendedLifetime(temp) {}
+  }
+
   @Test func gatedPathRecordsEveryUnclassifiedChangeAsACandidate() async {
     let rig = Self.rig(behavior: .ask)
     defer { rig.board.releaseGlobally() }

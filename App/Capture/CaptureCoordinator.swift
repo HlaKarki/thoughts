@@ -148,10 +148,11 @@ final class CaptureCoordinator {
   }
 
   static func image(in pasteboard: NSPasteboard) -> ImageInput? {
-    for file in PasteboardReader.fileURLs(in: pasteboard) {
-      if UTType(filenameExtension: file.pathExtension)?.conforms(to: .image) == true {
-        return .file(file)
-      }
+    let files = PasteboardReader.fileURLs(in: pasteboard)
+    if !files.isEmpty {
+      return files.first {
+        UTType(filenameExtension: $0.pathExtension)?.conforms(to: .image) == true
+      }.map { .file($0) }
     }
     return PasteboardReader.imageData(in: pasteboard).map { .data($0.data, $0.type) }
   }

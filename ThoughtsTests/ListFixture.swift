@@ -126,4 +126,8 @@ final class ListFixture {
     let bitmap = NSBitmapImageRep(cgImage: image)
     return try #require(bitmap.representation(using: .png, properties: [:]))
   }
+
+  static func tiff() throws -> Data {
+    try #require(NSBitmapImageRep(data: try png())?.tiffRepresentation)
+  }
 }

@@ -102,6 +102,22 @@ struct InputModelTests {
     #expect(!fixture.input.drop(board))
   }
 
+  @Test func aDroppedFileReportsItsSourceFileInTheManualSave() async throws {
+    let (fixture, saves, board) = try Self.rig()
+    defer { board.releaseGlobally() }
+    let folder = TempFolder()
+    try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
+    let file = folder.url.appendingPathComponent("capture.png")
+    try ListFixture.png().write(to: file)
+    board.clearContents()
+    board.writeObjects([file as NSURL])
+    #expect(fixture.input.drop(board))
+    await ListFixture.settle()
+    let save = try #require(saves.all.first)
+    #expect(save.sourceFile?.path == file.path)
+    #expect(save.file.pathExtension == "md")
+  }
+
   static func fill(_ board: NSPasteboard, file: URL? = nil, text: String? = nil, image: Bool) throws
   {
     board.clearContents()

@@ -91,7 +91,7 @@ final class AppState {
     self.offers = offers
     pasteboard.onOwnChange = { [offers] in offers.noteOwn($0) }
     input.onManualSave = { [offers] in
-      offers.noteSaved(changeCount: $0.pasteboardChangeCount, file: $0.file)
+      offers.noteSaved(changeCount: $0.pasteboardChangeCount, file: $0.sourceFile)
     }
     let capture = CaptureCoordinator(
       frontmost: { tracker.frontmost }, ownBundleID: tracker.ownBundleID,

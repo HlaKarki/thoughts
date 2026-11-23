@@ -157,6 +157,32 @@ struct OfferCenterTests {
     #expect(rig.center.current == nil)
   }
 
+  @Test func handSavingTheOfferedFileDropsTheOffer() async throws {
+    let rig = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    let file = try Self.writeShot(in: rig.temp)
+    rig.center.receive(.file(file, at: Date()))
+    await Self.wait { rig.center.current != nil }
+    let alias = rig.temp.url.appendingPathComponent(
+      "../\(rig.temp.url.lastPathComponent)/\(file.lastPathComponent)")
+    rig.center.noteSaved(changeCount: nil, file: alias)
+    #expect(rig.center.current == nil)
+    rig.center.receive(.file(file, at: Date().addingTimeInterval(30)))
+    try? await Task.sleep(for: .milliseconds(100))
+    #expect(rig.center.current == nil)
+  }
+
+  @Test func savingAnotherFileKeepsTheOffer() async throws {
+    let rig = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    let file = try Self.writeShot(in: rig.temp)
+    rig.center.receive(.file(file, at: Date()))
+    await Self.wait { rig.center.current != nil }
+    rig.center.noteSaved(
+      changeCount: nil, file: rig.temp.url.appendingPathComponent("other.png"))
+    #expect(rig.center.current?.file == file)
+  }
+
   @Test func fileOfferShowsAThumbnailAndClipboardOfferOnlyWhenAlwaysAllowed() async throws {
     let gated = try Self.rig(behavior: .ask)
     defer { gated.board.releaseGlobally() }

@@ -27,6 +27,7 @@ enum Attachment: Equatable {
 
 struct ManualSave: Equatable {
   let file: URL
+  let sourceFile: URL?
   let pasteboardChangeCount: Int?
 }
 
@@ -125,7 +126,10 @@ final class InputModel {
   func save(_ new: NewThought, pasteboardChangeCount: Int?) async throws -> Thought {
     let store = ThoughtStore(folder: try location.resolve())
     let saved = try await Task.detached { try store.add(new) }.value
-    onManualSave(ManualSave(file: saved.file, pasteboardChangeCount: pasteboardChangeCount))
+    let sourceFile = new.source?.file.map { URL(fileURLWithPath: $0) }
+    onManualSave(
+      ManualSave(
+        file: saved.file, sourceFile: sourceFile, pasteboardChangeCount: pasteboardChangeCount))
     return saved
   }
 

@@ -70,10 +70,12 @@ final class ClipboardWatcher {
     var knownNotImage = false
     if allowed {
       let types = pasteboard.types ?? []
-      isImage = types.contains(where: Self.isImageType)
       if types.contains(.fileURL) {
         let type = await contentType()
-        if type?.conforms(to: .image) == true { isImage = true }
+        isImage =
+          type.map { $0.conforms(to: .image) } ?? (Self.imageFile(in: pasteboard) != nil)
+      } else {
+        isImage = types.contains(where: Self.isImageType)
       }
       knownNotImage = !isImage
     } else {

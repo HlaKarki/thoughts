@@ -70,6 +70,12 @@ final class OfferCenter {
 
   func noteSaved(changeCount: Int?, file: URL?) {
     let before = queue.current?.id
+    var file = file
+    if let saved = file, let offered = queue.current?.file,
+      ScreenshotFolderWatcher.key(saved) == ScreenshotFolderWatcher.key(offered)
+    {
+      file = offered
+    }
     queue.noteSaved(changeCount: changeCount, file: file, at: now())
     dropIfGone(was: before)
   }
@@ -173,7 +179,9 @@ final class OfferCenter {
     if let file = offer.file ?? ClipboardWatcher.imageFile(in: pasteboard) {
       return await OfferThumbnail.make(file: file)
     }
-    guard let found = PasteboardReader.imageData(in: pasteboard) else { return nil }
+    guard PasteboardReader.fileURLs(in: pasteboard).isEmpty,
+      let found = PasteboardReader.imageData(in: pasteboard)
+    else { return nil }
     return await OfferThumbnail.make(data: found.data)
   }
 

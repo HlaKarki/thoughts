@@ -168,6 +168,20 @@ struct CaptureCoordinatorTests {
     #expect(saves.first?.pasteboardChangeCount == count)
   }
 
+  @Test func aNonImageFileOnTheClipboardIsNotSavedAsItsIcon() throws {
+    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    defer { board.releaseGlobally() }
+    let folder = TempFolder()
+    try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
+    let file = folder.url.appendingPathComponent("report.pdf")
+    try Data([1]).write(to: file)
+    board.clearContents()
+    board.writeObjects([file as NSURL])
+    board.addTypes([.tiff], owner: nil)
+    board.setData(try ListFixture.tiff(), forType: .tiff)
+    #expect(CaptureCoordinator.image(in: board) == nil)
+  }
+
   @Test func staleClipboardImageSavesNothing() async throws {
     let rig = try Self.rig(
       front: Self.editor, image: { ClipboardImage(changeCount: -1, seen: ListFixture.now) })
