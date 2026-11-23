@@ -13,6 +13,7 @@ final class AppState {
   let dropZone: EdgeDropZone
   let preferences: Preferences
   let panel: PanelController
+  let entry: PanelEntry
   let actions: ThoughtActions
   let pasteboard: PasteboardWriter
   let preview: PreviewWindowController
@@ -72,6 +73,8 @@ final class AppState {
     let content = DropDestinationView(content: hosting)
     let panel = PanelController(content: content, preferences: preferences)
     self.panel = panel
+    let entry = PanelEntry(panel)
+    self.entry = entry
     let pasteboard = PasteboardWriter()
     self.pasteboard = pasteboard
     let actions = ThoughtActions(list: list, location: location, pasteboard: pasteboard)
@@ -206,7 +209,7 @@ final class AppState {
     importer?.start()
     clipboard.start()
     gate.launch()
-    summon = SummonShortcut.listen { [panel] in panel.toggle() }
+    summon = SummonShortcut.listen { entry.summon() }
   }
 
   private func gestureFired() {

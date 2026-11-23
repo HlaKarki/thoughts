@@ -54,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool
   {
-    state?.panel.show()
+    state?.entry.reopen()
     return true
   }
 
