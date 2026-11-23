@@ -10,6 +10,9 @@ configFiles:
 packages:
   ThoughtsCore:
     path: Packages/ThoughtsCore
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    minorVersion: 3.1.0
 targets:
   Thoughts:
     type: application
@@ -37,11 +40,23 @@ targets:
     dependencies:
       - package: ThoughtsCore
         product: ThoughtsCore
+      - package: KeyboardShortcuts
       - target: ThoughtsCLI
         embed: true
         copy:
           destination: wrapper
           subpath: Contents/Helpers
+  ThoughtsTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - ThoughtsTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.hla.thoughts.tests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: Thoughts
   ThoughtsCLI:
     type: tool
     platform: macOS
@@ -50,6 +65,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: thoughts
+        PRODUCT_MODULE_NAME: ThoughtsCLI
     dependencies:
       - package: ThoughtsCore
         product: ThoughtsCommands
@@ -62,6 +78,8 @@ schemes:
       config: Debug
     test:
       config: Debug
+      targets:
+        - ThoughtsTests
     profile:
       config: Release
     analyze:

@@ -10,7 +10,8 @@ Run these before every commit.
 - Comment check: `swift run --package-path Tools/CommentCheck comment-check .`
 - Format: `git ls-files -z --cached --others --exclude-standard '*.swift' | xargs -0 xcrun swift-format format -i`, then the same list piped to `xargs -0 xcrun swift-format lint --strict`
 - Core tests: `swift test --package-path Packages/ThoughtsCore`
-- App build: `xcodegen generate && xcodebuild -project Thoughts.xcodeproj -scheme Thoughts -configuration Debug build`
+- App build: `xcodegen generate && mkdir -p Thoughts.xcodeproj/project.xcworkspace/xcshareddata/swiftpm && cp Config/Package.resolved Thoughts.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/ && xcodebuild -project Thoughts.xcodeproj -scheme Thoughts -configuration Debug build`
+- App tests: `xcodebuild test -project Thoughts.xcodeproj -scheme Thoughts -configuration Debug -destination 'platform=macOS'`
 
 Copy `Config/Local.xcconfig.example` to `Config/Local.xcconfig` to sign with your own team. Without it the app signs ad hoc.
 

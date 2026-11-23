@@ -30,4 +30,8 @@ jobs:
       - name: App build
         run: |
           xcodegen generate
+          mkdir -p Thoughts.xcodeproj/project.xcworkspace/xcshareddata/swiftpm
+          cp Config/Package.resolved Thoughts.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
           xcodebuild -project Thoughts.xcodeproj -scheme Thoughts -configuration Debug -onlyUsePackageVersionsFromResolvedFile CODE_SIGNING_ALLOWED=NO build
+      - name: App tests
+        run: xcodebuild test -project Thoughts.xcodeproj -scheme Thoughts -configuration Debug -destination 'platform=macOS' -onlyUsePackageVersionsFromResolvedFile
