@@ -1,4 +1,6 @@
+import { highlight } from '@/lib/highlight'
 import { site } from './site'
+import { thoughts } from './thoughts'
 import type { Rich } from './types'
 
 type Card<Tile> = {
@@ -71,6 +73,8 @@ type Features = {
   }>
 }
 
+const searchQuery = 'oven'
+
 export const features: Features = {
   heading: ['Save it in the app', 'where you found it.'],
   headingMuted: 'Find it later in one list.',
@@ -84,8 +88,8 @@ export const features: Features = {
       label: 'A selected sentence on a recipe page becomes the newest thought in the panel.',
       key: '⇧',
       saved: 'Saved',
-      row: 'Let the dough rest for 30 minutes before you add the salt.',
-      time: '10:24',
+      row: thoughts.dough.text,
+      time: thoughts.dough.time,
     },
   },
   screenshot: {
@@ -100,7 +104,7 @@ export const features: Features = {
       offerTitle: 'Image copied',
       offerSubtitle: 'Keep as a thought?',
       offerKeys: '⇧⇧',
-      time: '10:05',
+      time: thoughts.oven.time,
     },
   },
   search: {
@@ -110,21 +114,18 @@ export const features: Features = {
     ],
     tile: {
       label: 'A search for oven finds a recipe screenshot and a note.',
-      query: 'oven',
+      query: searchQuery,
       page: {
         source: 'Safari: Sourdough, step by step',
-        text: ['Text in image: "Heat the ', { strong: 'oven' }, ' to 250°C"'],
+        text: highlight('Text in image: "Heat the oven to 250°C"', searchQuery),
         time: '9:58',
       },
       note: {
-        text: ['Which one goes in the ', { strong: 'oven' }, '?'],
+        text: highlight(thoughts.oven.text, searchQuery),
         source: 'Preview: IMG_0412.jpeg',
-        time: '10:05',
+        time: thoughts.oven.time,
       },
-      newest: {
-        text: 'Let the dough rest for 30 minutes before you add the salt.',
-        time: '10:24',
-      },
+      newest: thoughts.dough,
     },
   },
   markdown: {
@@ -147,11 +148,11 @@ export const features: Features = {
         '  bundle: com.apple.Preview',
         '  window: IMG_0412.jpeg',
         '---',
-        'Which one goes in the oven?',
+        thoughts.oven.text,
       ].join('\n'),
       typed: 'Not the cat.',
-      note: 'Which one goes in the oven?',
-      time: '10:05',
+      note: thoughts.oven.text,
+      time: thoughts.oven.time,
     },
   },
   agents: {

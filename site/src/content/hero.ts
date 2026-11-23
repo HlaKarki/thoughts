@@ -1,4 +1,5 @@
 import { site } from './site'
+import { thoughts } from './thoughts'
 
 export type PanelRow =
   | {
@@ -15,11 +16,6 @@ export type PanelRow =
       readonly note: string
       readonly time: string
     }
-
-export type TextRun = {
-  readonly text: string
-  readonly selected?: boolean
-}
 
 export type KeyHint = {
   readonly label: string
@@ -41,7 +37,11 @@ type Hero = {
     readonly photo: string
     readonly photoAlt: string
     readonly heading: string
-    readonly paragraph: ReadonlyArray<ReadonlyArray<TextRun>>
+    readonly paragraph: {
+      readonly before: string
+      readonly selected: string
+      readonly after: string
+    }
   }
   readonly panel: {
     readonly search: string
@@ -57,7 +57,7 @@ export const hero: Hero = {
   menuBar: {
     app: 'Safari',
     menus: ['File', 'Edit', 'View', 'History', 'Bookmarks', 'Window', 'Help'],
-    clock: 'Mon Nov 23 10:24 AM',
+    clock: `Mon Nov 23 ${thoughts.dough.time} AM`,
   },
   browser: {
     address: 'example.com',
@@ -67,11 +67,11 @@ export const hero: Hero = {
     photo: site.photos.bread,
     photoAlt: 'A round sourdough loaf on a board.',
     heading: 'Mix and rest',
-    paragraph: [
-      [{ text: 'Mix the flour and water until no dry bits remain. ' }, { text: 'Let the dough rest for 30', selected: true }],
-      [{ text: 'minutes before you add the salt.', selected: true }, { text: ' The rest gives the flour time to soak up the' }],
-      [{ text: 'water, so the dough is easier to knead.' }],
-    ],
+    paragraph: {
+      before: 'Mix the flour and water until no dry bits remain. ',
+      selected: thoughts.dough.text,
+      after: ' The rest gives the flour time to soak up the water, so the dough is easier to knead.',
+    },
   },
   panel: {
     search: 'Search thoughts',
@@ -110,10 +110,10 @@ export const hero: Hero = {
         kind: 'image',
         image: site.photos.cat,
         alt: 'A screenshot of an orange cat sitting like a loaf, with a red box around it.',
-        note: 'Which one goes in the oven?',
-        time: '10:05',
+        note: thoughts.oven.text,
+        time: thoughts.oven.time,
       },
-      { kind: 'text', text: 'Let the dough rest for 30 minutes before you add the salt.', time: '10:24' },
+      { kind: 'text', ...thoughts.dough },
     ],
     composer: 'Add a thought',
     hints: [

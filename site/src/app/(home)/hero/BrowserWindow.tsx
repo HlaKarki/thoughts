@@ -32,15 +32,9 @@ export function BrowserWindow() {
         <div {...stylex.props(styles.section)}>
           <p {...stylex.props(styles.heading)}>{page.heading}</p>
           <p {...stylex.props(styles.paragraph)}>
-            {page.paragraph.map((line, index) => (
-              <span key={index} {...stylex.props(styles.line)}>
-                {line.map((run) => (
-                  <span key={run.text} {...stylex.props(run.selected && styles.selected)}>
-                    {run.text}
-                  </span>
-                ))}
-              </span>
-            ))}
+            {page.paragraph.before}
+            <span {...stylex.props(styles.selected)}>{page.paragraph.selected}</span>
+            {page.paragraph.after}
           </p>
         </div>
       </div>
@@ -168,17 +162,12 @@ const styles = stylex.create({
     lineHeight: leading.l28,
   },
   paragraph: {
-    display: 'flex',
-    flexDirection: 'column',
     color: color.pageBody,
     fontSize: size.s15,
     lineHeight: leading.l24,
   },
-  line: {
-    display: 'flex',
-    whiteSpace: 'pre',
-  },
   selected: {
+    paddingBlock: 3,
     backgroundColor: color.selection,
     color: color.selectionText,
   },
