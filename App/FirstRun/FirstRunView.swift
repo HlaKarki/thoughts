@@ -208,13 +208,6 @@ private struct GestureStep: View {
         .frame(width: 150)
       }
       .padding(.top, 10)
-      if model.showsJetBrainsNote {
-        InfoNote(
-          text:
-            "JetBrains IDEs use double Shift for Search Everywhere. If you work in one, use a shortcut here instead."
-        )
-        .padding(.top, 16)
-      }
     }
     .font(.system(size: 13))
   }

@@ -174,14 +174,9 @@ final class AppState {
     let moving = StorageMover.moving(location: location, index: index, live: live)
     let choosing = StorageMover.choosing(location: location, index: index, live: live)
     let gate = OfferGate(firstRunDone: { preferences.firstRunDone }, start: { offers.start() })
-    let installedIDEs = InstalledIDEs()
-    let applicationFolders = InstalledApplications.folders(
-      home: FileManager.default.homeDirectoryForCurrentUser)
-    Task { await installedIDEs.scan(folders: applicationFolders) }
     let settings = SettingsWindowController {
       let model = SettingsModel(
-        preferences: preferences, services: services, login: .live, storage: moving,
-        installedIDEs: installedIDEs)
+        preferences: preferences, services: services, login: .live, storage: moving)
       model.onStorageRepointed = { [list] in list.storageRepointed() }
       return model
     }
@@ -189,8 +184,7 @@ final class AppState {
     openSettings.fire = { settings.show() }
     firstRun = FirstRunWindowController {
       let model = FirstRunModel(
-        preferences: preferences, services: services, storage: choosing,
-        installedIDEs: installedIDEs)
+        preferences: preferences, services: services, storage: choosing)
       model.onAccessibilityGranted = { gesture.reinstall() }
       model.onFinish = {
         gate.firstRunFinished()

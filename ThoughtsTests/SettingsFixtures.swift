@@ -95,12 +95,11 @@ enum SettingsFixtures {
   @MainActor
   static func firstRun(
     system: FakeSystem, preferences: Preferences, mover: StorageMover = mover(),
-    summonKeySet: Bool = true, captureShortcutText: String? = nil,
-    installedIDEs: InstalledIDEs = InstalledIDEs()
+    summonKeySet: Bool = true, captureShortcutText: String? = nil
   ) throws -> FirstRunModel {
     FirstRunModel(
       preferences: preferences, services: system.services, storage: mover,
-      screenshots: try screenshots(), home: home, installedIDEs: installedIDEs,
+      screenshots: try screenshots(), home: home,
       pollInterval: .milliseconds(1),
       summonKeySet: { summonKeySet }, captureShortcutText: { captureShortcutText })
   }
@@ -108,10 +107,10 @@ enum SettingsFixtures {
   @MainActor
   static func settings(
     system: FakeSystem, preferences: Preferences, login: FakeLogin = FakeLogin(),
-    mover: StorageMover = mover(), installedIDEs: InstalledIDEs = InstalledIDEs()
+    mover: StorageMover = mover()
   ) throws -> SettingsModel {
     SettingsModel(
       preferences: preferences, services: system.services, login: login.control, storage: mover,
-      screenshots: try screenshots(), home: home, installedIDEs: installedIDEs)
+      screenshots: try screenshots(), home: home)
   }
 }

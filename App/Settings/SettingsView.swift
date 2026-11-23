@@ -95,14 +95,6 @@ struct KeysSettings: View {
         MethodPicker(selection: $preferences.captureMethod).frame(width: 160)
       }
     }
-    if preferences.captureMethod == .doubleTap(.shift), model.showsJetBrainsNote {
-      InfoNote(
-        text:
-          "JetBrains IDEs use double Shift for Search Everywhere. If you work in one, use a shortcut here instead."
-      )
-      .padding(.horizontal, 12)
-      .padding(.bottom, 12)
-    }
   }
 }
 

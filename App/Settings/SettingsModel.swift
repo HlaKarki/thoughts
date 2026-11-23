@@ -16,7 +16,6 @@ final class SettingsModel {
   private(set) var clipboardAccess: NSPasteboard.AccessBehavior
   var selectedFolder: URL?
   @ObservationIgnored private let services: SystemServices
-  @ObservationIgnored private let installedIDEs: InstalledIDEs
   @ObservationIgnored private let login: LoginControl
   @ObservationIgnored private let storage: StorageMover
   @ObservationIgnored private let screenshots: ScreenshotLocation
@@ -28,12 +27,10 @@ final class SettingsModel {
     login: LoginControl,
     storage: StorageMover,
     screenshots: ScreenshotLocation = ScreenshotLocation(),
-    home: URL = FileManager.default.homeDirectoryForCurrentUser,
-    installedIDEs: InstalledIDEs = InstalledIDEs()
+    home: URL = FileManager.default.homeDirectoryForCurrentUser
   ) {
     self.preferences = preferences
     self.services = services
-    self.installedIDEs = installedIDEs
     self.login = login
     self.storage = storage
     self.screenshots = screenshots
@@ -45,8 +42,6 @@ final class SettingsModel {
   }
 
   var storageText: String { PathText.abbreviated(storageFolder, home: home) }
-
-  var showsJetBrainsNote: Bool { installedIDEs.hasJetBrains }
 
   var screenshotFolder: URL { screenshots.folder }
 
