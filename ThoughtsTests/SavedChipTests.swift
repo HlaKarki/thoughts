@@ -115,4 +115,12 @@ struct SavedChipTests {
       #expect(size == CGSize(width: 300, height: 60))
     }
   }
+
+  @Test func everyHintChipStaysForTheSameLifetime() {
+    let preview = SavedPreview(line: "words", thumbnail: nil)
+    let kinds: [HintChipView.Kind] = [
+      .saved(preview), .alreadySaved(preview), .nothingToSave, .failed("no"),
+    ]
+    #expect(Set(kinds.map(\.lifetime)) == [2.4])
+  }
 }

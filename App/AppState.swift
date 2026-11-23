@@ -30,8 +30,6 @@ final class AppState {
   let updater: Updater
   let menuBar: MenuBarController
   let shared: SharedMenuItems
-  static let savedChipLifetime: TimeInterval = 1.2
-  static let hintChipLifetime: TimeInterval = 2.4
   private var summon: Task<Void, Never>?
   private var captureTask: Task<Void, Never>?
   private var acceptTask: Task<Void, Never>?
@@ -229,26 +227,26 @@ final class AppState {
     switch outcome {
     case .saved(let thought), .acceptedOffer(let thought):
       if !panel.isShown {
-        showHint(.saved(await SavedPreview.load(thought)), lifetime: Self.savedChipLifetime)
+        showHint(.saved(await SavedPreview.load(thought)))
       }
     case .alreadySaved(let thought):
       var preview = SavedPreview.withoutThought
       if let thought { preview = await SavedPreview.load(thought) }
-      showHint(.alreadySaved(preview), lifetime: Self.hintChipLifetime)
+      showHint(.alreadySaved(preview))
     case .nothingToSave:
-      showHint(.nothingToSave, lifetime: Self.hintChipLifetime)
+      showHint(.nothingToSave)
     case .failed(let message):
-      showHint(.failed(message), lifetime: Self.hintChipLifetime)
+      showHint(.failed(message))
     }
   }
 
   private func showFailure(_ message: String) {
-    showHint(.failed(message), lifetime: Self.hintChipLifetime)
+    showHint(.failed(message))
   }
 
-  private func showHint(_ kind: HintChipView.Kind, lifetime: TimeInterval) {
+  private func showHint(_ kind: HintChipView.Kind) {
     offerChipShown = false
-    chip.show(HintChipView(kind: kind), hideAfter: lifetime)
+    chip.show(HintChipView(kind: kind), hideAfter: kind.lifetime)
   }
 
   private func present(_ offer: Offer?, thumbnail: NSImage?) {

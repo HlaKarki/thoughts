@@ -83,7 +83,11 @@ struct HintChipView: View {
     case alreadySaved(SavedPreview)
     case nothingToSave
     case failed(String)
+
+    var lifetime: TimeInterval { HintChipView.lifetime }
   }
+
+  static let lifetime: TimeInterval = 2.4
 
   let kind: Kind
 
