@@ -68,7 +68,7 @@ check_signatures() {
     $app/Contents/Helpers/*(N)
   )
   local target
-  for target in $nested $app; do
+  for target in ${(u)nested:A} $app; do
     check_signature $target
   done
   codesign --verify --deep --strict $app || fail "codesign --verify --deep --strict rejected the app"
@@ -83,10 +83,10 @@ cask "thoughts" do
   url "https://github.com/HlaKarki/thoughts/releases/download/v#{version}/Thoughts-#{version}.zip"
   name "Thoughts"
   desc "Save text and screenshots from any app as Markdown files"
-  homepage "https://thoughts.hla.dev"
+  homepage "https://thoughts.hla.dev/"
 
   auto_updates true
-  depends_on macos: ">= :sequoia"
+  depends_on macos: :sequoia
 
   app "Thoughts.app"
   binary "#{appdir}/Thoughts.app/Contents/Helpers/thoughts"
