@@ -1,0 +1,38 @@
+import AppKit
+import SwiftUI
+
+@MainActor
+final class SettingsWindowController {
+  private var window: NSWindow?
+  private var model: SettingsModel?
+  private let makeModel: @MainActor () -> SettingsModel
+
+  init(makeModel: @escaping @MainActor () -> SettingsModel) {
+    self.makeModel = makeModel
+  }
+
+  func show() {
+    let model = self.model ?? makeModel()
+    self.model = model
+    model.refresh()
+    let window = self.window ?? makeWindow(model: model)
+    self.window = window
+    NSApp.activate()
+    window.makeKeyAndOrderFront(nil)
+  }
+
+  private func makeWindow(model: SettingsModel) -> NSWindow {
+    let window = NSWindow(
+      contentRect: CGRect(origin: .zero, size: SettingsView.size),
+      styleMask: [.titled, .closable, .miniaturizable],
+      backing: .buffered,
+      defer: false)
+    window.title = String(localized: "Thoughts Settings")
+    window.isReleasedWhenClosed = false
+    let hosting = NSHostingView(rootView: SettingsView(model: model))
+    hosting.sizingOptions = []
+    window.contentView = hosting
+    window.center()
+    return window
+  }
+}

@@ -4,6 +4,7 @@ struct PanelRootView: View {
   let preferences: Preferences
   @Bindable var list: ListModel
   @Bindable var input: InputModel
+  var onOpenSettings: (() -> Void)?
   @FocusState private var field: Focus?
 
   var body: some View {
@@ -64,7 +65,8 @@ struct PanelRootView: View {
   private var header: some View {
     HStack(spacing: 8) {
       SearchField(list: list, field: $field)
-      MoreMenu(preferences: preferences, onClearDone: { list.clearDone() })
+      MoreMenu(
+        preferences: preferences, onClearDone: { list.clearDone() }, onOpenSettings: onOpenSettings)
     }
     .padding(.top, 12)
     .padding(.bottom, 10)

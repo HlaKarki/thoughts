@@ -46,6 +46,11 @@ final class GestureMonitor {
     uninstall()
   }
 
+  func reinstall() {
+    guard running else { return }
+    apply()
+  }
+
   private func follow() {
     withObservationTracking {
       _ = preferences.gesture

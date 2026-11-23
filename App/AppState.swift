@@ -21,12 +21,18 @@ final class AppState {
   let gesture: GestureMonitor
   let clipboard: ClipboardWatcher
   let offers: OfferCenter
+  let settings: SettingsWindowController
+  let firstRun: FirstRunWindowController
   static let savedChipLifetime: TimeInterval = 1.2
   static let hintChipLifetime: TimeInterval = 2.4
   private var summon: Task<Void, Never>?
   private var captureTask: Task<Void, Never>?
   private var acceptTask: Task<Void, Never>?
   private var offerChipShown = false
+
+  private final class Trigger {
+    var fire: () -> Void = {}
+  }
 
   init(preferences: Preferences = Preferences()) throws {
     let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Thoughts"
@@ -48,8 +54,11 @@ final class AppState {
       return source == Source() ? nil : source
     }
     self.input = input
+    let openSettings = Trigger()
     let hosting = NSHostingView(
-      rootView: PanelRootView(preferences: preferences, list: list, input: input))
+      rootView: PanelRootView(
+        preferences: preferences, list: list, input: input,
+        onOpenSettings: { openSettings.fire() }))
     hosting.sizingOptions = []
     let content = DropDestinationView(content: hosting)
     let panel = PanelController(content: content, preferences: preferences)
@@ -136,7 +145,23 @@ final class AppState {
     }
     zone.start()
     list.start()
-    gesture = GestureMonitor(preferences: preferences)
+    let gesture = GestureMonitor(preferences: preferences)
+    let services = SystemServices.live
+    let moving = StorageMover.moving(location: location, index: index, live: live)
+    let choosing = StorageMover.choosing(location: location, index: index, live: live)
+    let settings = SettingsWindowController {
+      SettingsModel(
+        preferences: preferences, services: services, login: .live, storage: moving)
+    }
+    self.settings = settings
+    openSettings.fire = { settings.show() }
+    firstRun = FirstRunWindowController {
+      let model = FirstRunModel(preferences: preferences, services: services, storage: choosing)
+      model.onAccessibilityGranted = { gesture.reinstall() }
+      model.onFinish = { panel.show() }
+      return model
+    }
+    self.gesture = gesture
     gesture.onGesture = { [weak self] in self?.gestureFired() }
     gesture.start()
     offers.onChange = { [weak self] offer, thumbnail in self?.present(offer, thumbnail: thumbnail) }

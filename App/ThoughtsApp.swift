@@ -24,7 +24,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     guard !Self.runsUnderTests else { return }
     do {
-      state = try AppState()
+      let state = try AppState()
+      self.state = state
+      let kind = LaunchKind.current()
+      switch LaunchAction.decide(firstRunDone: state.preferences.firstRunDone, kind: kind) {
+      case .firstRun: state.firstRun.show()
+      case .showPanel: state.panel.show()
+      case .nothing: break
+      }
     } catch {
       let alert = NSAlert()
       alert.messageText = String(localized: "Thoughts can't start")
