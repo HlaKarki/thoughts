@@ -28,6 +28,7 @@ final class AppState {
   let importer: InboxImporter?
   let urls: URLHandler
   let updater: Updater
+  let menuBar: MenuBarController
   let shared: SharedMenuItems
   static let savedChipLifetime: TimeInterval = 1.2
   static let hintChipLifetime: TimeInterval = 2.4
@@ -75,6 +76,13 @@ final class AppState {
     self.panel = panel
     let entry = PanelEntry(panel)
     self.entry = entry
+    let menuBarMenu = MenuBarMenu(shared: shared)
+    let menuBar = MenuBarController(
+      preferences: preferences, updates: updater.item,
+      surface: SystemStatusItem(menu: menuBarMenu.menu), menu: menuBarMenu,
+      showPanel: { entry.fromMenu(on: $0) })
+    self.menuBar = menuBar
+    menuBar.start()
     let pasteboard = PasteboardWriter()
     self.pasteboard = pasteboard
     let actions = ThoughtActions(list: list, location: location, pasteboard: pasteboard)
@@ -268,6 +276,7 @@ final class AppState {
 
   func stop() {
     summon?.cancel()
+    menuBar.stop()
     captureTask?.cancel()
     acceptTask?.cancel()
     gesture.stop()
