@@ -206,11 +206,13 @@ private struct GestureStep: View {
         .frame(width: 150)
       }
       .padding(.top, 10)
-      InfoNote(
-        text:
-          "JetBrains IDEs use double Shift for Search Everywhere. If you work in one, use a shortcut here instead."
-      )
-      .padding(.top, 16)
+      if model.showsJetBrainsNote {
+        InfoNote(
+          text:
+            "JetBrains IDEs use double Shift for Search Everywhere. If you work in one, use a shortcut here instead."
+        )
+        .padding(.top, 16)
+      }
     }
     .font(.system(size: 13))
   }
@@ -357,7 +359,13 @@ private struct ClipboardStep: View {
       OfferChipView(kind: .clipboard, thumbnail: nil, keycap: model.captureKeycap)
         .padding(.top, 14)
         .padding(.bottom, -4)
-      if model.showsClipboardPromptNote {
+      if model.clipboardAccess == .alwaysDeny {
+        InfoNote(
+          text:
+            "macOS is set to never let Thoughts paste from other apps, so offers show no preview. You can change this in System Settings under Privacy & Security, Paste from Other Apps."
+        )
+        .padding(.top, 12)
+      } else if model.showsClipboardPromptNote {
         InfoNote(
           text:
             "The first time you keep one, macOS asks if Thoughts can paste from other apps. Choose Always Allow and the offer shows a preview of the image. You can change this later in Settings."

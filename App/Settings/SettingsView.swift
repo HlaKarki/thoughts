@@ -11,7 +11,7 @@ struct SettingsView: View {
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 18) {
-        SettingsGroup(title: "Keys") { KeysSettings(preferences: model.preferences) }
+        SettingsGroup(title: "Keys") { KeysSettings(model: model) }
         SettingsGroup(title: "Saving") { SavingSettings(model: model) }
         SettingsGroup(title: "Panel") { PanelSettings(model: model) }
       }
@@ -74,7 +74,13 @@ struct RowDivider: View {
 }
 
 struct KeysSettings: View {
-  @Bindable var preferences: Preferences
+  let model: SettingsModel
+  @Bindable private var preferences: Preferences
+
+  init(model: SettingsModel) {
+    self.model = model
+    preferences = model.preferences
+  }
 
   var body: some View {
     SettingsRow(title: "Summon key") {
@@ -89,7 +95,7 @@ struct KeysSettings: View {
         MethodPicker(selection: $preferences.captureMethod).frame(width: 160)
       }
     }
-    if preferences.captureMethod == .doubleTap(.shift) {
+    if preferences.captureMethod == .doubleTap(.shift), model.showsJetBrainsNote {
       InfoNote(
         text:
           "JetBrains IDEs use double Shift for Search Everywhere. If you work in one, use a shortcut here instead."
@@ -123,6 +129,17 @@ private struct OffersSettings: View {
     preferences = model.preferences
   }
 
+  private var explanation: LocalizedStringKey {
+    switch model.clipboardAccess {
+    case .alwaysAllow:
+      "A small offer appears when you copy an image."
+    case .alwaysDeny:
+      "A small offer appears when you copy an image. It shows no preview because Paste from Other Apps is off in System Settings under Privacy & Security."
+    default:
+      "A small offer appears when you copy an image. It shows a preview only if Thoughts may paste from other apps: choose Always Allow when macOS asks, or turn it on in System Settings under Privacy & Security, Paste from Other Apps."
+    }
+  }
+
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       HStack(alignment: .top, spacing: 12) {
@@ -130,13 +147,11 @@ private struct OffersSettings: View {
           Text("Offer to keep copied images")
             .font(.system(size: 13))
             .foregroundStyle(Color(nsColor: .labelColor))
-          Text(
-            "A small offer appears when you copy an image. It shows a preview only if Thoughts may paste from other apps: choose Always Allow when macOS asks, or turn it on in System Settings under Privacy & Security, Paste from Other Apps."
-          )
-          .font(.system(size: 12))
-          .lineSpacing(2)
-          .foregroundStyle(Color.helpGray)
-          .fixedSize(horizontal: false, vertical: true)
+          Text(explanation)
+            .font(.system(size: 12))
+            .lineSpacing(2)
+            .foregroundStyle(Color.helpGray)
+            .fixedSize(horizontal: false, vertical: true)
         }
         Spacer(minLength: 0)
         Toggle("Offer to keep copied images", isOn: $preferences.offersEnabled)

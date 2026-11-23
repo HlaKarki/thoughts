@@ -3,7 +3,9 @@
   "strings": {
     " and %lld more": {},
     "%@ is left as it is": {},
+    "A small offer appears when you copy an image.": {},
     "A small offer appears when you copy an image. It shows a preview only if Thoughts may paste from other apps: choose Always Allow when macOS asks, or turn it on in System Settings under Privacy & Security, Paste from Other Apps.": {},
+    "A small offer appears when you copy an image. It shows no preview because Paste from Other Apps is off in System Settings under Privacy & Security.": {},
     "A thought can't be empty": {},
     "Accessibility": {},
     "Actions": {},
@@ -134,6 +136,7 @@
     "When you copy an image, a small offer appears at the edge of the screen. Press %@ to keep it.": {},
     "done": {},
     "macOS asks for this so the capture gesture works in other apps.": {},
+    "macOS is set to never let Thoughts paste from other apps, so offers show no preview. You can change this in System Settings under Privacy & Security, Paste from Other Apps.": {},
     "macOS needs your approval before Thoughts can open at login.": {}
   },
   "version": "1.0"

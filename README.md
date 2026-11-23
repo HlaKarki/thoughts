@@ -35,7 +35,7 @@ The first time Thoughts opens, it walks you through five steps.
 2. **Pick how to save from any app.** Press Shift twice, or record your own shortcut. It saves the selected text, or a copied image, as a thought. JetBrains IDEs use double Shift for Search Everywhere, so pick a shortcut if you work in one.
 3. **Allow one permission.** Thoughts asks for Accessibility so the capture works in other apps. It reads the text you select and the title of the window you're in, so each thought records where it came from. Turn on Thoughts in System Settings, then come back.
 4. **Choose where thoughts are saved.** The default is `~/Thoughts`. Thoughts makes the folder if it isn't there. A folder inside iCloud Drive or Dropbox syncs to your other Macs.
-5. **Saving copied images.** When you copy an image, a small offer appears at the edge of the screen. Click it, or press your capture key, to keep it. Thoughts also offers new images saved in your screenshot folder, which is the Desktop unless you changed it. That is why macOS asks for access to the Desktop folder at this step.
+5. **Saving copied images.** When you copy an image, a small offer appears at the edge of the screen. Click it, or press your capture key, to keep it. Thoughts also offers new images saved in your screenshot folder, which is the Desktop unless you changed it. That is why macOS may ask for access to that folder at this step.
 
 The first time you keep a copied image, macOS asks if Thoughts can paste from other apps. Choose Always Allow and the offer shows a preview of the image. You can change this later in Settings.
 

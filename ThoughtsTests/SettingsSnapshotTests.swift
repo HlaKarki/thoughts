@@ -115,7 +115,7 @@ struct SettingsSnapshotTests {
     let sections: [(String, AnyView, CGFloat)] = [
       (
         "settings-keys",
-        AnyView(SettingsGroup(title: "Keys") { KeysSettings(preferences: model.preferences) }),
+        AnyView(SettingsGroup(title: "Keys") { KeysSettings(model: model) }),
         150
       ),
       (
@@ -150,7 +150,7 @@ struct SettingsSnapshotTests {
       name: "settings-storage-missing")
     let shortcut = try Self.settings(method: .shortcut)
     try Self.check(
-      SettingsGroup(title: "Keys") { KeysSettings(preferences: shortcut.preferences) }
+      SettingsGroup(title: "Keys") { KeysSettings(model: shortcut) }
         .frame(width: SettingsView.size.width - 44, alignment: .topLeading).padding(11),
       size: CGSize(width: SettingsView.size.width - 22, height: 150), appearance: appearance,
       name: "settings-keys-shortcut")

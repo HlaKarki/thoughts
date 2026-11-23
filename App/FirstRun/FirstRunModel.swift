@@ -15,6 +15,7 @@ final class FirstRunModel {
   private(set) var accessibilityRequested = false
   private(set) var clipboardAccess: NSPasteboard.AccessBehavior
   @ObservationIgnored private let services: SystemServices
+  @ObservationIgnored private let installedIDEs: InstalledIDEs
   @ObservationIgnored private let screenshots: ScreenshotLocation
   @ObservationIgnored private let storage: StorageMover
   @ObservationIgnored private let poller: PermissionPoller
@@ -28,12 +29,14 @@ final class FirstRunModel {
     storage: StorageMover,
     screenshots: ScreenshotLocation = ScreenshotLocation(),
     home: URL = FileManager.default.homeDirectoryForCurrentUser,
+    installedIDEs: InstalledIDEs = InstalledIDEs(),
     pollInterval: Duration = .seconds(1),
     summonKeySet: @MainActor () -> Bool = { KeyboardShortcuts.getShortcut(for: .summon) != nil },
     captureShortcutText: @escaping @MainActor () -> String? = { CaptureMethod.captureShortcutText }
   ) {
     self.preferences = preferences
     self.services = services
+    self.installedIDEs = installedIDEs
     self.storage = storage
     self.screenshots = screenshots
     self.home = home
@@ -62,6 +65,8 @@ final class FirstRunModel {
       seen.insert($0.standardized.path).inserted
     }
   }
+
+  var showsJetBrainsNote: Bool { installedIDEs.hasJetBrains }
 
   var showsClipboardPromptNote: Bool { clipboardAccess != .alwaysAllow }
 
