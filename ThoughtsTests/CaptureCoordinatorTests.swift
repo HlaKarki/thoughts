@@ -194,6 +194,36 @@ struct CaptureCoordinatorTests {
     #expect(saves.first?.pasteboardChangeCount == count)
   }
 
+  @Test func aCopiedImageFileRecordsItsPathAsTheSourceFile() async throws {
+    let rig = try Self.imageRig()
+    defer { rig.board.releaseGlobally() }
+    let folder = TempFolder()
+    try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
+    let file = folder.url.appendingPathComponent("cat.png")
+    try ListFixture.png().write(to: file)
+    rig.board.clearContents()
+    rig.board.writeObjects([file as NSURL])
+    let count = rig.board.changeCount
+    let coordinator = CaptureCoordinator(
+      frontmost: { Self.editor }, ownBundleID: Self.own, ownWindowIsKey: { false },
+      reader: rig.reader, source: { Self.page }, input: rig.fixture.input,
+      writer: PasteboardWriter(pasteboard: rig.board),
+      sound: SavedSound(
+        preferences: Preferences(
+          defaults: try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))),
+        player: {}),
+      pasteboard: rig.board, now: { ListFixture.now },
+      clipboardImage: {
+        ClipboardImage(changeCount: count, seen: ListFixture.now.addingTimeInterval(-30))
+      })
+    guard case .saved(let thought) = await coordinator.capture() else {
+      Issue.record("expected a save")
+      return
+    }
+    #expect(thought.source?.file == file.path)
+    #expect(thought.source?.app == Self.page.app)
+  }
+
   static func imageRig(
     probe: SelectionProbe = .empty, front: AppSnapshot? = editor
   ) throws -> (

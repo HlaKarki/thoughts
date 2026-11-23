@@ -138,7 +138,9 @@ final class CaptureCoordinator {
       return .failed(Self.message(for: ThoughtsError.clipboardChanged))
     }
     guard let image = Self.image(in: pasteboard) else { return .nothingToSave }
-    return await save(.image(image, note: ""), recorded, pasteboardChangeCount: changeCount)
+    var source = recorded
+    if case .file(let file) = image { source.file = file.path }
+    return await save(.image(image, note: ""), source, pasteboardChangeCount: changeCount)
   }
 
   private func save(
