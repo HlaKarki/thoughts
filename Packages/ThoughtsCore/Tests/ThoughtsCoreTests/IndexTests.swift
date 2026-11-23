@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import GRDB
 import ImageIO
@@ -409,6 +410,69 @@ private func tinyPNG() -> Data {
   #expect(try fx.index.search("second") == [old.id])
   try FileManager.default.removeItem(at: old.file)
   _ = try fx.index.apply([staleRow], removing: [])
+  #expect(fx.entries().isEmpty)
+}
+
+private func rename(in folder: URL, _ from: String, to: String) -> Bool {
+  Darwin.rename(folder.path + "/" + from, folder.path + "/" + to) == 0
+}
+
+@Test func caseOnlyRenameLeavesOneEntry() throws {
+  let fx = Fixture()
+  fx.writeFile("20261122-101010-caseid01.md", id: "caseid01", body: "renamed")
+  _ = try fx.sync.reconcile(nil)
+  try #require(
+    rename(in: fx.folder, "20261122-101010-caseid01.md", to: "20261122-101010-CASEID01.md"))
+  _ = try fx.sync.reconcile(nil)
+  let entries = fx.entries()
+  #expect(entries == (try fx.store.entries()))
+  #expect(entries.count == 1)
+  guard case .thought = entries[0] else {
+    Issue.record("not a thought")
+    return
+  }
+  _ = try fx.sync.rebuild()
+  #expect(fx.entries() == (try fx.store.entries()))
+}
+
+@Test func normalizationOnlyRenameLeavesOneEntry() throws {
+  let fx = Fixture()
+  let spellings = ["caf\u{E9}.md", "cafe\u{301}.md"]
+  try "hello".write(
+    to: fx.folder.appendingPathComponent(spellings[0]), atomically: false, encoding: .utf8)
+  _ = try fx.sync.reconcile(nil)
+  let before = try FileManager.default.contentsOfDirectory(atPath: fx.folder.path)
+  let target = spellings.first { !$0.utf8.elementsEqual(before[0].utf8) }!
+  guard rename(in: fx.folder, before[0], to: target) else { return }
+  let after = try FileManager.default.contentsOfDirectory(atPath: fx.folder.path)
+  guard after.count == 1, !after[0].utf8.elementsEqual(before[0].utf8) else { return }
+  let changes = try fx.sync.reconcile(nil)
+  #expect(changes.added.count == 1)
+  #expect(changes.removed.count == 1)
+  let entries = fx.entries()
+  #expect(entries == (try fx.store.entries()))
+  #expect(entries.count == 1)
+}
+
+@Test func restoredFileKeepsItsRow() throws {
+  let fx = Fixture()
+  let thought = fx.addText("buy milk")
+  _ = try fx.sync.reconcile(nil)
+  let name = thought.file.lastPathComponent
+  let write = try fx.index.apply([], removing: [name])
+  #expect(write.removed.isEmpty)
+  #expect(fx.entries() == (try fx.store.entries()))
+  #expect(try fx.index.search("milk") == [thought.id])
+}
+
+@Test func directoryWithAThoughtNameIsNotRestored() throws {
+  let fx = Fixture()
+  let thought = fx.addText("buy milk")
+  _ = try fx.sync.reconcile(nil)
+  try FileManager.default.removeItem(at: thought.file)
+  try FileManager.default.createDirectory(at: thought.file, withIntermediateDirectories: false)
+  let changes = try fx.sync.reconcile(nil)
+  #expect(changes.removed == [thought.file.lastPathComponent])
   #expect(fx.entries().isEmpty)
 }
 

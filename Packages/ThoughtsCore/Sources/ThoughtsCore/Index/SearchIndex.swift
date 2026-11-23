@@ -2,6 +2,22 @@ import Foundation
 import GRDB
 import Synchronization
 
+struct ExactName: Hashable {
+  let value: String
+
+  init(_ value: String) {
+    self.value = value
+  }
+
+  static func == (lhs: ExactName, rhs: ExactName) -> Bool {
+    lhs.value.utf8.elementsEqual(rhs.value.utf8)
+  }
+
+  func hash(into hasher: inout Hasher) {
+    for byte in value.utf8 { hasher.combine(byte) }
+  }
+}
+
 struct IndexedImage: Equatable {
   var name: String
   var version: FileVersion?
@@ -104,7 +120,7 @@ public final class SearchIndex: Sendable {
 }
 
 extension SearchIndex {
-  func states() throws -> [String: IndexState] {
+  func states() throws -> [ExactName: IndexState] {
     let rows = try Self.wrapped {
       try pool.read {
         try Row.fetchAll(
@@ -115,7 +131,7 @@ extension SearchIndex {
             """)
       }
     }
-    var states: [String: IndexState] = [:]
+    var states: [ExactName: IndexState] = [:]
     for row in rows {
       var image: IndexedImage?
       if let name = row["image_name"] as String? {
@@ -129,7 +145,7 @@ extension SearchIndex {
           }
         image = IndexedImage(name: name, version: version)
       }
-      states[row["file"]] = IndexState(
+      states[ExactName(row["file"])] = IndexState(
         version: FileVersion(
           modified: Date(timeIntervalSinceReferenceDate: row["modified"]), size: row["size"]),
         image: image,
@@ -145,11 +161,12 @@ extension SearchIndex {
       try pool.writeWithoutTransaction { db in
         var write = IndexWrite()
         try db.inTransaction(.immediate) {
-          for name in names where !Self.isRestored(name, in: folder) {
+          let listing = try Listing(folder)
+          for name in names where !(IndexSync.isMarkdownName(name) && listing.has(name)) {
             if try Self.delete(name, in: db) { write.removed.append(name) }
           }
           for row in rows {
-            switch Self.disk(of: row.name, in: folder) {
+            switch Self.disk(of: row.name, in: listing) {
             case .missing:
               if try Self.delete(row.name, in: db) { write.removed.append(row.name) }
               continue
@@ -183,8 +200,9 @@ extension SearchIndex {
       try pool.writeWithoutTransaction { db in
         var write = IndexWrite()
         try db.inTransaction(.immediate) {
+          let listing = try Listing(folder)
           for item in items {
-            switch Self.disk(of: item.name, in: folder) {
+            switch Self.disk(of: item.name, in: listing) {
             case .missing:
               if try Self.delete(item.name, in: db) { write.removed.append(item.name) }
               continue
@@ -194,7 +212,7 @@ extension SearchIndex {
               break
             }
             guard let version = item.image.version,
-              case .version(let current) = Self.disk(of: item.image.name, in: folder),
+              case .version(let current) = Self.stat(item.image.name, in: folder),
               current == version
             else { continue }
             try db.execute(
@@ -236,7 +254,32 @@ extension SearchIndex {
     case unreadable
   }
 
-  private static func disk(of name: String, in folder: URL) -> Disk {
+  private struct Listing {
+    let folder: URL
+    let names: Set<ExactName>
+
+    init(_ folder: URL) throws {
+      self.folder = folder
+      guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else {
+        throw ThoughtsError.storageUnavailable(folder.path)
+      }
+      self.names = Set(names.map(ExactName.init))
+    }
+
+    func has(_ name: String) -> Bool {
+      guard names.contains(ExactName(name)) else { return false }
+      var isDirectory: ObjCBool = false
+      let exists = FileManager.default.fileExists(
+        atPath: folder.appendingPathComponent(name).path, isDirectory: &isDirectory)
+      return exists && !isDirectory.boolValue
+    }
+  }
+
+  private static func disk(of name: String, in listing: Listing) -> Disk {
+    listing.has(name) ? stat(name, in: listing.folder) : .missing
+  }
+
+  private static func stat(_ name: String, in folder: URL) -> Disk {
     do {
       return .version(try AtomicFile.info(at: folder.appendingPathComponent(name)).version)
     } catch AtomicFileError.missing {
@@ -244,12 +287,6 @@ extension SearchIndex {
     } catch {
       return .unreadable
     }
-  }
-
-  private static func isRestored(_ name: String, in folder: URL) -> Bool {
-    guard IndexSync.isMarkdownName(name) else { return false }
-    if case .missing = disk(of: name, in: folder) { return false }
-    return true
   }
 
   private static func delete(_ name: String, in db: Database) throws -> Bool {

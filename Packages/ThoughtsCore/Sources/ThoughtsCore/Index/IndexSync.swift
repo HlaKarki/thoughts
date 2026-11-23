@@ -24,10 +24,15 @@ public struct IndexSync: Sendable {
     var removed: [String] = []
     let names: [String]
     if let files {
-      names = Set(files.map(\.lastPathComponent).filter(Self.isMarkdownName)).sorted()
+      var seen = Set<ExactName>()
+      names =
+        files.map(\.lastPathComponent)
+        .filter { Self.isMarkdownName($0) && seen.insert(ExactName($0)).inserted }
+        .sorted()
     } else {
-      names = try store.markdownFiles().map(\.lastPathComponent)
-      removed = Set(known.keys).subtracting(names).sorted()
+      names = try store.markdownNames()
+      let listed = Set(names.map(ExactName.init))
+      removed = known.keys.filter { !listed.contains($0) }.map(\.value).sorted()
     }
 
     var rows: [IndexRow] = []
@@ -42,8 +47,12 @@ public struct IndexSync: Sendable {
       } catch {
         disk = nil
       }
-      if !rereadAll, let disk, let state = known[name], !needsWork(state, disk: disk) { continue }
-      if let row = try load(name, url: url, disk: disk, state: known[name], rereadAll: rereadAll) {
+      if !rereadAll, let disk, let state = known[ExactName(name)], !needsWork(state, disk: disk) {
+        continue
+      }
+      if let row = try load(
+        name, url: url, disk: disk, state: known[ExactName(name)], rereadAll: rereadAll)
+      {
         rows.append(row)
       } else {
         removed.append(name)
@@ -133,9 +142,10 @@ public struct IndexSync: Sendable {
       let write = try index.applyRecognized(items)
       for name in write.updated where !changes.touches(name) { changes.updated.append(name) }
       for name in write.removed {
-        changes.added.removeAll { $0 == name }
-        changes.updated.removeAll { $0 == name }
-        if !changes.removed.contains(name) { changes.removed.append(name) }
+        changes.forget(name)
+        if !changes.removed.contains(where: { ExactName($0) == ExactName(name) }) {
+          changes.removed.append(name)
+        }
       }
     }
   }

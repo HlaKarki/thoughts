@@ -11,7 +11,14 @@ public struct IndexChanges: Sendable, Equatable {
 
   public var isEmpty: Bool { added.isEmpty && updated.isEmpty && removed.isEmpty }
 
+  mutating func forget(_ name: String) {
+    let key = ExactName(name)
+    added.removeAll { ExactName($0) == key }
+    updated.removeAll { ExactName($0) == key }
+  }
+
   func touches(_ name: String) -> Bool {
-    added.contains(name) || updated.contains(name) || removed.contains(name)
+    let key = ExactName(name)
+    return [added, updated, removed].contains { $0.contains { ExactName($0) == key } }
   }
 }
