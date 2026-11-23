@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { Features } from './Features'
 import { Header } from './Header'
 import { Hero } from './Hero'
 import { Intro } from './Intro'
@@ -14,6 +15,7 @@ function Home() {
       <main>
         <Intro />
         <Hero />
+        <Features />
       </main>
     </>
   )

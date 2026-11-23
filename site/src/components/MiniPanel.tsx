@@ -2,6 +2,7 @@ import * as stylex from '@stylexjs/stylex'
 import type { ReactNode } from 'react'
 import { GlassPanel } from './GlassPanel'
 import { MoreDots, Search } from './Icons'
+import { Photo } from './Photo'
 import { color, font, leading, radius, size } from '@/styles/tokens.stylex'
 
 type PanelProps = {
@@ -36,27 +37,33 @@ export function MiniPanel({ search, children, xstyle }: PanelProps) {
 type RowProps = {
   readonly time: ReactNode
   readonly children: ReactNode
+  readonly element?: 'li' | 'div'
   readonly xstyle?: stylex.StyleXStyles
 }
 
-export function MiniRow({ time, children, xstyle }: RowProps) {
+export function MiniRow({ time, children, element: Element = 'li', xstyle }: RowProps) {
   return (
-    <li {...stylex.props(styles.row, xstyle)}>
+    <Element {...stylex.props(styles.row, xstyle)}>
       <div {...stylex.props(styles.content)}>{children}</div>
       <span {...stylex.props(styles.time)}>{time}</span>
-    </li>
+    </Element>
   )
+}
+
+export function MiniThumbnail({ src }: { readonly src: string }) {
+  return <Photo src={src} alt="" xstyle={styles.thumbnail} />
 }
 
 type BarsProps = {
   readonly widths: ReadonlyArray<number>
   readonly dim?: boolean
+  readonly element?: 'li' | 'div'
   readonly xstyle?: stylex.StyleXStyles
 }
 
-export function MiniBarsRow({ widths, dim = false, xstyle }: BarsProps) {
+export function MiniBarsRow({ widths, dim = false, element, xstyle }: BarsProps) {
   return (
-    <MiniRow xstyle={xstyle} time={<span {...stylex.props(styles.bar, styles.timeBar)} />}>
+    <MiniRow element={element} xstyle={xstyle} time={<span {...stylex.props(styles.bar, styles.timeBar)} />}>
       <span {...stylex.props(styles.bars)}>
         {widths.map((width, index) => (
           <span key={index} {...stylex.props(styles.bar, styles.lineBar, dim && styles.dimBar, styles.width(width))} />
@@ -167,6 +174,17 @@ const styles = stylex.create({
     color: color.rowTime,
     textAlign: 'right',
     whiteSpace: 'pre',
+  },
+  thumbnail: {
+    width: 58,
+    height: 46,
+    borderRadius: radius.r5,
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: color.thumbBorder,
+    backgroundOrigin: 'border-box',
+    backgroundSize: '73px 80.3px',
+    backgroundPosition: '-5.3px -22.6px',
   },
   bars: {
     display: 'flex',
