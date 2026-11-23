@@ -4,7 +4,6 @@ import { MiniBarsRow, MiniPanel, MiniRow } from '@/components/MiniPanel'
 import { MiniLine, MiniPage, MiniSelection } from '@/components/MiniPage'
 import { MiniWindow } from '@/components/MiniWindow'
 import { features } from '@/content/features'
-import { site } from '@/content/site'
 import { layout } from '@/styles/layout'
 import { loop } from '@/styles/loop'
 import { color, font, leading, media, radius, size } from '@/styles/tokens.stylex'
@@ -58,7 +57,7 @@ export function SelectionTile() {
     <Tile label={tile.label}>
       <div {...stylex.props(styles.stack)}>
         <MiniWindow address xstyle={styles.window} addressXstyle={styles.address}>
-          <MiniPage photo={site.photos.bread} compactWhenNarrow>
+          <MiniPage code compactWhenNarrow>
             <span {...stylex.props(layout.wideFlex, styles.lines)}>
               <MiniLine width={212} />
               <Selection />
@@ -113,10 +112,10 @@ const styles = stylex.create({
     flexDirection: 'column',
   },
   measure: {
-    maxWidth: { default: 120, [media.wide]: 200 },
+    maxWidth: { default: 134, [media.wide]: 200 },
   },
   roomForLines: {
-    WebkitLineClamp: { default: 3, [media.wide]: 2 },
+    WebkitLineClamp: { default: 4, [media.wide]: 2 },
   },
   sweeping: {
     animationName: { default: null, [media.motion]: sweep },

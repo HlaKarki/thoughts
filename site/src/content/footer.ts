@@ -10,7 +10,7 @@ type Footer = {
 
 export const footer: Footer = {
   brand: site.name,
-  credit: 'Photos from Unsplash.',
+  credit: 'Photos by Jacek Urbanski and Clay Elliot on Unsplash.',
   navLabel: 'Project',
   links: [
     { label: 'Source on GitHub', href: site.links.source },

@@ -1,24 +1,36 @@
 import * as stylex from '@stylexjs/stylex'
 import type { ReactNode } from 'react'
-import { Photo } from './Photo'
 import { color, font, leading, media, radius, size } from '@/styles/tokens.stylex'
 
 type Props = {
-  readonly photo: string
+  readonly code?: boolean
   readonly compactWhenNarrow?: boolean
   readonly children: ReactNode
 }
 
-export function MiniPage({ photo, compactWhenNarrow = false, children }: Props) {
+export function MiniPage({ code = false, compactWhenNarrow = false, children }: Props) {
   return (
     <div {...stylex.props(styles.page, compactWhenNarrow && styles.pageCompact)}>
       <span {...stylex.props(styles.eyebrow)} />
       <span {...stylex.props(styles.spacer, styles.titleSpacer)}>
         <span {...stylex.props(styles.title, compactWhenNarrow && styles.titleCompact)} />
       </span>
-      <span {...stylex.props(styles.spacer, styles.photoSpacer)}>
-        <Photo src={photo} xstyle={[styles.photo, compactWhenNarrow && styles.photoCompact]} />
-      </span>
+      {code && (
+        <span {...stylex.props(styles.spacer, styles.codeSpacer)}>
+          <span {...stylex.props(styles.code, compactWhenNarrow && styles.codeCompact)}>
+            <span {...stylex.props(styles.codeRow)}>
+              <span {...stylex.props(styles.codeBar, styles.codeKeyword)} />
+              <span {...stylex.props(styles.codeBar, styles.width(84))} />
+            </span>
+            <span {...stylex.props(styles.codeRow, styles.codeIndent)}>
+              <span {...stylex.props(styles.codeBar, styles.codeLong)} />
+            </span>
+            <span {...stylex.props(styles.codeRow)}>
+              <span {...stylex.props(styles.codeBar, styles.width(12))} />
+            </span>
+          </span>
+        </span>
+      )}
       <div {...stylex.props(styles.lines)}>
         <span {...stylex.props(styles.headingRow)}>
           <span {...stylex.props(styles.heading)} />
@@ -79,7 +91,7 @@ const styles = stylex.create({
   titleSpacer: {
     paddingTop: 9,
   },
-  photoSpacer: {
+  codeSpacer: {
     paddingTop: 12,
   },
   title: {
@@ -91,17 +103,45 @@ const styles = stylex.create({
   titleCompact: {
     width: { default: 100, [media.wide]: 148 },
   },
-  photo: {
+  code: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: 8,
     width: 232,
     height: 56,
+    paddingInline: 12,
     borderRadius: radius.r6,
-    backgroundSize: '232px 154.7px',
-    backgroundPosition: '0 -62px',
+    backgroundColor: color.barDim,
   },
-  photoCompact: {
+  codeCompact: {
+    gap: { default: 5, [media.wide]: 8 },
     width: { default: 132, [media.wide]: 232 },
-    backgroundSize: { default: '132px 88px', [media.wide]: '232px 154.7px' },
-    backgroundPosition: { default: '0 -24px', [media.wide]: '0 -62px' },
+    height: { default: 40, [media.wide]: 56 },
+    paddingInline: { default: 10, [media.wide]: 12 },
+  },
+  codeRow: {
+    display: 'flex',
+    gap: 5,
+  },
+  codeIndent: {
+    paddingLeft: 12,
+  },
+  codeBar: {
+    flexShrink: 1,
+    minWidth: 0,
+    height: 4,
+    borderRadius: radius.r2,
+    backgroundColor: color.bar,
+  },
+  codeKeyword: {
+    width: 30,
+    flexShrink: 0,
+    backgroundColor: color.accent,
+    opacity: 0.6,
+  },
+  codeLong: {
+    width: 150,
   },
   lines: {
     display: 'flex',

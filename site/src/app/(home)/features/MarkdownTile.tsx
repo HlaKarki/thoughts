@@ -1,10 +1,9 @@
 import * as stylex from '@stylexjs/stylex'
 import { Collapse } from '@/components/Collapse'
-import { MiniBarsRow, MiniPanel, MiniRow, MiniThumbnail } from '@/components/MiniPanel'
+import { MiniBarsRow, MiniPanel, MiniRow } from '@/components/MiniPanel'
 import { MiniWindow } from '@/components/MiniWindow'
 import { TypedText } from '@/components/TypedText'
 import { features } from '@/content/features'
-import { site } from '@/content/site'
 import { loop } from '@/styles/loop'
 import { color, font, leading, media, size } from '@/styles/tokens.stylex'
 import { reveal } from '@/styles/sequence.stylex'
@@ -31,10 +30,8 @@ export function MarkdownTile() {
       <MiniWindow title={tile.fileName} xstyle={styles.window}>
         <div {...stylex.props(styles.file)}>
           <span {...stylex.props(styles.text)}>{tile.frontMatter}</span>
-          <span {...stylex.props(styles.edited)}>
-            <span {...stylex.props(styles.text)}>
-              <TypedText text={tile.typed} charXstyle={[loop.short, styles.typing]} />
-            </span>
+          <span {...stylex.props(styles.text, styles.edited)}>
+            <TypedText text={tile.typed} wrapWords charXstyle={[loop.short, styles.typing]} />
             <span {...stylex.props(styles.caret)} />
           </span>
         </div>
@@ -43,7 +40,6 @@ export function MarkdownTile() {
         <MiniBarsRow widths={[100, 44]} />
         <MiniBarsRow widths={[76]} />
         <MiniRow time={tile.time}>
-          <MiniThumbnail src={site.photos.cat} />
           <span {...stylex.props(styles.note)}>
             <span>{tile.note}</span>
             <Collapse xstyle={[loop.short, styles.growing]}>
@@ -79,19 +75,19 @@ const styles = stylex.create({
     whiteSpace: 'pre',
   },
   edited: {
-    display: 'flex',
-    alignItems: 'center',
-    flexShrink: 0,
-    gap: 1,
-    height: 16,
+    maxWidth: { default: 150, [media.wide]: 'none' },
+    whiteSpace: 'normal',
   },
   typing: {
     animationName: { default: null, [media.motion]: typing },
   },
   caret: {
-    flexShrink: 0,
+    display: 'inline-block',
+    verticalAlign: 'top',
     width: 1,
     height: 13,
+    marginTop: 1.5,
+    marginLeft: 1,
     backgroundColor: color.caret,
   },
   panel: {
@@ -103,7 +99,6 @@ const styles = stylex.create({
   note: {
     display: 'flex',
     flexDirection: 'column',
-    paddingTop: 4,
   },
   growing: {
     animationName: { default: null, [media.motion]: grow },

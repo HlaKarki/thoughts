@@ -23,7 +23,7 @@ export const site = {
     install: '#install',
   },
   photos: {
-    bread: '/images/bread.jpg',
+    tram: '/images/tram.jpg',
     cat: '/images/cat.jpg',
   },
 } as const

@@ -60,6 +60,7 @@ export function ScreenshotTile() {
         <Collapse element="li" xstyle={[loop.long, styles.grow]}>
           <MiniRow element="div" time={tile.time}>
             <MiniThumbnail src={tile.photo} />
+            <span {...stylex.props(styles.note)}>{tile.note}</span>
           </MiniRow>
         </Collapse>
       </MiniPanel>
@@ -107,6 +108,9 @@ const styles = stylex.create({
     left: { default: 182, [media.wide]: 316 },
     width: 160,
     height: { default: 368, [media.wide]: 272 },
+  },
+  note: {
+    paddingTop: 4,
   },
   grow: {
     animationName: { default: null, [media.motion]: grow },

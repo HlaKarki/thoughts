@@ -28,21 +28,17 @@ type Features = {
     readonly offerTitle: string
     readonly offerMessage: string
     readonly offerKeys: string
+    readonly note: string
     readonly time: string
   }>
   readonly search: Card<{
     readonly label: string
     readonly query: string
-    readonly page: {
-      readonly source: string
-      readonly text: Rich
-      readonly time: string
-    }
-    readonly note: {
+    readonly matches: ReadonlyArray<{
       readonly text: Rich
       readonly source: string
       readonly time: string
-    }
+    }>
     readonly newest: {
       readonly text: string
       readonly time: string
@@ -76,10 +72,9 @@ type Features = {
   }>
 }
 
-const searchQuery = 'oven'
-const agentThought = 'Heat the oven at 4:30'
-const ovenFile = { id: 'm4q8tz2c', ...stamp(today, thoughts.oven.time, 12) }
-const ovenName = `${ovenFile.file}-${ovenFile.id}`
+const searchQuery = 'Thursday'
+const waldenFile = { id: 'm4q8tz2c', ...stamp(today, thoughts.walden.time, 12) }
+const waldenName = `${waldenFile.file}-${waldenFile.id}`
 
 export const features: Features = {
   heading: ['Save it in the app', 'where you found it.'],
@@ -91,11 +86,11 @@ export const features: Features = {
       'Select text in any app and press Shift twice. Thoughts saves it with the app and window it came from, and a note at the edge of the screen shows what it saved.',
     ],
     tile: {
-      label: 'A selected sentence on a recipe page becomes the newest thought in the panel.',
+      label: 'A selected sentence on a docs page becomes the newest thought in the panel.',
       key: '⇧',
       saved: 'Saved',
-      row: thoughts.dough.text,
-      time: thoughts.dough.time,
+      row: thoughts.clone.text,
+      time: thoughts.clone.time,
     },
   },
   screenshot: {
@@ -104,34 +99,37 @@ export const features: Features = {
       'Copy an image or take a screenshot, and a small offer slides in at the edge of the screen. Click it or press Shift twice to keep the image as a thought.',
     ],
     tile: {
-      label: 'A screenshot of a cat photo becomes a thought in the panel.',
-      windowTitle: sources.catPhoto.window,
+      label: 'A screenshot of a cat photo becomes a thought with a note in the panel.',
+      windowTitle: 'IMG_0412.jpeg',
       photo: site.photos.cat,
       offerTitle: 'Image copied',
       offerMessage: 'Keep as a thought?',
       offerKeys: '⇧⇧',
-      time: thoughts.oven.time,
+      note: thoughts.fridge.text,
+      time: thoughts.fridge.time,
     },
   },
   search: {
-    heading: 'Search finds the words in your screenshots too',
+    heading: 'Find any thought by a word in it',
     body: [
       'Press ⌘F in the panel and start typing. The list narrows to the thoughts that match, including the text inside screenshots. Esc clears the search.',
     ],
     tile: {
-      label: `A search for ${searchQuery} finds a recipe screenshot and a note.`,
+      label: `A search for ${searchQuery} finds a message from Slack and one from Messages.`,
       query: searchQuery,
-      page: {
-        source: sourceLine(sources.recipe),
-        text: highlight('Text in image: "Heat the oven to 250°C"', searchQuery),
-        time: '9:58',
-      },
-      note: {
-        text: highlight(thoughts.oven.text, searchQuery),
-        source: sourceLine(sources.catPhoto),
-        time: thoughts.oven.time,
-      },
-      newest: thoughts.dough,
+      matches: [
+        {
+          text: highlight(thoughts.review.text, searchQuery),
+          source: sourceLine(sources.slack),
+          time: thoughts.review.time,
+        },
+        {
+          text: highlight(thoughts.water.text, searchQuery),
+          source: sourceLine(sources.messages),
+          time: thoughts.water.time,
+        },
+      ],
+      newest: thoughts.table,
     },
   },
   markdown: {
@@ -141,24 +139,19 @@ export const features: Features = {
     ],
     tile: {
       label: 'A line typed into the Markdown file shows up in the panel.',
-      fileName: `${ovenName}.md`,
+      fileName: `${waldenName}.md`,
       frontMatter: [
         '---',
-        `id: ${ovenFile.id}`,
-        `created: ${ovenFile.iso}.408-05:00`,
+        `id: ${waldenFile.id}`,
+        `created: ${waldenFile.iso}.408-05:00`,
         'done: null',
         'cleared: false',
-        `image: ${ovenName}.png`,
-        'source:',
-        `  app: ${sources.catPhoto.app}`,
-        `  bundle: ${sources.catPhoto.bundle}`,
-        `  window: ${sources.catPhoto.window}`,
         '---',
-        thoughts.oven.text,
+        thoughts.walden.text,
       ].join('\n'),
-      typed: 'Not the cat.',
-      note: thoughts.oven.text,
-      time: thoughts.oven.time,
+      typed: 'I went to the woods because I wished to live deliberately.',
+      note: thoughts.walden.text,
+      time: thoughts.walden.time,
     },
   },
   agents: {
@@ -173,13 +166,13 @@ export const features: Features = {
       ' to an MCP client and your agent can list, add and search thoughts.',
     ],
     tile: {
-      label: 'A command in Terminal adds a thought to the panel.',
+      label: 'After an agent reads a report, a command in Terminal adds a thought to the panel.',
       title: 'Terminal',
       prompt: '$ ',
-      command: `thoughts add "${agentThought}"`,
+      command: `thoughts add "${thoughts.signups.text}"`,
       output: 'k9w3a7rd',
-      row: agentThought,
-      time: '10:32',
+      row: thoughts.signups.text,
+      time: thoughts.signups.time,
     },
   },
   privacy: {

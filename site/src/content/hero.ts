@@ -51,23 +51,23 @@ type Hero = {
 }
 
 export const hero: Hero = {
-  label: `The Thoughts panel sits beside a sourdough recipe in ${sources.recipe.app}, and the sentence you selected on the page is now the newest thought.`,
+  label: `The Thoughts panel sits beside a Lisbon travel guide in ${sources.guide.app}, and the sentence you selected on the page is now the newest thought.`,
   menuBar: {
-    app: sources.recipe.app,
+    app: sources.guide.app,
     menus: ['File', 'Edit', 'View', 'History', 'Bookmarks', 'Window', 'Help'],
-    clock: `${clockDate(today)} ${thoughts.dough.time} AM`,
+    clock: `${clockDate(today)} ${thoughts.tram.time} AM`,
   },
   browser: {
     address: 'example.com',
-    eyebrow: 'Recipes',
-    title: sources.recipe.window,
-    intro: 'Two days from start to finish, and the dough does most of the work.',
-    photo: site.photos.bread,
-    heading: 'Mix and rest',
+    eyebrow: 'Travel',
+    title: sources.guide.window,
+    intro: 'Three days is enough for the old town, the river and one long lunch.',
+    photo: site.photos.tram,
+    heading: 'Getting around',
     paragraph: {
-      before: 'Mix the flour and water until no dry bits remain. ',
-      selected: thoughts.dough.text,
-      after: ' The rest gives the flour time to soak up the water, so the dough is easier to knead.',
+      before: 'Tram 28 climbs through Graça and Alfama on the old tracks. ',
+      selected: thoughts.tram.text,
+      after: ' A day pass covers the tram and the metro, and you can buy it at any metro station.',
     },
   },
   panel: {
@@ -99,16 +99,16 @@ export const hero: Hero = {
         text: 'Ask the printer for a proof on the heavier paper before we order all 200 copies, and check that delivery still lands before the fair.',
         time: 'Sat',
       },
-      { kind: 'text', text: 'Buy more flour', time: 'Sat', done: true },
+      { kind: 'text', text: 'Buy a travel adapter', time: 'Sat', done: true },
       { kind: 'text', text: 'Renew the domain before Friday', time: '9:12' },
-      { kind: 'text', text: 'Feed the starter before bed', time: '9:41' },
+      { kind: 'text', text: 'Check in for the flight before 6', time: '9:41' },
       {
         kind: 'image',
         image: site.photos.cat,
-        note: thoughts.oven.text,
-        time: thoughts.oven.time,
+        note: thoughts.sitter.text,
+        time: thoughts.sitter.time,
       },
-      { kind: 'text', ...thoughts.dough },
+      { kind: 'text', ...thoughts.tram },
     ],
     composer: 'Add a thought',
     hints: [

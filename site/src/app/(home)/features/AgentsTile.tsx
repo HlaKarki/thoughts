@@ -44,7 +44,7 @@ export function AgentsTile() {
         <div {...stylex.props(styles.session)}>
           <span {...stylex.props(styles.command)}>
             <span {...stylex.props(styles.prompt)}>{tile.prompt}</span>
-            <TypedText text={tile.command} charXstyle={[loop.short, styles.typing]} />
+            <TypedText text={tile.command} wrapWords charXstyle={[loop.short, styles.typing]} />
             <span {...stylex.props(styles.cursor, styles.inlineCursor, loop.short, styles.cursorWhileTyping)} />
           </span>
           <span {...stylex.props(styles.text, loop.short, styles.printing)}>{tile.output}</span>

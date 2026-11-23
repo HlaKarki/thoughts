@@ -1,15 +1,13 @@
 import * as stylex from '@stylexjs/stylex'
 import { Collapse } from '@/components/Collapse'
-import { MiniBarsRow, MiniPanel, MiniRow, MiniThumbnail } from '@/components/MiniPanel'
+import { MiniBarsRow, MiniPanel, MiniRow } from '@/components/MiniPanel'
 import { MiniLine, MiniPage } from '@/components/MiniPage'
 import { MiniWindow } from '@/components/MiniWindow'
-import { Photo } from '@/components/Photo'
 import { TypedText } from '@/components/TypedText'
 import { features } from '@/content/features'
 import type { Rich } from '@/content/types'
-import { site } from '@/content/site'
 import { loop } from '@/styles/loop'
-import { color, font, leading, media, radius, size } from '@/styles/tokens.stylex'
+import { color, font, leading, media, size } from '@/styles/tokens.stylex'
 import { reveal } from '@/styles/sequence.stylex'
 import { Tile } from './Tile'
 
@@ -60,11 +58,15 @@ export function SearchTile() {
   return (
     <Tile label={tile.label}>
       <MiniWindow address xstyle={styles.window}>
-        <MiniPage photo={site.photos.bread}>
+        <MiniPage>
           <MiniLine width={212} />
           <MiniLine width={196} />
           <MiniLine width={206} />
           <MiniLine width={150} />
+          <MiniLine width={0} />
+          <MiniLine width={204} />
+          <MiniLine width={188} />
+          <MiniLine width={120} />
         </MiniPage>
       </MiniWindow>
       <MiniPanel
@@ -81,31 +83,16 @@ export function SearchTile() {
         <Collapse element="li" xstyle={[styles.narrowed, loop.short, styles.narrowing]}>
           <MiniBarsRow element="div" widths={[100, 44]} />
         </Collapse>
-        <MiniRow time={tile.page.time}>
-          <span {...stylex.props(styles.page)}>
-            <span {...stylex.props(styles.pageTitle)} />
-            <Photo src={site.photos.bread} xstyle={styles.pagePhoto} />
-            <span {...stylex.props(styles.pageLine, styles.pageLineLong)} />
-            <span {...stylex.props(styles.pageLine, styles.pageLineShort)} />
-          </span>
-          <Collapse xstyle={[loop.short, styles.revealing]}>
-            <span {...stylex.props(styles.spaced, styles.muted, styles.nowrap)}>{tile.page.source}</span>
-            <span {...stylex.props(styles.muted)}>
-              <Highlighted text={tile.page.text} />
-            </span>
-          </Collapse>
-        </MiniRow>
-        <MiniRow time={tile.note.time}>
-          <MiniThumbnail src={site.photos.cat} />
-          <span {...stylex.props(styles.spaced)}>
+        {tile.matches.map((match, index) => (
+          <MiniRow key={index} time={match.time}>
             <span>
-              <Highlighted text={tile.note.text} />
+              <Highlighted text={match.text} />
             </span>
-          </span>
-          <Collapse xstyle={[loop.short, styles.revealing]}>
-            <span {...stylex.props(styles.muted, styles.nowrap)}>{tile.note.source}</span>
-          </Collapse>
-        </MiniRow>
+            <Collapse xstyle={[loop.short, styles.revealing]}>
+              <span {...stylex.props(styles.source)}>{match.source}</span>
+            </Collapse>
+          </MiniRow>
+        ))}
         <Collapse element="li" xstyle={[styles.narrowed, loop.short, styles.narrowing]}>
           <MiniRow element="div" time={tile.newest.time}>
             {tile.newest.text}
@@ -126,7 +113,7 @@ const styles = stylex.create({
     top: { default: 64, [media.wide]: 24 },
     left: { default: 66, [media.wide]: 200 },
     width: 276,
-    height: 272,
+    height: { default: 320, [media.wide]: 272 },
   },
   query: {
     display: 'flex',
@@ -166,55 +153,9 @@ const styles = stylex.create({
   matching: {
     animationName: { default: null, [media.motion]: matched },
   },
-  page: {
-    display: 'flex',
-    flexDirection: 'column',
-    flexShrink: 0,
-    gap: 4,
-    width: 72,
-    height: 45,
-    paddingBlock: 5,
-    paddingInline: 6,
-    borderRadius: radius.r5,
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: color.thumbBorder,
-    backgroundColor: color.windowBg,
-  },
-  pageTitle: {
-    flexShrink: 0,
-    width: 26,
-    height: 3,
-    borderRadius: radius.r2,
-    backgroundColor: color.barStrong,
-  },
-  pagePhoto: {
-    width: 58,
-    height: 12,
-    borderRadius: radius.r2,
-    backgroundSize: '100px 66px',
-    backgroundPosition: '-26px -24px',
-  },
-  pageLine: {
-    flexShrink: 0,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: color.bar,
-  },
-  pageLineLong: {
-    width: 48,
-  },
-  pageLineShort: {
-    width: 42,
-  },
-  spaced: {
-    display: 'flex',
-    paddingTop: 4,
-  },
-  muted: {
+  source: {
+    paddingTop: 2,
     color: color.rowTime,
-  },
-  nowrap: {
     whiteSpace: 'pre',
   },
 })
