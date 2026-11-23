@@ -11,12 +11,19 @@ struct DoneCommand: EnvironmentCommand {
   @Flag(help: "Print JSON.") var json = false
 
   func execute(in environment: CommandEnvironment) async throws {
-    let store = ThoughtStore(folder: try environment.location.resolve())
-    var thought = try store.thought(matching: id)
-    if (thought.done != nil) == undo {
-      thought = try store.setDone(!undo, for: thought.id, at: Date())
-    }
+    let (thought, store) = try Self.mark(matching: id, done: !undo, in: environment)
     environment.out(
       json ? try Output.json(ThoughtRecord(thought, store: store)) : thought.id.rawValue)
+  }
+
+  static func mark(
+    matching id: String, done: Bool, in environment: CommandEnvironment
+  ) throws -> (Thought, ThoughtStore) {
+    let store = ThoughtStore(folder: try environment.location.resolve())
+    var thought = try store.thought(matching: id)
+    if (thought.done != nil) != done {
+      thought = try store.setDone(done, for: thought.id, at: Date())
+    }
+    return (thought, store)
   }
 }

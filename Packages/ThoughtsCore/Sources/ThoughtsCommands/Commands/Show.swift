@@ -9,12 +9,18 @@ struct ShowCommand: EnvironmentCommand {
   @Flag(help: "Print JSON.") var json = false
 
   func execute(in environment: CommandEnvironment) async throws {
-    let (store, _, sync) = try environment.open()
-    _ = try sync.reconcile(nil)
-    let thought = try store.thought(matching: id)
+    let (thought, store) = try Self.load(matching: id, in: environment)
     environment.out(
       json
         ? try Output.json(ThoughtRecord(thought, store: store))
         : Output.detail(thought, store: store))
+  }
+
+  static func load(
+    matching id: String, in environment: CommandEnvironment
+  ) throws -> (Thought, ThoughtStore) {
+    let (store, _, sync) = try environment.open()
+    _ = try sync.reconcile(nil)
+    return (try store.thought(matching: id), store)
   }
 }

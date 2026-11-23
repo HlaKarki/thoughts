@@ -17,20 +17,35 @@ struct ListCommand: EnvironmentCommand {
   }
 
   func execute(in environment: CommandEnvironment) async throws {
-    let (store, index, sync) = try environment.open()
-    _ = try sync.reconcile(nil)
-    let thoughts = try index.entries(includeCleared: all).compactMap { entry -> Thought? in
-      guard case .thought(let thought) = entry else { return nil }
-      switch (all, done) {
-      case (true, _): return thought
-      case (_, true): return thought.done == nil ? nil : thought
-      default: return thought.done == nil ? thought : nil
-      }
-    }
+    let (thoughts, store) = try Self.thoughts(
+      state: all ? .all : done ? .done : .open, in: environment)
     if json {
       environment.out(try Output.json(thoughts.map { ThoughtRecord($0, store: store) }))
     } else {
       for thought in thoughts { environment.out(Output.row(thought)) }
     }
   }
+
+  static func thoughts(
+    state: ListState, in environment: CommandEnvironment
+  ) throws -> ([Thought], ThoughtStore) {
+    let (store, index, sync) = try environment.open()
+    _ = try sync.reconcile(nil)
+    let thoughts = try index.entries(includeCleared: state == .all).compactMap {
+      entry -> Thought? in
+      guard case .thought(let thought) = entry else { return nil }
+      switch state {
+      case .all: return thought
+      case .done: return thought.done == nil ? nil : thought
+      case .open: return thought.done == nil ? thought : nil
+      }
+    }
+    return (thoughts, store)
+  }
+}
+
+enum ListState: String {
+  case open
+  case done
+  case all
 }

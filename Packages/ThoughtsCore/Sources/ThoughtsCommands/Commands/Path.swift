@@ -8,8 +8,12 @@ struct PathCommand: EnvironmentCommand {
   @Argument(help: "A thought ID, or the first 4 or more characters of one.") var id: String
 
   func execute(in environment: CommandEnvironment) async throws {
+    environment.out(try Self.path(matching: id, in: environment))
+  }
+
+  static func path(matching id: String, in environment: CommandEnvironment) throws -> String {
     let store = ThoughtStore(folder: try environment.location.resolve())
     let thought = try store.thought(matching: id)
-    environment.out(CopyFormat.path(of: thought, store: store).path)
+    return CopyFormat.path(of: thought, store: store).path
   }
 }

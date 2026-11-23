@@ -6,7 +6,7 @@ public struct ThoughtsCommand: AsyncParsableCommand {
     abstract: "Add and read thoughts.",
     subcommands: [
       ListCommand.self, AddCommand.self, ShowCommand.self, PathCommand.self, DoneCommand.self,
-      SearchCommand.self,
+      SearchCommand.self, MCPCommand.self,
     ]
   )
 
