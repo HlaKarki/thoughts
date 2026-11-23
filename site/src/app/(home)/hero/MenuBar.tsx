@@ -1,5 +1,5 @@
 import * as stylex from '@stylexjs/stylex'
-import { AppleLogo, Battery, ControlCenter, Search, Wifi } from '@/components/Icons'
+import { AppleLogo, Battery, ControlCenter, Search, ThoughtsCaret, Wifi } from '@/components/Icons'
 import { hero } from '@/content/hero'
 import { color, font, leading, size } from '@/styles/tokens.stylex'
 
@@ -14,6 +14,7 @@ export function MenuBar() {
         ))}
       </div>
       <div {...stylex.props(styles.group, styles.status)}>
+        <ThoughtsCaret />
         <Battery outline={styles.batteryOutline} />
         <Wifi />
         <Search />

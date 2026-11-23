@@ -38,6 +38,15 @@ export function Battery({ xstyle, outline }: IconProps & { readonly outline: sty
   )
 }
 
+export function ThoughtsCaret({ xstyle }: IconProps) {
+  return (
+    <svg {...svgProps(18, 18, '0 0 18 18', xstyle)}>
+      <rect x="0" y="12" width="13" height="4" rx="2" fill="currentColor" />
+      <rect x="15" y="2" width="3" height="14" rx="1.5" fill="currentColor" />
+    </svg>
+  )
+}
+
 export function Wifi({ xstyle }: IconProps) {
   return (
     <svg {...svgProps(16, 12, '0 0 16 12', xstyle)}>
