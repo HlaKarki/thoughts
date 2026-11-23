@@ -177,7 +177,7 @@ export const features: Features = {
     },
   },
   privacy: {
-    heading: 'Thoughts asks for Accessibility and your screenshot folder',
+    heading: 'Thoughts asks for Accessibility, and a folder only if needed',
     body: [
       'Accessibility lets Thoughts read what you select and the window title. It asks for your screenshot folder, the Desktop by default, only if macOS guards it. It goes online only to check for updates.',
     ],
