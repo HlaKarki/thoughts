@@ -42,11 +42,10 @@ struct SelectionInspector {
   }
 
   private func isNativeTextControl(_ element: any AXNode) -> Bool {
-    switch element.string(kAXRoleAttribute) {
-    case "AXTextField", "AXComboBox": return true
-    case "AXTextArea": return !hasWebAreaAncestor(element)
-    default: return false
-    }
+    guard let role = element.string(kAXRoleAttribute),
+      ["AXTextField", "AXComboBox", "AXTextArea"].contains(role)
+    else { return false }
+    return !hasWebAreaAncestor(element)
   }
 
   private func hasWebAreaAncestor(_ element: any AXNode) -> Bool {

@@ -97,11 +97,13 @@ struct SelectionInspectorTests {
     #expect(Self.probe(focused: area, menuBar: bar) == .empty)
   }
 
-  static func hiddenTextTarget(selected: String? = "", marked: String? = nil) -> Node {
+  static func hiddenTextTarget(
+    role: String = "AXTextArea", selected: String? = "", marked: String? = nil
+  ) -> Node {
     let page = Node(role: "AXWebArea")
     let group = Node(role: "AXGroup")
     group.links[kAXParentAttribute] = page
-    let target = Node(role: "AXTextArea", selected: selected, marked: marked)
+    let target = Node(role: role, selected: selected, marked: marked)
     target.links[kAXParentAttribute] = group
     return target
   }
@@ -111,6 +113,15 @@ struct SelectionInspectorTests {
     let disabled = Self.edit(copy: Self.item(key: "c", enabled: false))
     #expect(Self.probe(focused: Self.hiddenTextTarget(), menuBar: enabled) == .unavailable)
     #expect(Self.probe(focused: Self.hiddenTextTarget(), menuBar: disabled) == .copyDisabled)
+  }
+
+  @Test(arguments: ["AXTextField", "AXComboBox"])
+  func aWebInputInAWebAreaFallsToTheCopyItem(_ role: String) {
+    let enabled = Self.edit(copy: Self.item(key: "c", enabled: true))
+    let disabled = Self.edit(copy: Self.item(key: "c", enabled: false))
+    let input = Self.hiddenTextTarget(role: role)
+    #expect(Self.probe(focused: input, menuBar: enabled) == .unavailable)
+    #expect(Self.probe(focused: input, menuBar: disabled) == .copyDisabled)
   }
 
   @Test func anEmptyMarkerRangeInAWebAreaFallsToTheCopyItem() {
