@@ -71,7 +71,8 @@ struct InputSnapshotTests {
   @Test(arguments: [NSAppearance.Name.aqua, .darkAqua])
   func searchResultsWithAClearedThought(_ appearance: NSAppearance.Name) async throws {
     let suffix = appearance == .aqua ? "light" : "dark"
-    let fixture = try ListFixture()
+    let fixture = try ListFixture(
+      recognizer: StubRecognizer("Staging deploy finished, all green"))
     defer { withExtendedLifetime(fixture) {} }
     try fixture.addText(
       "Rotate the staging DB password", daysAgo: 12, done: true,
@@ -94,6 +95,7 @@ struct InputSnapshotTests {
     fixture.model.query = "staging"
     #expect(fixture.model.visible.count == 3)
     #expect(fixture.model.visible.contains { $0.isCleared })
+    #expect(fixture.model.imageExcerpts.values.contains { $0.contains("Staging deploy") })
     let results = try ListSnapshotTests.image(
       of: fixture.model, input: fixture.input, appearance: appearance,
       name: "search-results-\(suffix)")

@@ -100,3 +100,18 @@ struct SourceLine: View {
     }
   }
 }
+
+struct ImageTextLine: View {
+  let excerpt: String
+  let terms: [String]
+
+  var body: some View {
+    (Text("Text in image") + Text(verbatim: ": \"")
+      + Text(SearchHighlight.attributed(excerpt, terms: terms, size: 11)) + Text(verbatim: "\""))
+      .font(.system(size: 11))
+      .foregroundStyle(Color(nsColor: .tertiaryLabelColor))
+      .lineLimit(1)
+      .truncationMode(.tail)
+      .frame(minHeight: 16, alignment: .leading)
+  }
+}

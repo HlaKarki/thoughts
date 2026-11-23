@@ -35,6 +35,7 @@ struct ThoughtRow: View {
   let time: String
   let selected: Bool
   var terms: [String]?
+  var imageExcerpt: String?
 
   private static let doneOpacity = 0.45
   private static let doneTextOpacity = 0.7
@@ -55,6 +56,7 @@ struct ThoughtRow: View {
           }
         }
         if let terms { SourceLine(thought: thought, terms: terms) }
+        if let terms, let imageExcerpt { ImageTextLine(excerpt: imageExcerpt, terms: terms) }
       }
     }
     .accessibilityElement(children: .ignore)

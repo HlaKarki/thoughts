@@ -44,7 +44,8 @@ struct ThoughtListView: View {
       case .thought(let thought):
         ThoughtRow(
           thought: thought, time: time, selected: selected,
-          terms: model.isSearching ? model.searchTerms : nil
+          terms: model.isSearching ? model.searchTerms : nil,
+          imageExcerpt: model.imageExcerpts[thought.id.rawValue]
         )
         .onDrag { DragOut.provider(for: thought) }
       case .malformed(let file, let reason):

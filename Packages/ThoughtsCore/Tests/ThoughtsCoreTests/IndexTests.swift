@@ -170,6 +170,18 @@ private func tinyPNG() -> Data {
   #expect(try fx.index.search("").isEmpty)
 }
 
+@Test func imageTextExcerptsQuoteRecognizedTextOnly() throws {
+  let fx = Fixture()
+  let text = fx.addText("invoice reminder")
+  let image = fx.addImage(note: "diagram note")
+  _ = try fx.sync.reconcile(nil)
+  let excerpts = try fx.index.imageTextExcerpts(for: [text.id, image.id], query: "invo")
+  #expect(excerpts[text.id] == nil)
+  #expect(excerpts[image.id]?.contains("invoice") == true)
+  #expect(try fx.index.imageTextExcerpts(for: [image.id], query: "diagr").isEmpty)
+  #expect(try fx.index.imageTextExcerpts(for: [], query: "invo").isEmpty)
+}
+
 @Test func searchOrdersByCreated() throws {
   let fx = Fixture()
   let late = try fx.store.add(

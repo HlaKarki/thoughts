@@ -82,13 +82,7 @@ public final class SearchIndex: Sendable {
   }
 
   public func search(_ query: String) throws -> [ThoughtID] {
-    let words = query.split(whereSeparator: \.isWhitespace)
-      .filter { $0.contains { $0.isLetter || $0.isNumber } }
-    guard !words.isEmpty else { return [] }
-    let pattern =
-      words
-      .map { "\"" + $0.replacingOccurrences(of: "\"", with: "\"\"") + "\"*" }
-      .joined(separator: " AND ")
+    guard let pattern = Self.pattern(for: query) else { return [] }
     let ids = try Self.wrapped {
       try pool.read {
         try String.fetchAll(
@@ -103,6 +97,49 @@ public final class SearchIndex: Sendable {
       }
     }
     return ids.compactMap { ThoughtID(rawValue: $0) }
+  }
+
+  public func imageTextExcerpts(for ids: [ThoughtID], query: String) throws -> [ThoughtID: String] {
+    guard !ids.isEmpty, let pattern = Self.pattern(for: query) else { return [:] }
+    let wanted = Set(ids.map(\.rawValue))
+    let rows = try Self.wrapped {
+      try pool.read {
+        try Row.fetchAll(
+          $0,
+          sql: """
+            SELECT thoughts.id AS id,
+              snippet(thoughts_fts, 2, char(1), char(2), '…', 12) AS excerpt
+            FROM thoughts_fts
+            JOIN thoughts ON thoughts.seq = thoughts_fts.rowid
+            WHERE thoughts_fts MATCH ? AND thoughts.recognized IS NOT NULL
+            """,
+          arguments: [pattern])
+      }
+    }
+    var found: [ThoughtID: String] = [:]
+    for row in rows {
+      guard let id = ThoughtID(rawValue: row["id"]), wanted.contains(id.rawValue),
+        let raw: String = row["excerpt"], raw.contains("\u{1}")
+      else { continue }
+      found[id] = raw.replacingOccurrences(of: "\u{1}", with: "")
+        .replacingOccurrences(of: "\u{2}", with: "")
+        .split(whereSeparator: \.isNewline).joined(separator: " ")
+    }
+    return found
+  }
+
+  private static func pattern(for query: String) -> String? {
+    let words = query.split(whereSeparator: \.isWhitespace)
+      .filter { $0.contains { $0.isLetter || $0.isNumber } }
+    guard !words.isEmpty else { return nil }
+    return
+      words
+      .map { "\"" + $0.replacingOccurrences(of: "\"", with: "\"\"") + "\"*" }
+      .joined(separator: " AND ")
+  }
+
+  public func close() throws {
+    try Self.wrapped { try pool.close() }
   }
 
   public func relocate(to folder: URL) throws {

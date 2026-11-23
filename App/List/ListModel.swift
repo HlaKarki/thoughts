@@ -57,6 +57,7 @@ final class ListModel {
   @ObservationIgnored private var isPanelShown = false
   private(set) var addedCount = 0
   private(set) var matches: Set<String>?
+  private(set) var imageExcerpts: [String: String] = [:]
   var now = Date()
   var selection: [String] = [] {
     didSet {
@@ -495,15 +496,23 @@ final class ListModel {
   private func refreshMatches() {
     guard isSearching else {
       matches = nil
+      imageExcerpts = [:]
       return
     }
     do {
-      matches = Set(try index.search(query).map(\.rawValue))
+      let ids = try index.search(query)
+      matches = Set(ids.map(\.rawValue))
+      imageExcerpts = Dictionary(
+        uniqueKeysWithValues: try index.imageTextExcerpts(for: ids, query: query).map {
+          ($0.key.rawValue, $0.value)
+        })
     } catch let error as ThoughtsError {
       matches = []
+      imageExcerpts = [:]
       showHint(Self.message(for: error))
     } catch {
       matches = []
+      imageExcerpts = [:]
       showHint(error.localizedDescription)
     }
   }

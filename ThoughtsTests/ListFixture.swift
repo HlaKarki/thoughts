@@ -18,6 +18,16 @@ final class TempFolder {
   }
 }
 
+struct StubRecognizer: TextRecognizing {
+  let output: String
+
+  init(_ output: String) {
+    self.output = output
+  }
+
+  func text(in image: URL) throws -> String { output }
+}
+
 @MainActor
 final class ListFixture {
   let root: URL
@@ -28,10 +38,12 @@ final class ListFixture {
   let store: ThoughtStore
   let sync: IndexSync
   private let cleanup: TempFolder
+  private let index: SearchIndex
+  private let live: LiveIndex
 
   static let now = Date(timeIntervalSince1970: 1_795_000_000)
 
-  init(searchDelay: Duration = .zero) throws {
+  init(searchDelay: Duration = .zero, recognizer: (any TextRecognizing)? = nil) throws {
     cleanup = TempFolder()
     root = cleanup.url
     folder = root.appendingPathComponent("Thoughts", isDirectory: true)
@@ -40,12 +52,19 @@ final class ListFixture {
       appName: "ThoughtsTests", environment: ["THOUGHTS_DIR": folder.path], home: root)
     self.location = location
     let index = try SearchIndex(url: location.indexURL, folder: folder)
+    let live = LiveIndex(location: location, index: index, recognizer: nil)
+    self.index = index
+    self.live = live
     store = ThoughtStore(folder: folder)
-    sync = IndexSync(store: store, index: index, recognizer: nil)
+    sync = IndexSync(store: store, index: index, recognizer: recognizer)
     model = ListModel(
-      index: index, live: LiveIndex(location: location, index: index, recognizer: nil),
-      location: location, searchDelay: searchDelay)
+      index: index, live: live, location: location, searchDelay: searchDelay)
     input = InputModel(location: location, now: { Self.now }, onFailure: { _ in })
+  }
+
+  deinit {
+    live.stop()
+    try? index.close()
   }
 
   static func settle() async {
