@@ -47,7 +47,5 @@ jobs:
           bun-version: 1.4.5
       - name: Install
         run: bun install --frozen-lockfile
-      - name: Build
-        run: bun run build
-      - name: Typecheck
+      - name: Build and typecheck
         run: bun run typecheck

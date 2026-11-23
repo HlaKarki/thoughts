@@ -6,7 +6,7 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "vite build && tsc --noEmit",
     "deploy": "vite build && wrangler deploy"
   },
   "dependencies": {
