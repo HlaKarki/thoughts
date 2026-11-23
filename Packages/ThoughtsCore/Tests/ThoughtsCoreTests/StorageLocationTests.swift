@@ -300,3 +300,26 @@ private final class Fixture {
   #expect(fixture.isSymlink(link))
   #expect(fixture.exists(old.appendingPathComponent("a.md")))
 }
+
+@Test func crossVolumeMoveKeepsEditMadeAfterVerify() throws {
+  let fixture = Fixture()
+  let location = fixture.location()
+  let old = try location.resolve()
+  let file = old.appendingPathComponent("a.md")
+  fixture.write("one", to: file)
+  let destination = fixture.url("Elsewhere/Thoughts")
+  #expect {
+    try location.move(
+      to: destination, rename: { _, _ in EXDEV },
+      afterVerify: {
+        let version = try! AtomicFile.info(at: file).version
+        try! AtomicFile.write(Data("two".utf8), to: file, target: .replacing(version))
+      })
+  } throws: { error in
+    guard case ThoughtsError.io(let reason) = error else { return false }
+    return reason.contains("a.md")
+  }
+  #expect(!fixture.isSymlink(old))
+  #expect(fixture.text(file) == "two")
+  #expect(fixture.text(destination.appendingPathComponent("a.md")) == "one")
+}

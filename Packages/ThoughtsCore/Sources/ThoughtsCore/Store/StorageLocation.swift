@@ -56,7 +56,8 @@ public struct StorageLocation: Sendable {
   }
 
   func move(
-    to destination: URL, rename: (URL, URL) -> Int32, afterCopy: () -> Void = {}
+    to destination: URL, rename: (URL, URL) -> Int32, afterCopy: () -> Void = {},
+    afterVerify: () -> Void = {}
   ) throws {
     guard environmentFolder == nil else {
       throw ThoughtsError.io("The folder can't move while THOUGHTS_DIR is set")
@@ -91,7 +92,8 @@ public struct StorageLocation: Sendable {
       case 0:
         try commitRename(from: source, to: target)
       case EXDEV:
-        try commitCopy(from: source, to: target, afterCopy: afterCopy)
+        try commitCopy(
+          from: source, to: target, afterCopy: afterCopy, afterVerify: afterVerify)
       case let code:
         throw ThoughtsError.io(String(cString: strerror(code)))
       }
@@ -196,12 +198,15 @@ public struct StorageLocation: Sendable {
     }
   }
 
-  private func commitCopy(from source: URL, to target: URL, afterCopy: () -> Void) throws {
+  private func commitCopy(
+    from source: URL, to target: URL, afterCopy: () -> Void, afterVerify: () -> Void
+  ) throws {
     let fileManager = FileManager.default
     let createdTarget = !fileManager.fileExists(atPath: target.path)
     var copied: [String] = []
+    var snapshot: [(String, FileVersion)] = []
     do {
-      let snapshot = try Self.snapshot(of: source)
+      snapshot = try Self.snapshot(of: source)
       try Self.createFolder(target)
       for (name, _) in snapshot {
         try fileManager.copyItem(
@@ -219,8 +224,12 @@ public struct StorageLocation: Sendable {
       }
       throw error
     }
-    for name in copied {
-      try? fileManager.removeItem(at: source.appendingPathComponent(name))
+    afterVerify()
+    for (name, version) in snapshot {
+      let file = source.appendingPathComponent(name)
+      if (try? AtomicFile.info(at: file).version) == version {
+        try? fileManager.removeItem(at: file)
+      }
     }
     guard rmdir(source.path) == 0 else {
       let left = ((try? Self.names(in: source)) ?? []).sorted().joined(separator: ", ")
