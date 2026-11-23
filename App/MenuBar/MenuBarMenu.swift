@@ -1,12 +1,38 @@
 import AppKit
 import KeyboardShortcuts
 
+struct MenuShowGate {
+  private(set) var isOpen = false
+  private var pending = false
+
+  mutating func opened() {
+    isOpen = true
+  }
+
+  mutating func closed() -> Bool {
+    isOpen = false
+    defer { pending = false }
+    return pending
+  }
+
+  mutating func chose() -> Bool {
+    if isOpen {
+      pending = true
+      return false
+    }
+    return true
+  }
+}
+
 @MainActor
 final class MenuBarMenu: NSObject, NSMenuDelegate {
   static let showID = NSUserInterfaceItemIdentifier("show")
 
   let menu = NSMenu()
   var onShow: @MainActor () -> Void = {}
+  var isOpen: Bool { gate.isOpen }
+  private var gate = MenuShowGate()
+  private let afterTracking: @MainActor (@escaping @MainActor () -> Void) -> Void
   private let shared: SharedMenuItems
   private let summon: KeyboardShortcuts.Name
   private let setSummonEnabled: @MainActor (KeyboardShortcuts.Name, Bool) -> Void
@@ -23,9 +49,13 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
       } else {
         KeyboardShortcuts.disable(name)
       }
+    },
+    afterTracking: @escaping @MainActor (@escaping @MainActor () -> Void) -> Void = { work in
+      RunLoop.main.perform(inModes: [.default]) { MainActor.assumeIsolated { work() } }
     }
   ) {
     self.shared = shared
+    self.afterTracking = afterTracking
     self.summon = summon
     self.setSummonEnabled = setSummonEnabled
     super.init()
@@ -69,7 +99,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
   @objc private func choose(_ sender: NSMenuItem) {
     guard let identifier = sender.identifier else { return }
     if identifier == Self.showID {
-      onShow()
+      if gate.chose() { showAfterTracking() }
     } else if let id = SharedMenuItem.ID(rawValue: identifier.rawValue) {
       shared.item(id).perform()
     }
@@ -80,10 +110,16 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
   }
 
   func menuWillOpen(_ menu: NSMenu) {
+    gate.opened()
     setSummonEnabled(summon, false)
   }
 
   func menuDidClose(_ menu: NSMenu) {
     setSummonEnabled(summon, true)
+    if gate.closed() { showAfterTracking() }
+  }
+
+  private func showAfterTracking() {
+    afterTracking { [weak self] in self?.onShow() }
   }
 }

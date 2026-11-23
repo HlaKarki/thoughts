@@ -8,7 +8,7 @@ struct PanelEntryTests {
   @MainActor
   final class Stage {
     var shown = false
-    var shows: [(screen: NSScreen?, afterMenu: Bool)] = []
+    var shows: [NSScreen?] = []
     var hides = 0
 
     var entry: PanelEntry {
@@ -18,8 +18,8 @@ struct PanelEntryTests {
           self.hides += 1
           self.shown = false
         },
-        show: { screen, afterMenu in
-          self.shows.append((screen, afterMenu))
+        show: { screen in
+          self.shows.append(screen)
           self.shown = true
         })
     }
@@ -34,7 +34,6 @@ struct PanelEntryTests {
     stage.shown = false
     entry.fromMenu(on: nil)
     #expect(stage.shows.count == 3)
-    #expect(stage.shows.map(\.afterMenu) == [false, false, true])
     #expect(stage.hides == 0)
   }
 
@@ -57,16 +56,6 @@ struct PanelEntryTests {
     let stage = Stage()
     let screen = try #require(NSScreen.screens.first)
     stage.entry.fromMenu(on: screen)
-    #expect(stage.shows.first?.screen === screen)
-  }
-
-  @Test func keyLossRightAfterAMenuShowDoesNotHideThePanelButLaterKeyLossDoes() {
-    let start = Date(timeIntervalSinceReferenceDate: 1_000)
-    var hold = KeyLossHold()
-    #expect(!hold.holds(at: start))
-    hold.start(at: start, duration: PanelController.menuCloseHold)
-    #expect(hold.holds(at: start))
-    #expect(hold.holds(at: start.addingTimeInterval(PanelController.menuCloseHold - 0.01)))
-    #expect(!hold.holds(at: start.addingTimeInterval(PanelController.menuCloseHold)))
+    #expect(stage.shows.first.flatMap { $0 } === screen)
   }
 }

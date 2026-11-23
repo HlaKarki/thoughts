@@ -13,12 +13,18 @@ struct MenuBarMenuTests {
   }
 
   @MainActor
+  final class Queue {
+    var work: [@MainActor () -> Void] = []
+  }
+
+  @MainActor
   final class Rig {
     let updates = UpdateMenuItem()
     let log = Log()
     let shared: SharedMenuItems
     let menuBar: MenuBarMenu
     let name = KeyboardShortcuts.Name("thoughts.tests.\(UUID().uuidString)")
+    let queue = Queue()
 
     init(wired: Bool = true) {
       let log = log
@@ -32,8 +38,17 @@ struct MenuBarMenuTests {
         updates: updates, openSettings: openSettings, checkForUpdates: checkForUpdates,
         quit: { log.events.append("quit") })
       menuBar = MenuBarMenu(
-        shared: shared, summon: name, setSummonEnabled: { log.summon.append(($0, $1)) })
+        shared: shared, summon: name, setSummonEnabled: { log.summon.append(($0, $1)) },
+        afterTracking: { [queue] work in queue.work.append(work) })
       menuBar.onShow = { log.events.append("show") }
+    }
+
+    var queued: [@MainActor () -> Void] { queue.work }
+
+    func runQueued() {
+      let work = queue.work
+      queue.work = []
+      work.forEach { $0() }
     }
 
     deinit {
@@ -82,7 +97,9 @@ struct MenuBarMenuTests {
     rig.menuBar.menuNeedsUpdate(rig.menuBar.menu)
     let menu = rig.menuBar.menu
     for index in [0, 2, 3, 4, 6] { menu.performActionForItem(at: index) }
-    #expect(rig.log.events == ["show", "updates", "settings", "updates", "quit"])
+    #expect(rig.log.events == ["updates", "settings", "updates", "quit"])
+    rig.runQueued()
+    #expect(rig.log.events == ["updates", "settings", "updates", "quit", "show"])
   }
 
   @Test func theTitlesAndEnabledStateComeFromTheSharedDefinitionForBothMenus() throws {
@@ -131,5 +148,50 @@ struct MenuBarMenuTests {
     rig.menuBar.menuDidClose(rig.menuBar.menu)
     #expect(rig.log.summon.map(\.enabled) == [false, true])
     #expect(rig.log.summon.allSatisfy { $0.name == rig.name })
+  }
+
+  @Test func showThoughtsRunsOnlyAfterTheMenuHasClosedWhicheverCallbackComesFirst() {
+    let rig = Rig()
+    let menu = rig.menuBar.menu
+    rig.menuBar.menuWillOpen(menu)
+    menu.performActionForItem(at: 0)
+    #expect(rig.queued.isEmpty)
+    rig.menuBar.menuDidClose(menu)
+    #expect(rig.queued.count == 1)
+    #expect(rig.log.events.isEmpty)
+    rig.runQueued()
+    #expect(rig.log.events == ["show"])
+
+    rig.menuBar.menuWillOpen(menu)
+    rig.menuBar.menuDidClose(menu)
+    #expect(rig.queued.isEmpty)
+    menu.performActionForItem(at: 0)
+    #expect(rig.queued.count == 1)
+    rig.runQueued()
+    #expect(rig.log.events == ["show", "show"])
+  }
+
+  @Test func closingTheMenuWithoutChoosingShowQueuesNothing() {
+    let rig = Rig()
+    rig.menuBar.menuWillOpen(rig.menuBar.menu)
+    #expect(rig.menuBar.isOpen)
+    rig.menuBar.menuDidClose(rig.menuBar.menu)
+    #expect(!rig.menuBar.isOpen)
+    #expect(rig.queued.isEmpty)
+  }
+
+  @Test func theShowGateHoldsAPickUntilTheCloseAndThenResets() {
+    var gate = MenuShowGate()
+    let beforeOpen = gate.chose()
+    gate.opened()
+    let whileOpen = gate.chose()
+    let closingAfterAPick = gate.closed()
+    gate.opened()
+    let closingWithoutOne = gate.closed()
+    #expect(beforeOpen)
+    #expect(!whileOpen)
+    #expect(closingAfterAPick)
+    #expect(!closingWithoutOne)
+    #expect(!gate.isOpen)
   }
 }

@@ -6,24 +6,19 @@ final class PanelController {
   static let maxHeight: CGFloat = 812
   static let edgeInset: CGFloat = 16
   static let duration: TimeInterval = 0.2
-  static let menuCloseHold: TimeInterval = 0.5
 
   private let panel: ThoughtsPanel
   private let preferences: Preferences
-  private let now: @MainActor () -> Date
   private var hiding = false
-  private var keyLossHold = KeyLossHold()
   private var transition = 0
   var onWillShow: (() -> Void)?
   var onWillHide: (() -> Void)?
   var onDidChangeShown: (() -> Void)?
   private(set) var restingFrame: CGRect?
 
-  init(content: NSView, preferences: Preferences, now: @escaping @MainActor () -> Date = Date.init)
-  {
+  init(content: NSView, preferences: Preferences) {
     self.panel = ThoughtsPanel(content: content)
     self.preferences = preferences
-    self.now = now
     panel.onCancel = { [weak self] in self?.hide() }
     NotificationCenter.default.addObserver(
       forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
@@ -57,8 +52,7 @@ final class PanelController {
     return frame.offsetBy(dx: edge == .right ? travel : -travel, dy: 0)
   }
 
-  func show(on screen: NSScreen? = nil, afterMenu: Bool = false) {
-    if afterMenu { keyLossHold.start(at: now(), duration: Self.menuCloseHold) }
+  func show(on screen: NSScreen? = nil) {
     present(makeKey: true, on: screen)
   }
 
@@ -120,7 +114,7 @@ final class PanelController {
   }
 
   private func resignedKey() {
-    guard isShown, !preferences.keepOpen, !keyLossHold.holds(at: now()) else { return }
+    guard isShown, !preferences.keepOpen else { return }
     hide()
   }
 
