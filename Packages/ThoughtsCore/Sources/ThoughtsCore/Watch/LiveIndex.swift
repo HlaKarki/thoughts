@@ -1,21 +1,25 @@
 import Foundation
+import Synchronization
 
 public final class LiveIndex: @unchecked Sendable {
   private final class Session: @unchecked Sendable {
     let watcher: FolderWatcher
     let sync: IndexSync
     let store: ThoughtStore
+    let cancellation: CancellationFlag
     let root: String
     let onChange: @Sendable (Result<IndexChanges, ThoughtsError>) -> Void
     var active = true
 
     init(
-      watcher: FolderWatcher, sync: IndexSync, store: ThoughtStore, root: String,
+      watcher: FolderWatcher, sync: IndexSync, store: ThoughtStore,
+      cancellation: CancellationFlag, root: String,
       onChange: @escaping @Sendable (Result<IndexChanges, ThoughtsError>) -> Void
     ) {
       self.watcher = watcher
       self.sync = sync
       self.store = store
+      self.cancellation = cancellation
       self.root = root
       self.onChange = onChange
     }
@@ -28,6 +32,7 @@ public final class LiveIndex: @unchecked Sendable {
   private let recognizer: (any TextRecognizing)?
   private let queue = DispatchQueue(label: "thoughts.live-index")
   private var session: Session?
+  private let pending = Mutex<CancellationFlag?>(nil)
   private var handler: (@Sendable (Result<IndexChanges, ThoughtsError>) -> Void)?
 
   public init(location: StorageLocation, index: SearchIndex, recognizer: (any TextRecognizing)?) {
@@ -52,6 +57,7 @@ public final class LiveIndex: @unchecked Sendable {
   }
 
   public func restart() throws {
+    cancelRunningPass()
     try onQueue {
       guard let handler = self.handler else {
         throw ThoughtsError.io("The live index was never started")
@@ -62,6 +68,7 @@ public final class LiveIndex: @unchecked Sendable {
   }
 
   public func stop() {
+    cancelRunningPass()
     try? onQueue { self.end() }
   }
 
@@ -73,8 +80,13 @@ public final class LiveIndex: @unchecked Sendable {
     }
   }
 
+  private func cancelRunningPass() {
+    pending.withLock { $0?.cancel() }
+  }
+
   private func end() {
     guard let session else { return }
+    session.cancellation.cancel()
     session.active = false
     session.watcher.stop()
     self.session = nil
@@ -86,17 +98,22 @@ public final class LiveIndex: @unchecked Sendable {
     guard session == nil else { return }
     let folder = try location.resolve()
     let store = ThoughtStore(folder: folder)
+    let cancellation = CancellationFlag()
+    var sync = IndexSync(store: store, index: index, recognizer: recognizer)
+    sync.cancellation = cancellation
     let watcher = FolderWatcher(folder: folder, latency: 0.2, queue: queue) { [weak self] events in
       self?.handle(events)
     }
     try watcher.start()
     let session = Session(
       watcher: watcher,
-      sync: IndexSync(store: store, index: index, recognizer: recognizer),
+      sync: sync,
       store: store,
+      cancellation: cancellation,
       root: FolderWatcher.canonicalPath(folder),
       onChange: onChange)
     self.session = session
+    pending.withLock { $0 = cancellation }
     let listing = IndexSync(store: store, index: index, recognizer: nil)
     queue.async { [weak self] in
       guard let self, session.active else { return }

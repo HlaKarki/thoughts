@@ -1,9 +1,21 @@
 import Foundation
+import Synchronization
+
+final class CancellationFlag: Sendable {
+  private let state = Mutex(false)
+
+  var isCancelled: Bool { state.withLock { $0 } }
+
+  func cancel() {
+    state.withLock { $0 = true }
+  }
+}
 
 public struct IndexSync: Sendable {
   private let store: ThoughtStore
   private let index: SearchIndex
   private let recognizer: (any TextRecognizing)?
+  var cancellation: CancellationFlag?
 
   public init(store: ThoughtStore, index: SearchIndex, recognizer: (any TextRecognizing)?) {
     self.store = store
@@ -141,6 +153,7 @@ public struct IndexSync: Sendable {
     guard let recognizer else { return }
     let pending = rows.filter { $0.recognized == nil && $0.image?.version != nil }
     for start in stride(from: 0, to: pending.count, by: Self.batchSize) {
+      if cancellation?.isCancelled == true { break }
       let items = pending[start..<min(start + Self.batchSize, pending.count)].compactMap {
         row -> RecognizedImage? in
         guard let image = row.image else { return nil }

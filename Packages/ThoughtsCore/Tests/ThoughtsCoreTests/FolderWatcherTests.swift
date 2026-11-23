@@ -255,3 +255,52 @@ private func makeWatcher(
   #expect(
     deliveries.failures.allSatisfy { if case .storageUnavailable = $0 { true } else { false } })
 }
+
+private final class SlowRecognizer: TextRecognizing, Sendable {
+  private let seen = Mutex<[String: Int]>([:])
+  private let delay: TimeInterval
+
+  init(delay: TimeInterval) {
+    self.delay = delay
+  }
+
+  var total: Int { seen.withLock { $0.values.reduce(0, +) } }
+  var mostPerImage: Int { seen.withLock { $0.values.max() ?? 0 } }
+
+  func text(in image: URL) throws -> String {
+    Thread.sleep(forTimeInterval: delay)
+    seen.withLock { $0[image.lastPathComponent, default: 0] += 1 }
+    return "invoice"
+  }
+}
+
+@Test func stopCancelsRecognitionBetweenBatches() async throws {
+  let scratch = Scratch()
+  let store = scratch.store
+  let count = 60
+  let delay = 0.04
+  for _ in 0..<count {
+    _ = try store.add(NewThought(content: .image(.data(png(side: 8), .png), note: "")))
+  }
+  let recognizer = SlowRecognizer(delay: delay)
+  let live = LiveIndex(
+    location: scratch.location, index: try scratch.makeIndex(), recognizer: recognizer)
+  try live.start { _ in }
+  #expect(await eventually { recognizer.total >= 1 })
+
+  let began = Date()
+  live.stop()
+  let waited = Date().timeIntervalSince(began)
+  #expect(waited < Double(count) * delay * 0.6)
+  let stopped = recognizer.total
+  #expect(stopped < count)
+  try await Task.sleep(for: .milliseconds(300))
+  #expect(recognizer.total == stopped)
+
+  try live.restart()
+  defer { live.stop() }
+  #expect(await eventually(seconds: 10) { recognizer.total >= count })
+  try await Task.sleep(for: .milliseconds(300))
+  #expect(recognizer.total == count)
+  #expect(recognizer.mostPerImage == 1)
+}
