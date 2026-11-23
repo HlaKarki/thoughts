@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 public struct Inbox: Sendable {
   static let itemFile = "item.json"
+  public static let failedFolder = "Failed"
 
   public let folder: URL
 
@@ -42,7 +43,7 @@ public struct Inbox: Sendable {
     } catch {
       throw ThoughtsError.io(error.localizedDescription)
     }
-    return names.filter { !$0.hasPrefix(".") }.sorted()
+    return names.filter { !$0.hasPrefix(".") && $0 != Self.failedFolder }.sorted()
       .map { folder.appendingPathComponent($0, isDirectory: true) }
       .filter { Self.isDirectory($0) }
   }
@@ -80,6 +81,21 @@ public struct Inbox: Sendable {
   public func remove(_ entry: URL) throws {
     do {
       try FileManager.default.removeItem(at: entry)
+    } catch {
+      throw ThoughtsError.io(error.localizedDescription)
+    }
+  }
+
+  public func isReadable(_ entry: URL) -> Bool {
+    (try? read(entry)) != nil
+  }
+
+  public func quarantine(_ entry: URL) throws {
+    let manager = FileManager.default
+    let failed = folder.appendingPathComponent(Self.failedFolder, isDirectory: true)
+    do {
+      try manager.createDirectory(at: failed, withIntermediateDirectories: true)
+      try manager.moveItem(at: entry, to: failed.appendingPathComponent(entry.lastPathComponent))
     } catch {
       throw ThoughtsError.io(error.localizedDescription)
     }

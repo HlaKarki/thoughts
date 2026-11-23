@@ -67,6 +67,14 @@ final class InboxImporter {
     return task
   }
 
+  private func discard(_ entry: URL) {
+    if inbox.isReadable(entry) {
+      try? inbox.remove(entry)
+    } else {
+      try? inbox.quarantine(entry)
+    }
+  }
+
   private func importPending() async {
     let entries: [URL]
     do {
@@ -84,6 +92,7 @@ final class InboxImporter {
         new = try inbox.newThought(from: entry, source: fallback)
       } catch {
         failure = failure ?? CaptureCoordinator.message(for: error)
+        discard(entry)
         continue
       }
       do {

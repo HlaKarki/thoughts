@@ -57,7 +57,7 @@ struct InboxImporterTests {
     #expect(try inbox.pending() == [entry])
   }
 
-  @Test func anItemThatCannotBeReadIsReported() async throws {
+  @Test func anItemRejectedForItsContentIsReportedOnceAndDeleted() async throws {
     let temp = TempFolder()
     let inbox = Inbox(folder: temp.url.appendingPathComponent("Inbox", isDirectory: true))
     _ = try inbox.write(InboxItem(kind: .text, text: "   "), attachment: nil)
@@ -68,5 +68,31 @@ struct InboxImporterTests {
     await importer.importNow().value
     #expect(saves.saved.isEmpty)
     #expect(saves.failures == ["The shared item has no text"])
+    #expect(try inbox.pending().isEmpty)
+    _ = try inbox.write(InboxItem(kind: .text, text: "Call the dentist"), attachment: nil)
+    await importer.importNow().value
+    #expect(saves.saved.count == 1)
+    #expect(saves.failures.count == 1)
+  }
+
+  @Test func anItemThatCannotBeReadMovesToTheFailedFolderAndIsReportedOnce() async throws {
+    let temp = TempFolder()
+    let folder = temp.url.appendingPathComponent("Inbox", isDirectory: true)
+    let inbox = Inbox(folder: folder)
+    let entry = try inbox.write(InboxItem(kind: .text, text: "Call the dentist"), attachment: nil)
+    try Data("{".utf8).write(to: entry.appendingPathComponent("item.json"))
+    let saves = Saves()
+    let importer = InboxImporter(
+      inbox: inbox, save: { saves.saved.append($0) }, source: { nil })
+    importer.onFailure = { saves.failures.append($0) }
+    await importer.importNow().value
+    #expect(saves.failures.count == 1)
+    #expect(try inbox.pending().isEmpty)
+    let kept = folder.appendingPathComponent("Failed").appendingPathComponent(
+      entry.lastPathComponent)
+    #expect(FileManager.default.fileExists(atPath: kept.path))
+    await importer.importNow().value
+    #expect(saves.failures.count == 1)
+    #expect(saves.saved.isEmpty)
   }
 }

@@ -107,4 +107,18 @@ struct InboxTests {
     try json.write(to: half.appendingPathComponent("item.json"))
     #expect(try fixture.inbox.pending().isEmpty)
   }
+
+  @Test func quarantineMovesAnEntryOutOfPendingAndKeepsIt() throws {
+    let fixture = try InboxFixture()
+    let entry = try fixture.inbox.write(
+      InboxItem(kind: .text, text: "keep", created: created), attachment: nil)
+    #expect(fixture.inbox.isReadable(entry))
+    try Data("{".utf8).write(to: entry.appendingPathComponent("item.json"))
+    #expect(!fixture.inbox.isReadable(entry))
+    try fixture.inbox.quarantine(entry)
+    #expect(try fixture.inbox.pending().isEmpty)
+    let kept = fixture.folder.appendingPathComponent(Inbox.failedFolder)
+      .appendingPathComponent(entry.lastPathComponent)
+    #expect(FileManager.default.fileExists(atPath: kept.path))
+  }
 }
