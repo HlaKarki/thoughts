@@ -268,10 +268,7 @@ extension SearchIndex {
 
     func has(_ name: String) -> Bool {
       guard names.contains(ExactName(name)) else { return false }
-      var isDirectory: ObjCBool = false
-      let exists = FileManager.default.fileExists(
-        atPath: folder.appendingPathComponent(name).path, isDirectory: &isDirectory)
-      return exists && !isDirectory.boolValue
+      return !ThoughtStore.isDirectory(folder.appendingPathComponent(name))
     }
   }
 

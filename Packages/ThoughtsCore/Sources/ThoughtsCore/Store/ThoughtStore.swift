@@ -172,10 +172,11 @@ extension ThoughtStore {
       names
       .filter { !$0.hasPrefix(".") && ($0 as NSString).pathExtension.lowercased() == "md" }
       .sorted()
-      .filter {
-        (try? folder.appendingPathComponent($0).resourceValues(forKeys: [.isDirectoryKey])
-          .isDirectory) != true
-      }
+      .filter { !Self.isDirectory(folder.appendingPathComponent($0)) }
+  }
+
+  static func isDirectory(_ url: URL) -> Bool {
+    (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
   }
 
   private func fileName(of entry: ThoughtEntry) -> String {

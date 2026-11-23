@@ -443,15 +443,82 @@ private func rename(in folder: URL, _ from: String, to: String) -> Bool {
   _ = try fx.sync.reconcile(nil)
   let before = try FileManager.default.contentsOfDirectory(atPath: fx.folder.path)
   let target = spellings.first { !$0.utf8.elementsEqual(before[0].utf8) }!
-  guard rename(in: fx.folder, before[0], to: target) else { return }
+  try #require(rename(in: fx.folder, before[0], to: target))
   let after = try FileManager.default.contentsOfDirectory(atPath: fx.folder.path)
-  guard after.count == 1, !after[0].utf8.elementsEqual(before[0].utf8) else { return }
+  try #require(after.count == 1)
+  try #require(!after[0].utf8.elementsEqual(before[0].utf8))
   let changes = try fx.sync.reconcile(nil)
   #expect(changes.added.count == 1)
   #expect(changes.removed.count == 1)
   let entries = fx.entries()
   #expect(entries == (try fx.store.entries()))
   #expect(entries.count == 1)
+}
+
+private func makeNFCFile(_ fx: Fixture) throws -> String {
+  let composed = "caf\u{E9}-nfc00001.md"
+  let decomposed = "cafe\u{301}-nfc00001.md"
+  try "hello".write(
+    to: fx.folder.appendingPathComponent(decomposed), atomically: false, encoding: .utf8)
+  try #require(rename(in: fx.folder, decomposed, to: composed))
+  let listed = try FileManager.default.contentsOfDirectory(atPath: fx.folder.path)
+  try #require(listed.count == 1)
+  try #require(listed[0].utf8.elementsEqual(composed.utf8))
+  return listed[0]
+}
+
+@Test func reconcileFilesAfterCaseRenameLeavesOneEntry() throws {
+  let fx = Fixture()
+  fx.writeFile("20261122-101010-caseid01.md", id: "caseid01", body: "renamed")
+  _ = try fx.sync.reconcile(nil)
+  try #require(
+    rename(in: fx.folder, "20261122-101010-caseid01.md", to: "20261122-101010-CASEID01.md"))
+  let old = fx.folder.appendingPathComponent("20261122-101010-caseid01.md")
+  let new = fx.folder.appendingPathComponent("20261122-101010-CASEID01.md")
+  let changes = try fx.sync.reconcile([old, new])
+  #expect(changes.removed == ["20261122-101010-caseid01.md"])
+  #expect(changes.added == ["20261122-101010-CASEID01.md"])
+  let entries = fx.entries()
+  #expect(entries == (try fx.store.entries()))
+  #expect(entries.count == 1)
+  if case .malformed = entries.first { Issue.record("malformed entry") }
+}
+
+@Test func reconcileFilesUpdatesNFCNamedFile() throws {
+  let fx = Fixture()
+  let name = try makeNFCFile(fx)
+  _ = try fx.sync.reconcile(nil)
+  let url = fx.folder.appendingPathComponent(name)
+  try "hello zebra".write(to: url, atomically: false, encoding: .utf8)
+  let changes = try fx.sync.reconcile([url])
+  #expect(changes.updated.count == 1)
+  #expect(changes.updated.first?.utf8.elementsEqual(name.utf8) == true)
+  #expect(try fx.index.search("zebra").count == 1)
+  #expect(fx.entries() == (try fx.store.entries()))
+}
+
+@Test func reconcileFilesRemovesDeletedNFCNamedFile() throws {
+  let fx = Fixture()
+  let name = try makeNFCFile(fx)
+  _ = try fx.sync.reconcile(nil)
+  let url = fx.folder.appendingPathComponent(name)
+  try FileManager.default.removeItem(at: url)
+  let changes = try fx.sync.reconcile([url])
+  #expect(changes.removed.count == 1)
+  #expect(fx.entries().isEmpty)
+}
+
+@Test func symlinkedDirectoryNameMatchesStore() throws {
+  let fx = Fixture()
+  let target = fx.scratch.appendingPathComponent("elsewhere")
+  try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+  try FileManager.default.createSymbolicLink(
+    at: fx.folder.appendingPathComponent("linkdir.md"), withDestinationURL: target)
+  _ = try fx.sync.reconcile(nil)
+  #expect(fx.entries() == (try fx.store.entries()))
+  #expect(fx.entries().count == 1)
+  #expect(try fx.sync.reconcile(nil).isEmpty)
+  #expect(fx.entries() == (try fx.store.entries()))
 }
 
 @Test func restoredFileKeepsItsRow() throws {

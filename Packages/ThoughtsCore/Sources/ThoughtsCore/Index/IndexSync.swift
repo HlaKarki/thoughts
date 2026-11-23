@@ -24,11 +24,20 @@ public struct IndexSync: Sendable {
     var removed: [String] = []
     let names: [String]
     if let files {
+      let listed = try store.markdownNames()
+      let byName = Dictionary(listed.map { ($0, $0) }, uniquingKeysWith: { first, _ in first })
+      let byBytes = Dictionary(
+        listed.map { (ExactName($0), $0) }, uniquingKeysWith: { first, _ in first })
       var seen = Set<ExactName>()
-      names =
-        files.map(\.lastPathComponent)
-        .filter { Self.isMarkdownName($0) && seen.insert(ExactName($0)).inserted }
-        .sorted()
+      var present: [String] = []
+      for caller in files.map(\.lastPathComponent) where Self.isMarkdownName(caller) {
+        if let match = byBytes[ExactName(caller)] ?? byName[caller] {
+          if seen.insert(ExactName(match)).inserted { present.append(match) }
+        } else {
+          removed.append(contentsOf: known.keys.map(\.value).filter { $0 == caller })
+        }
+      }
+      names = present.sorted()
     } else {
       names = try store.markdownNames()
       let listed = Set(names.map(ExactName.init))
