@@ -83,4 +83,17 @@ struct PanelEntryTests {
     #expect(second.contains(target))
     #expect(target.maxX == second.maxX - PanelController.edgeInset)
   }
+
+  @Test func aMenuClosedWithNoChoiceGivesTheKeyBackUnlessFocusMovedAway() {
+    func outcome(lost: Bool, keepOpen: Bool, moved: Bool) -> MenuCloseOutcome {
+      PanelController.afterMenuClosed(
+        lostKeyToOwnIcon: lost, keepOpen: keepOpen, focusMovedAway: moved)
+    }
+    #expect(outcome(lost: true, keepOpen: false, moved: false) == .restoreKey)
+    #expect(outcome(lost: true, keepOpen: true, moved: false) == .restoreKey)
+    #expect(outcome(lost: true, keepOpen: false, moved: true) == .hide)
+    #expect(outcome(lost: true, keepOpen: true, moved: true) == .none)
+    #expect(outcome(lost: false, keepOpen: false, moved: false) == .none)
+    #expect(outcome(lost: false, keepOpen: false, moved: true) == .none)
+  }
 }

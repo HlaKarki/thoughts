@@ -30,6 +30,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
 
   let menu = NSMenu()
   var onShow: @MainActor () -> Void = {}
+  var onClosed: @MainActor () -> Void = {}
   var isOpen: Bool { gate.isOpen }
   private var gate = MenuShowGate()
   private let afterTracking: @MainActor (@escaping @MainActor () -> Void) -> Void
@@ -116,6 +117,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
 
   func menuDidClose(_ menu: NSMenu) {
     setSummonEnabled(summon, true)
+    afterTracking { [weak self] in self?.onClosed() }
     if gate.closed() { showAfterTracking() }
   }
 

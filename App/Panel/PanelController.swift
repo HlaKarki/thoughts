@@ -6,6 +6,12 @@ enum PanelShowPlan: Equatable {
   case moveAndRefocus(CGRect)
 }
 
+enum MenuCloseOutcome: Equatable {
+  case none
+  case restoreKey
+  case hide
+}
+
 @MainActor
 final class PanelController {
   static let width: CGFloat = 360
@@ -18,6 +24,11 @@ final class PanelController {
   private var hiding = false
   private var transition = 0
   var ownIconInUse: @MainActor () -> Bool = { false }
+  var frontmostApp: @MainActor () -> pid_t? = {
+    NSWorkspace.shared.frontmostApplication?.processIdentifier
+  }
+  private var lostKeyToOwnIcon = false
+  private var frontmostAtLoss: pid_t?
   var onWillShow: (() -> Void)?
   var onWillHide: (() -> Void)?
   var onDidChangeShown: (() -> Void)?
@@ -62,6 +73,14 @@ final class PanelController {
       !visible.contains(CGPoint(x: panelFrame.midX, y: panelFrame.midY))
     else { return .refocus }
     return .moveAndRefocus(frame(in: visible, edge: edge))
+  }
+
+  static func afterMenuClosed(
+    lostKeyToOwnIcon: Bool, keepOpen: Bool, focusMovedAway: Bool
+  ) -> MenuCloseOutcome {
+    guard lostKeyToOwnIcon else { return .none }
+    guard focusMovedAway else { return .restoreKey }
+    return keepOpen ? .none : .hide
   }
 
   static func hidesOnKeyLoss(keepOpen: Bool, ownIconInUse: Bool) -> Bool {
@@ -124,8 +143,24 @@ final class PanelController {
     onDidChangeShown?()
   }
 
+  func ownMenuClosed() {
+    let lost = lostKeyToOwnIcon
+    lostKeyToOwnIcon = false
+    guard isShown else { return }
+    let otherWindowKey = NSApp.keyWindow.map { $0 !== panel } ?? false
+    let outcome = Self.afterMenuClosed(
+      lostKeyToOwnIcon: lost, keepOpen: preferences.keepOpen,
+      focusMovedAway: otherWindowKey || frontmostApp() != frontmostAtLoss)
+    switch outcome {
+    case .none: break
+    case .restoreKey: panel.makeKeyAndOrderFront(nil)
+    case .hide: hide()
+    }
+  }
+
   func hide() {
     guard isShown else { return }
+    lostKeyToOwnIcon = false
     onWillHide?()
     hiding = true
     restingFrame = nil
@@ -147,9 +182,15 @@ final class PanelController {
   }
 
   private func resignedKey() {
-    guard isShown,
-      Self.hidesOnKeyLoss(keepOpen: preferences.keepOpen, ownIconInUse: ownIconInUse())
-    else { return }
+    guard isShown else { return }
+    let ownIcon = ownIconInUse()
+    if ownIcon, !lostKeyToOwnIcon {
+      lostKeyToOwnIcon = true
+      frontmostAtLoss = frontmostApp()
+    }
+    guard Self.hidesOnKeyLoss(keepOpen: preferences.keepOpen, ownIconInUse: ownIcon) else {
+      return
+    }
     hide()
   }
 

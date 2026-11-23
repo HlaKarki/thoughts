@@ -82,6 +82,7 @@ final class AppState {
       surface: SystemStatusItem(menu: menuBarMenu.menu), menu: menuBarMenu,
       showPanel: { entry.fromMenu(on: $0) })
     self.menuBar = menuBar
+    menuBarMenu.onClosed = { [panel] in panel.ownMenuClosed() }
     panel.ownIconInUse = { [menuBar] in menuBar.ownIconInUse(event: NSApp.currentEvent) }
     menuBar.start()
     let pasteboard = PasteboardWriter()
