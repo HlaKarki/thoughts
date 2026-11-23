@@ -1,0 +1,12 @@
+import Foundation
+
+enum FileNaming {
+  static func baseName(created: Date, id: ThoughtID) -> String {
+    let parts = Calendar.current.dateComponents(
+      [.year, .month, .day, .hour, .minute, .second], from: created)
+    return String(
+      format: "%04d%02d%02d-%02d%02d%02d-%@",
+      parts.year!, parts.month!, parts.day!, parts.hour!, parts.minute!, parts.second!,
+      id.rawValue)
+  }
+}
