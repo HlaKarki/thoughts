@@ -53,7 +53,7 @@ const styles = stylex.create({
   install: {
     display: 'flex',
     flexDirection: 'column',
-    gap: { default: 16, [media.wide]: 16 },
+    gap: 16,
     paddingTop: { default: 8, [media.wide]: 16 },
   },
   actions: {
