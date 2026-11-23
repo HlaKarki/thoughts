@@ -220,4 +220,76 @@ struct EditInPlaceTests {
     #expect(rig.fixture.model.editing?.text == "second, typing")
     #expect(rig.fixture.model.focus == .edit)
   }
+
+  @Test func leavingTheEditForTheInputSavesItBeforeAnotherRowCanBeEdited() async throws {
+    let rig = try ThoughtActionsTests.rig()
+    defer { rig.board.releaseGlobally() }
+    let first = try rig.fixture.addText("one", daysAgo: 2)
+    let second = try rig.fixture.addText("two", daysAgo: 1)
+    try rig.fixture.reload()
+    rig.fixture.model.onCommand = { rig.actions.perform($0) }
+    Self.begin(rig, first)
+    rig.fixture.model.editText = "one, edited"
+    rig.fixture.model.focus = .input
+    #expect(rig.fixture.model.editing?.isSaving == true)
+    rig.fixture.model.perform(.selectNewest)
+    rig.fixture.model.perform(.edit)
+    #expect(rig.fixture.model.editing?.name == first.file.lastPathComponent)
+    await rig.actions.pending?.value
+    let stored = try rig.fixture.store.entries().compactMap(\.thought)
+    #expect(stored.contains { $0.content == .text("one, edited") })
+    #expect(rig.fixture.model.editing == nil)
+    #expect(rig.fixture.model.focus == .list)
+    rig.fixture.model.perform(.edit)
+    #expect(rig.fixture.model.editing?.name == second.file.lastPathComponent)
+  }
+
+  @Test func leavingTheEditForSearchOrTheMenuSavesIt() async throws {
+    let rig = try ThoughtActionsTests.rig()
+    defer { rig.board.releaseGlobally() }
+    let first = try rig.fixture.addText("one", daysAgo: 1)
+    try rig.fixture.reload()
+    rig.fixture.model.onCommand = { rig.actions.perform($0) }
+    Self.begin(rig, first)
+    rig.fixture.model.editText = "one, edited"
+    rig.fixture.model.focus = .search
+    await rig.actions.pending?.value
+    #expect(rig.fixture.model.editing == nil)
+    #expect(rig.fixture.model.focus == .search)
+    let stored = try rig.fixture.store.entries().compactMap(\.thought)
+    #expect(stored.first?.content == .text("one, edited"))
+  }
+
+  @Test func aConflictOnLeavingTheEditReturnsFocusToItsField() async throws {
+    let rig = try ThoughtActionsTests.rig()
+    defer { rig.board.releaseGlobally() }
+    let first = try rig.fixture.addText("one", daysAgo: 2)
+    try rig.fixture.addText("two", daysAgo: 1)
+    try rig.fixture.reload()
+    rig.fixture.model.onCommand = { rig.actions.perform($0) }
+    Self.begin(rig, first)
+    rig.fixture.model.editText = "my version"
+    _ = try rig.fixture.store.setDone(true, for: first.id, at: ListFixture.now)
+    rig.fixture.model.focus = .input
+    await rig.actions.pending?.value
+    #expect(rig.fixture.model.editing?.name == first.file.lastPathComponent)
+    #expect(rig.fixture.model.editing?.text == "my version")
+    #expect(rig.fixture.model.focus == .edit)
+    #expect(rig.fixture.model.selection == [first.file.lastPathComponent])
+    #expect(
+      rig.fixture.model.hint == "Changed on disk. Press Enter again to save your text.")
+  }
+
+  @Test func aBlankTextCannotBeLeftBehind() throws {
+    let rig = try ThoughtActionsTests.rig()
+    defer { rig.board.releaseGlobally() }
+    let first = try rig.fixture.addText("one", daysAgo: 1)
+    try rig.fixture.reload()
+    rig.fixture.model.onCommand = { rig.actions.perform($0) }
+    Self.begin(rig, first)
+    rig.fixture.model.editText = "  "
+    rig.fixture.model.focus = .input
+    #expect(rig.fixture.model.focus == .edit)
+    #expect(rig.fixture.model.editing?.text == "  ")
+  }
 }

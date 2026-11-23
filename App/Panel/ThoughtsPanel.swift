@@ -53,6 +53,34 @@ final class ThoughtsPanel: NSPanel {
     onCancel?()
   }
 
+  static func editAction(for event: NSEvent) -> Selector? {
+    let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+    guard let key = event.charactersIgnoringModifiers?.lowercased() else { return nil }
+    switch (key, flags) {
+    case ("x", .command): return Selector(("cut:"))
+    case ("c", .command): return Selector(("copy:"))
+    case ("v", .command): return Selector(("paste:"))
+    case ("a", .command): return Selector(("selectAll:"))
+    case ("z", .command): return Selector(("undo:"))
+    case ("z", [.command, .shift]): return Selector(("redo:"))
+    default: return nil
+    }
+  }
+
+  override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    if let action = Self.editAction(for: event), send(action) { return true }
+    return super.performKeyEquivalent(with: event)
+  }
+
+  private func send(_ action: Selector) -> Bool {
+    var responder = firstResponder
+    while let current = responder {
+      if current.tryToPerform(action, with: nil) { return true }
+      responder = current.nextResponder
+    }
+    return false
+  }
+
   override func makeFirstResponder(_ responder: NSResponder?) -> Bool {
     let accepted = super.makeFirstResponder(responder)
     if accepted, let editor = firstResponder as? NSTextView { editor.unregisterDraggedTypes() }

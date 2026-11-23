@@ -83,7 +83,11 @@ final class ListModel {
   }
   var menuHighlight = 0
   private(set) var editing: EditSession?
-  var focus: Focus = .input
+  var focus: Focus = .input {
+    didSet {
+      if oldValue == .edit, focus != .edit { commitEditOnLeave() }
+    }
+  }
   var query = "" {
     didSet {
       guard query != oldValue else { return }
@@ -321,11 +325,17 @@ final class ListModel {
     onCommand?(command)
   }
 
+  private func commitEditOnLeave() {
+    guard let session = editing, !session.isSaving else { return }
+    perform(.saveEdit)
+    if editing != nil, editing?.isSaving != true { focus = .edit }
+  }
+
   private func beginEdit() {
     guard selection.count == 1, let thought = selectedEntries.first?.thought else { return }
     let name = thought.file.lastPathComponent
-    if editing?.name == name {
-      focus = .edit
+    if let session = editing {
+      if session.name == name { focus = .edit }
       return
     }
     let text: String
@@ -392,13 +402,17 @@ final class ListModel {
       replace(fresh)
       editing?.version = fresh.version
       queuedSelect = nil
+      focus = .edit
       showHint(String(localized: "Changed on disk. Press Enter again to save your text."))
     case .deleted:
       load()
       if current, editing?.name == name { endEdit() }
       showHint(String(localized: "This thought was deleted."))
     case .failed(let message):
-      if current { queuedSelect = nil }
+      if current {
+        queuedSelect = nil
+        focus = .edit
+      }
       showHint(message)
     }
   }
