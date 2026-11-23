@@ -24,6 +24,8 @@ final class AppState {
   let offers: OfferCenter
   let settings: SettingsWindowController
   let firstRun: FirstRunWindowController
+  let importer: InboxImporter?
+  let urls: URLHandler
   static let savedChipLifetime: TimeInterval = 1.2
   static let hintChipLifetime: TimeInterval = 2.4
   private var summon: Task<Void, Never>?
@@ -171,11 +173,23 @@ final class AppState {
     let shortcut = CaptureShortcut(preferences: preferences)
     self.gesture = gesture
     captureShortcut = shortcut
+    let save: (NewThought) async throws -> Void = { [input] in
+      try await input.save($0, pasteboardChangeCount: nil)
+    }
+    let importer = InboxImporter.groupInbox().map { [input] in
+      InboxImporter(inbox: $0, save: save, source: { await input.source() })
+    }
+    self.importer = importer
+    urls = URLHandler(
+      panel: panel, importer: importer, save: save, source: { [input] in await input.source() })
     gesture.onGesture = { [weak self] in self?.gestureFired() }
     gesture.start()
     shortcut.onFire = { [weak self] in self?.gestureFired() }
     shortcut.start()
     offers.onChange = { [weak self] offer, thumbnail in self?.present(offer, thumbnail: thumbnail) }
+    importer?.onFailure = { [weak self] in self?.showFailure($0) }
+    urls.onFailure = { [weak self] in self?.showFailure($0) }
+    importer?.start()
     clipboard.start()
     gate.launch()
     summon = SummonShortcut.listen { [panel] in panel.toggle() }
@@ -198,6 +212,10 @@ final class AppState {
     case .failed(let message):
       showHint(.failed(message), lifetime: Self.hintChipLifetime)
     }
+  }
+
+  private func showFailure(_ message: String) {
+    showHint(.failed(message), lifetime: Self.hintChipLifetime)
   }
 
   private func showHint(_ kind: HintChipView.Kind, lifetime: TimeInterval) {
@@ -238,6 +256,7 @@ final class AppState {
     gesture.stop()
     captureShortcut.stop()
     offers.stop()
+    importer?.stop()
     chip.hide()
     dragMonitor.stop()
     live.stop()

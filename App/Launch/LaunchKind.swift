@@ -3,8 +3,10 @@ import AppKit
 enum LaunchKind: Equatable {
   case login
   case manual
+  case url
 
-  static func current() -> LaunchKind {
+  static func current(openedURLs: Bool) -> LaunchKind {
+    if openedURLs { return .url }
     let event = NSAppleEventManager.shared().currentAppleEvent
     let data = event?.paramDescriptor(forKeyword: AEKeyword(keyAEPropData))
     return from(propData: data?.enumCodeValue)
@@ -22,6 +24,9 @@ enum LaunchAction: Equatable {
 
   static func decide(firstRunDone: Bool, kind: LaunchKind) -> LaunchAction {
     guard firstRunDone else { return .firstRun }
-    return kind == .login ? .nothing : .showPanel
+    switch kind {
+    case .manual: return .showPanel
+    case .login, .url: return .nothing
+    }
   }
 }

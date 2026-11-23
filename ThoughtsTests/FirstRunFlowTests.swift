@@ -182,6 +182,8 @@ struct FirstRunFlowTests {
     (LaunchKind.manual, true, LaunchAction.showPanel),
     (LaunchKind.login, false, LaunchAction.firstRun),
     (LaunchKind.manual, false, LaunchAction.firstRun),
+    (LaunchKind.url, true, LaunchAction.nothing),
+    (LaunchKind.url, false, LaunchAction.firstRun),
   ])
   func launchDecidesWhatToShow(kind: LaunchKind, done: Bool, expected: LaunchAction) {
     #expect(LaunchAction.decide(firstRunDone: done, kind: kind) == expected)

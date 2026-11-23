@@ -7,6 +7,18 @@ options:
 configFiles:
   Debug: Config/Base.xcconfig
   Release: Config/Base.xcconfig
+settings:
+  configs:
+    Debug:
+      THOUGHTS_BUNDLE_ID: dev.hla.thoughts.debug
+      THOUGHTS_DISPLAY_NAME: Thoughts Dev
+      THOUGHTS_APP_GROUP: $(TeamIdentifierPrefix)dev.hla.thoughts.debug
+      THOUGHTS_URL_SCHEME: thoughts-dev
+    Release:
+      THOUGHTS_BUNDLE_ID: dev.hla.thoughts
+      THOUGHTS_DISPLAY_NAME: Thoughts
+      THOUGHTS_APP_GROUP: $(TeamIdentifierPrefix)dev.hla.thoughts
+      THOUGHTS_URL_SCHEME: thoughts
 packages:
   ThoughtsCore:
     path: Packages/ThoughtsCore
@@ -26,17 +38,21 @@ targets:
         CFBundleDisplayName: $(THOUGHTS_DISPLAY_NAME)
         LSMinimumSystemVersion: "15.4"
         LSUIElement: true
+        CFBundleURLTypes:
+          - CFBundleURLName: $(PRODUCT_BUNDLE_IDENTIFIER)
+            CFBundleURLSchemes:
+              - $(THOUGHTS_URL_SCHEME)
+        ThoughtsAppGroup: $(THOUGHTS_APP_GROUP)
+    entitlements:
+      path: Config/Thoughts.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - $(THOUGHTS_APP_GROUP)
     settings:
       base:
         PRODUCT_NAME: Thoughts
         PRODUCT_MODULE_NAME: Thoughts
-      configs:
-        Debug:
-          PRODUCT_BUNDLE_IDENTIFIER: dev.hla.thoughts.debug
-          THOUGHTS_DISPLAY_NAME: Thoughts Dev
-        Release:
-          PRODUCT_BUNDLE_IDENTIFIER: dev.hla.thoughts
-          THOUGHTS_DISPLAY_NAME: Thoughts
+        PRODUCT_BUNDLE_IDENTIFIER: $(THOUGHTS_BUNDLE_ID)
     dependencies:
       - package: ThoughtsCore
         product: ThoughtsCore
@@ -46,6 +62,44 @@ targets:
         copy:
           destination: wrapper
           subpath: Contents/Helpers
+      - target: ThoughtsShare
+  ThoughtsShare:
+    type: app-extension
+    platform: macOS
+    sources:
+      - ShareExtension
+    info:
+      path: ShareExtension/Info.plist
+      properties:
+        CFBundleName: $(THOUGHTS_DISPLAY_NAME) Share
+        CFBundleDisplayName: Add to $(THOUGHTS_DISPLAY_NAME)
+        LSMinimumSystemVersion: "15.4"
+        ThoughtsAppGroup: $(THOUGHTS_APP_GROUP)
+        ThoughtsURLScheme: $(THOUGHTS_URL_SCHEME)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsWebURLWithMaxCount: 20
+              NSExtensionActivationSupportsImageWithMaxCount: 20
+              NSExtensionActivationSupportsFileWithMaxCount: 20
+              NSExtensionActivationSupportsAttachmentsWithMaxCount: 20
+    entitlements:
+      path: ShareExtension/ThoughtsShare.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups:
+          - $(THOUGHTS_APP_GROUP)
+    settings:
+      base:
+        PRODUCT_NAME: ThoughtsShare
+        PRODUCT_MODULE_NAME: ThoughtsShare
+        PRODUCT_BUNDLE_IDENTIFIER: $(THOUGHTS_BUNDLE_ID).share
+    dependencies:
+      - package: ThoughtsCore
+        product: ThoughtsCore
   ThoughtsTests:
     type: bundle.unit-test
     platform: macOS
