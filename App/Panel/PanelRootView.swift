@@ -81,7 +81,7 @@ struct PanelRootView: View {
       } else if list.isSearching {
         NoMatchesView()
       } else {
-        EmptyListView()
+        EmptyListView(preferences: preferences)
       }
     }
     .overlay {

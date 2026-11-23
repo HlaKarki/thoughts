@@ -93,12 +93,12 @@ enum SettingsFixtures {
   @MainActor
   static func firstRun(
     system: FakeSystem, preferences: Preferences, mover: StorageMover = mover(),
-    summonKeySet: Bool = true
+    summonKeySet: Bool = true, captureShortcutText: String? = nil
   ) throws -> FirstRunModel {
     FirstRunModel(
       preferences: preferences, services: system.services, storage: mover,
       screenshots: try screenshots(), home: home, pollInterval: .milliseconds(1),
-      summonKeySet: { summonKeySet }, summonDescription: { "⌥Space" })
+      summonKeySet: { summonKeySet }, captureShortcutText: { captureShortcutText })
   }
 
   @MainActor

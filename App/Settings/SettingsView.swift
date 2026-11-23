@@ -82,12 +82,17 @@ struct KeysSettings: View {
     }
     RowDivider()
     SettingsRow(title: "Capture gesture") {
-      GesturePicker(selection: $preferences.gesture).frame(width: 150)
+      HStack(spacing: 8) {
+        if preferences.captureMethod == .shortcut {
+          KeyboardShortcuts.Recorder(for: .capture).frame(width: 130)
+        }
+        MethodPicker(selection: $preferences.captureMethod).frame(width: 160)
+      }
     }
-    if preferences.gesture == .shift {
+    if preferences.captureMethod == .doubleTap(.shift) {
       InfoNote(
         text:
-          "JetBrains IDEs use double Shift for Search Everywhere. If you work in one, pick another gesture."
+          "JetBrains IDEs use double Shift for Search Everywhere. If you work in one, use a shortcut here instead."
       )
       .padding(.horizontal, 12)
       .padding(.bottom, 12)

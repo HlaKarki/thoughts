@@ -2,6 +2,7 @@ import KeyboardShortcuts
 
 extension KeyboardShortcuts.Name {
   static let summon = Self("summon", initial: .init(.space, modifiers: [.option]))
+  static let capture = Self("capture")
 }
 
 enum SummonShortcut {

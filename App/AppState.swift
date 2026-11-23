@@ -19,6 +19,7 @@ final class AppState {
   let capture: CaptureCoordinator
   let chip: EdgeChipPanel
   let gesture: GestureMonitor
+  let captureShortcut: CaptureShortcut
   let clipboard: ClipboardWatcher
   let offers: OfferCenter
   let settings: SettingsWindowController
@@ -161,9 +162,13 @@ final class AppState {
       model.onFinish = { panel.show() }
       return model
     }
+    let shortcut = CaptureShortcut(preferences: preferences)
     self.gesture = gesture
+    captureShortcut = shortcut
     gesture.onGesture = { [weak self] in self?.gestureFired() }
     gesture.start()
+    shortcut.onFire = { [weak self] in self?.gestureFired() }
+    shortcut.start()
     offers.onChange = { [weak self] offer, thumbnail in self?.present(offer, thumbnail: thumbnail) }
     offers.start()
     summon = SummonShortcut.listen { [panel] in panel.toggle() }
@@ -204,7 +209,7 @@ final class AppState {
     chip.show(
       OfferChipView(
         kind: offer.file == nil ? .clipboard : .file, thumbnail: thumbnail,
-        gesture: preferences.gesture),
+        keycap: preferences.captureMethod.keycap),
       onClick: { [weak self] in self?.acceptByClick() })
   }
 
@@ -224,6 +229,7 @@ final class AppState {
     captureTask?.cancel()
     acceptTask?.cancel()
     gesture.stop()
+    captureShortcut.stop()
     offers.stop()
     chip.hide()
     dragMonitor.stop()

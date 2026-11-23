@@ -124,13 +124,45 @@ struct FirstRunFlowTests {
     var finished = 0
     model.onFinish = { finished += 1 }
     for _ in 0..<4 { model.advance() }
+    #expect(model.step == .clipboard)
     #expect(!preferences.firstRunDone)
-    model.advance()
-    #expect(model.step == .done)
-    #expect(preferences.firstRunDone)
     #expect(finished == 0)
     model.advance()
+    #expect(preferences.firstRunDone)
     #expect(finished == 1)
+    #expect(model.step == .clipboard)
+  }
+
+  @Test func clipboardIsTheLastStepAnyoneSees() {
+    let state = FirstRunState(summonKeySet: true, accessibilityGranted: true)
+    #expect(FirstRunFlow.next(after: .clipboard, state: state) == .done)
+    #expect(FirstRunFlow.numberedSteps == 5)
+    #expect(FirstRunFlow.number(of: .clipboard) == 5)
+    #expect(FirstRunFlow.number(of: .done) == nil)
+  }
+
+  @Test func theShortcutMethodWaitsForAShortcut() throws {
+    let preferences = try SettingsFixtures.preferences()
+    preferences.captureMethod = .shortcut
+    let model = try SettingsFixtures.firstRun(system: FakeSystem(), preferences: preferences)
+    model.advance()
+    #expect(model.step == .gesture)
+    #expect(!model.canContinue)
+    #expect(model.captureKeycap == nil)
+    preferences.captureMethod = .doubleTap(.shift)
+    model.captureChanged()
+    #expect(model.canContinue)
+    #expect(model.captureKeycap == .doubled(.shift))
+  }
+
+  @Test func aRecordedShortcutLetsTheFlowContinue() throws {
+    let preferences = try SettingsFixtures.preferences()
+    preferences.captureMethod = .shortcut
+    let model = try SettingsFixtures.firstRun(
+      system: FakeSystem(), preferences: preferences, captureShortcutText: "⌃⌥K")
+    model.advance()
+    #expect(model.canContinue)
+    #expect(model.captureKeycap == .text("⌃⌥K"))
   }
 
   @Test func choosingTheFolderRestartsTheIndexOnIt() async throws {

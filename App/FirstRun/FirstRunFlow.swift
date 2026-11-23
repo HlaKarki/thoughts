@@ -10,6 +10,7 @@ enum FirstRunStep: CaseIterable, Equatable {
 struct FirstRunState: Equatable {
   var summonKeySet: Bool
   var accessibilityGranted: Bool
+  var captureReady = true
 }
 
 enum FirstRunFlow {
@@ -18,7 +19,7 @@ enum FirstRunFlow {
   static func next(after step: FirstRunStep, state: FirstRunState) -> FirstRunStep {
     switch step {
     case .summonKey: state.summonKeySet ? .gesture : .summonKey
-    case .gesture: .accessibility
+    case .gesture: state.captureReady ? .accessibility : .gesture
     case .accessibility: state.accessibilityGranted ? .storage : .accessibility
     case .storage: .clipboard
     case .clipboard: .done

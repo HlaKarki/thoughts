@@ -19,15 +19,16 @@ struct OfferChipTests {
       height: ChipSurface<EmptyView>.size.height + 2 * EdgeChipPanel.shadowMargin)
     let tone = appearance == .aqua ? "light" : "dark"
     let image = try Self.thumbnail()
-    let cases: [(OfferChipView.Kind, NSImage?, Modifier?, String)] = [
-      (.clipboard, image, .shift, "clipboard"),
-      (.clipboard, nil, .shift, "clipboard-no-thumbnail"),
-      (.file, image, .shift, "file"),
-      (.file, nil, .shift, "file-no-thumbnail"),
+    let cases: [(OfferChipView.Kind, NSImage?, KeycapContent?, String)] = [
+      (.clipboard, image, .doubled(.shift), "clipboard"),
+      (.clipboard, nil, .doubled(.shift), "clipboard-no-thumbnail"),
+      (.file, image, .doubled(.shift), "file"),
+      (.file, nil, .doubled(.shift), "file-no-thumbnail"),
+      (.clipboard, nil, .text("⌃⌥K"), "clipboard-shortcut"),
       (.clipboard, nil, nil, "clipboard-gesture-off"),
     ]
-    for (kind, thumbnail, gesture, name) in cases {
-      let view = OfferChipView(kind: kind, thumbnail: thumbnail, gesture: gesture)
+    for (kind, thumbnail, keycap, name) in cases {
+      let view = OfferChipView(kind: kind, thumbnail: thumbnail, keycap: keycap)
       let url = try SnapshotRenderer.render(
         view.padding(EdgeChipPanel.shadowMargin), size: canvas, appearance: appearance,
         name: "offer-chip-\(name)-\(tone)")
@@ -40,7 +41,7 @@ struct OfferChipTests {
 
   @Test func offerChipIsTheSameSizeAsAHintChip() throws {
     let offer = NSHostingView(
-      rootView: OfferChipView(kind: .file, thumbnail: nil, gesture: .shift))
+      rootView: OfferChipView(kind: .file, thumbnail: nil, keycap: .doubled(.shift)))
     let hint = NSHostingView(rootView: HintChipView(kind: .saved))
     #expect(offer.fittingSize == hint.fittingSize)
     #expect(offer.fittingSize.width >= 300)

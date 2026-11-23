@@ -7,14 +7,21 @@ struct StorageSection: View {
     VStack(alignment: .leading, spacing: 0) {
       SettingsRow(title: "Storage folder") {
         HStack(spacing: 8) {
-          Image(systemName: "folder.fill").foregroundStyle(Color(nsColor: .systemGray))
-          Text(verbatim: model.storageText)
-            .font(.system(size: 13))
-            .foregroundStyle(Color(nsColor: .secondaryLabelColor))
-            .lineLimit(1)
-            .truncationMode(.middle)
-          Button("Show in Finder") { model.showStorageInFinder() }
-          Button("Move…") { Task { await model.moveStorage() } }
+          Button {
+            model.showStorageInFinder()
+          } label: {
+            HStack(spacing: 8) {
+              Image(systemName: "folder.fill").foregroundStyle(Color(nsColor: .systemGray))
+              Text(verbatim: model.storageText)
+                .font(.system(size: 13))
+                .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            }
+            .contentShape(Rectangle())
+          }
+          .buttonStyle(.plain)
+          Button("Change…") { Task { await model.moveStorage() } }
             .disabled(model.isMoving)
         }
       }

@@ -9,7 +9,7 @@ struct OfferChipView: View {
 
   let kind: Kind
   let thumbnail: NSImage?
-  let gesture: Modifier?
+  let keycap: KeycapContent?
 
   var body: some View {
     ChipSurface {
@@ -27,8 +27,8 @@ struct OfferChipView: View {
         }
       }
       ChipText(title: title, message: message)
-      if let gesture {
-        Keycap(modifier: gesture)
+      if let keycap {
+        Keycap(content: keycap)
       }
     }
     .accessibilityElement(children: .combine)
@@ -42,7 +42,7 @@ struct OfferChipView: View {
   }
 
   private var message: String {
-    gesture == nil
+    keycap == nil
       ? String(localized: "Click to keep") : String(localized: "Keep as a thought?")
   }
 }
@@ -50,30 +50,31 @@ struct OfferChipView: View {
 struct Keycap: View {
   @Environment(\.colorScheme) private var colorScheme
 
-  let modifier: Modifier
+  let content: KeycapContent
 
   var body: some View {
-    HStack(spacing: 1) {
-      Image(systemName: symbol)
-      Image(systemName: symbol)
-    }
-    .font(.system(size: 11, weight: .regular))
-    .foregroundStyle(Color(nsColor: .secondaryLabelColor))
-    .padding(.horizontal, 7)
-    .frame(height: 22)
-    .background(
-      colorScheme == .dark ? Color(white: 0.227) : Color(white: 0.933),
-      in: RoundedRectangle(cornerRadius: 5, style: .continuous)
-    )
-    .accessibilityHidden(true)
+    label
+      .font(.system(size: 11, weight: .regular))
+      .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+      .padding(.horizontal, 7)
+      .frame(height: 22)
+      .background(
+        colorScheme == .dark ? Color(white: 0.227) : Color(white: 0.933),
+        in: RoundedRectangle(cornerRadius: 5, style: .continuous)
+      )
+      .accessibilityHidden(true)
   }
 
-  private var symbol: String {
-    switch modifier {
-    case .shift: "shift"
-    case .option: "option"
-    case .control: "control"
-    case .command: "command"
+  @ViewBuilder
+  private var label: some View {
+    switch content {
+    case .doubled(let modifier):
+      HStack(spacing: 1) {
+        Image(systemName: modifier.symbolName)
+        Image(systemName: modifier.symbolName)
+      }
+    case .text(let text):
+      Text(verbatim: text)
     }
   }
 }

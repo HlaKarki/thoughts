@@ -18,7 +18,7 @@ final class FirstRunModel {
   @ObservationIgnored private let screenshots: ScreenshotLocation
   @ObservationIgnored private let storage: StorageMover
   @ObservationIgnored private let poller: PermissionPoller
-  @ObservationIgnored private let summonDescription: @MainActor () -> String
+  @ObservationIgnored private let captureShortcutText: @MainActor () -> String?
   @ObservationIgnored var onAccessibilityGranted: @MainActor () -> Void = {}
   @ObservationIgnored var onFinish: @MainActor () -> Void = {}
 
@@ -30,28 +30,29 @@ final class FirstRunModel {
     home: URL = FileManager.default.homeDirectoryForCurrentUser,
     pollInterval: Duration = .seconds(1),
     summonKeySet: @MainActor () -> Bool = { KeyboardShortcuts.getShortcut(for: .summon) != nil },
-    summonDescription: @escaping @MainActor () -> String = {
-      KeyboardShortcuts.getShortcut(for: .summon)?.description ?? ""
-    }
+    captureShortcutText: @escaping @MainActor () -> String? = { CaptureMethod.captureShortcutText }
   ) {
     self.preferences = preferences
     self.services = services
     self.storage = storage
     self.screenshots = screenshots
     self.home = home
-    self.summonDescription = summonDescription
+    self.captureShortcutText = captureShortcutText
     poller = PermissionPoller(isTrusted: services.accessibilityTrusted, interval: pollInterval)
     state = FirstRunState(
-      summonKeySet: summonKeySet(), accessibilityGranted: services.accessibilityTrusted())
+      summonKeySet: summonKeySet(), accessibilityGranted: services.accessibilityTrusted(),
+      captureReady: !preferences.captureShortcut || captureShortcutText() != nil)
     storageFolder = (try? storage.resolve()) ?? home.appendingPathComponent("Thoughts")
     clipboardAccess = services.pasteboardAccess()
   }
 
   var canContinue: Bool {
-    FirstRunFlow.next(after: step, state: state) != step || step == .done
+    FirstRunFlow.next(after: step, state: state) != step
   }
 
-  var summonKeyText: String { summonDescription() }
+  var captureKeycap: KeycapContent? {
+    preferences.captureMethod.keycap(shortcut: captureShortcutText())
+  }
 
   var storageText: String { PathText.abbreviated(storageFolder, home: home) }
 
@@ -68,8 +69,13 @@ final class FirstRunModel {
     state.summonKeySet = shortcut != nil
   }
 
+  func captureChanged() {
+    state.captureReady = !preferences.captureShortcut || captureShortcutText() != nil
+  }
+
   func advance() {
-    if step == .done {
+    if step == .clipboard {
+      preferences.firstRunDone = true
       onFinish()
       return
     }
@@ -122,8 +128,6 @@ final class FirstRunModel {
     case .clipboard:
       clipboardAccess = services.pasteboardAccess()
       for folder in watchedFolders { services.readFolder(folder) }
-    case .done:
-      preferences.firstRunDone = true
     default:
       break
     }

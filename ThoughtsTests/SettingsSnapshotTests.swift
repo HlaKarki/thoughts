@@ -24,14 +24,15 @@ struct SettingsSnapshotTests {
 
   static func firstRun(
     step: FirstRunStep, access: NSPasteboard.AccessBehavior = .ask, trusted: Bool = true,
-    gesture: Modifier? = .shift
+    method: CaptureMethod = .doubleTap(.shift), shortcutText: String? = nil
   ) throws -> FirstRunModel {
     let system = FakeSystem()
     system.trusted = trusted
     system.access = access
     let preferences = try SettingsFixtures.preferences()
-    preferences.gesture = gesture
-    let model = try SettingsFixtures.firstRun(system: system, preferences: preferences)
+    preferences.captureMethod = method
+    let model = try SettingsFixtures.firstRun(
+      system: system, preferences: preferences, captureShortcutText: shortcutText)
     let target = FirstRunStep.allCases.firstIndex(of: step) ?? 0
     for _ in 0..<target {
       if model.step == .accessibility && !trusted { break }
@@ -41,10 +42,10 @@ struct SettingsSnapshotTests {
   }
 
   static func settings(
-    login: LoginStatus = .on, gesture: Modifier? = .shift, withFolder: Bool = true
+    login: LoginStatus = .on, method: CaptureMethod = .doubleTap(.shift), withFolder: Bool = true
   ) throws -> SettingsModel {
     let preferences = try SettingsFixtures.preferences()
-    preferences.gesture = gesture
+    preferences.captureMethod = method
     preferences.soundEnabled = false
     if withFolder {
       preferences.watchedFolders = [URL(fileURLWithPath: "/example/home/Pictures/Screenshots")]
@@ -61,7 +62,7 @@ struct SettingsSnapshotTests {
     let steps: [(FirstRunStep, String)] = [
       (.summonKey, "1-summon-key"), (.gesture, "2-capture-gesture"),
       (.accessibility, "3-permissions-allowed"), (.storage, "4-storage-folder"),
-      (.clipboard, "5-clipboard"), (.done, "6-done"),
+      (.clipboard, "5-clipboard"),
     ]
     for (step, name) in steps {
       let model = try Self.firstRun(step: step)
@@ -84,10 +85,24 @@ struct SettingsSnapshotTests {
     try Self.check(
       FirstRunView(model: alwaysAllowed), size: FirstRunView.size, appearance: appearance,
       name: "first-run-5-clipboard-always-allow")
-    let gestureOff = try Self.firstRun(step: .clipboard, gesture: nil)
+    let gestureOff = try Self.firstRun(step: .clipboard, method: .off)
     try Self.check(
       FirstRunView(model: gestureOff), size: FirstRunView.size, appearance: appearance,
       name: "first-run-5-clipboard-gesture-off")
+  }
+
+  @Test(arguments: [NSAppearance.Name.aqua, .darkAqua])
+  func firstRunWithAShortcut(_ appearance: NSAppearance.Name) throws {
+    let chosen = try Self.firstRun(step: .gesture, method: .shortcut, shortcutText: "⌃⌥K")
+    #expect(chosen.step == .gesture)
+    try Self.check(
+      FirstRunView(model: chosen), size: FirstRunView.size, appearance: appearance,
+      name: "first-run-2-capture-shortcut")
+    let clipboard = try Self.firstRun(step: .clipboard, method: .shortcut, shortcutText: "⌃⌥K")
+    #expect(clipboard.step == .clipboard)
+    try Self.check(
+      FirstRunView(model: clipboard), size: FirstRunView.size, appearance: appearance,
+      name: "first-run-5-clipboard-shortcut")
   }
 
   @Test(arguments: [NSAppearance.Name.aqua, .darkAqua])
@@ -121,9 +136,15 @@ struct SettingsSnapshotTests {
 
   @Test(arguments: [NSAppearance.Name.aqua, .darkAqua])
   func settingsStates(_ appearance: NSAppearance.Name) throws {
-    let approval = try Self.settings(login: .requiresApproval, gesture: nil, withFolder: false)
+    let approval = try Self.settings(login: .requiresApproval, method: .off, withFolder: false)
     try Self.check(
       SettingsView(model: approval), size: SettingsView.size, appearance: appearance,
       name: "settings-login-approval")
+    let shortcut = try Self.settings(method: .shortcut)
+    try Self.check(
+      SettingsGroup(title: "Keys") { KeysSettings(preferences: shortcut.preferences) }
+        .frame(width: SettingsView.size.width - 44, alignment: .topLeading).padding(11),
+      size: CGSize(width: SettingsView.size.width - 22, height: 150), appearance: appearance,
+      name: "settings-keys-shortcut")
   }
 }

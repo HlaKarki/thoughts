@@ -23,6 +23,10 @@ final class Preferences {
     didSet { defaults.set(gesture?.rawValue ?? Self.gestureOff, forKey: Key.gesture) }
   }
 
+  var captureShortcut: Bool {
+    didSet { defaults.set(captureShortcut, forKey: Key.captureShortcut) }
+  }
+
   var soundEnabled: Bool {
     didSet { defaults.set(soundEnabled, forKey: Key.soundEnabled) }
   }
@@ -46,10 +50,30 @@ final class Preferences {
       case Self.gestureOff: nil
       case let raw?: Modifier(rawValue: raw) ?? .shift
       }
+    captureShortcut = defaults.bool(forKey: Key.captureShortcut)
     soundEnabled = defaults.object(forKey: Key.soundEnabled) as? Bool ?? true
     offersEnabled = defaults.object(forKey: Key.offersEnabled) as? Bool ?? true
     watchedFolders = (defaults.stringArray(forKey: Key.watchedFolders) ?? []).map {
       URL(fileURLWithPath: $0, isDirectory: true)
+    }
+  }
+
+  var captureMethod: CaptureMethod {
+    get {
+      if captureShortcut { return .shortcut }
+      return gesture.map(CaptureMethod.doubleTap) ?? .off
+    }
+    set {
+      switch newValue {
+      case .doubleTap(let modifier):
+        gesture = modifier
+        captureShortcut = false
+      case .shortcut:
+        captureShortcut = true
+      case .off:
+        gesture = nil
+        captureShortcut = false
+      }
     }
   }
 
@@ -60,6 +84,7 @@ final class Preferences {
     static let keepOpen = "keepOpen"
     static let firstRunDone = "firstRunDone"
     static let gesture = "captureGesture"
+    static let captureShortcut = "captureShortcut"
     static let soundEnabled = "soundEnabled"
     static let offersEnabled = "offersEnabled"
     static let watchedFolders = "watchedFolders"

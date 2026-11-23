@@ -32,11 +32,11 @@ struct FirstRunView: View {
   private var content: some View {
     switch model.step {
     case .summonKey: SummonKeyStep(model: model)
-    case .gesture: GestureStep(preferences: model.preferences)
+    case .gesture: GestureStep(model: model)
     case .accessibility: AccessibilityStep(model: model)
     case .storage: StorageStep(model: model)
     case .clipboard: ClipboardStep(model: model)
-    case .done: DoneStep(model: model)
+    case .done: EmptyView()
     }
   }
 
@@ -75,7 +75,6 @@ struct FirstRunView: View {
   private var primaryTitle: LocalizedStringKey {
     switch model.step {
     case .clipboard: "Done"
-    case .done: "Open Thoughts"
     default: "Continue"
     }
   }
@@ -94,8 +93,6 @@ struct StepHeader: View {
           .foregroundStyle(Color.helpGray)
           .frame(height: 18)
           .padding(.top, 11)
-      } else {
-        Color.clear.frame(height: 29)
       }
       Text(title)
         .font(.system(size: 17, weight: .semibold))
@@ -167,10 +164,10 @@ private struct RadioDot: View {
 }
 
 private struct GestureStep: View {
-  @Bindable var preferences: Preferences
-  @State private var other: Modifier? = .option
+  let model: FirstRunModel
 
-  private var usesShift: Bool { preferences.gesture == .shift }
+  private var preferences: Preferences { model.preferences }
+  private var usesShortcut: Bool { preferences.captureMethod == .shortcut }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -178,12 +175,13 @@ private struct GestureStep: View {
         step: .gesture, title: "Pick how to save from any app",
         message: Text("Press it to save the selected text or a copied image as a thought."))
       Button {
-        preferences.gesture = .shift
+        preferences.captureMethod = .doubleTap(.shift)
+        model.captureChanged()
       } label: {
         HStack(spacing: 8) {
-          RadioDot(selected: usesShift)
+          RadioDot(selected: !usesShortcut)
           Text("Press Shift twice").foregroundStyle(Color(nsColor: .labelColor))
-          Keycap(modifier: .shift)
+          Keycap(content: .doubled(.shift))
         }
         .contentShape(Rectangle())
       }
@@ -191,31 +189,26 @@ private struct GestureStep: View {
       .padding(.top, 20)
       HStack(spacing: 8) {
         Button {
-          if usesShift { preferences.gesture = other }
+          preferences.captureMethod = .shortcut
+          model.captureChanged()
         } label: {
           HStack(spacing: 8) {
-            RadioDot(selected: !usesShift)
-            Text("Use another gesture").foregroundStyle(Color(nsColor: .labelColor))
+            RadioDot(selected: usesShortcut)
+            Text("Use a shortcut").foregroundStyle(Color(nsColor: .labelColor))
           }
           .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        GesturePicker(
-          selection: Binding(
-            get: { usesShift ? other : preferences.gesture },
-            set: {
-              other = $0
-              preferences.gesture = $0
-            }),
-          options: [.option, .control, .command, nil]
-        )
+        KeyboardShortcuts.Recorder(for: .capture) { _ in
+          if !usesShortcut { preferences.captureMethod = .shortcut }
+          model.captureChanged()
+        }
         .frame(width: 150)
-        .disabled(usesShift)
       }
       .padding(.top, 10)
       InfoNote(
         text:
-          "JetBrains IDEs use double Shift for Search Everywhere. If you work in one, pick another gesture here instead."
+          "JetBrains IDEs use double Shift for Search Everywhere. If you work in one, use a shortcut here instead."
       )
       .padding(.top, 16)
     }
@@ -228,13 +221,10 @@ private struct AccessibilityStep: View {
   @Environment(\.colorScheme) private var colorScheme
 
   private var reason: Text {
-    guard let gesture = model.preferences.gesture else {
+    guard let keycap = model.captureKeycap else {
       return Text("Reads the text you select and the title of the window you're in.")
     }
-    let symbol = gesture.symbolName
-    return Text(
-      "Reads the text you selected when you press \(Image(systemName: symbol))\(Image(systemName: symbol))."
-    )
+    return Text("Reads the text you selected when you press \(keycap.inline).")
   }
 
   var body: some View {
@@ -346,14 +336,13 @@ private struct ClipboardStep: View {
   let model: FirstRunModel
 
   private var message: Text {
-    guard let gesture = model.preferences.gesture else {
+    guard let keycap = model.captureKeycap else {
       return Text(
         "When you copy an image, a small offer appears at the edge of the screen. Click it to keep it."
       )
     }
-    let symbol = gesture.symbolName
     return Text(
-      "When you copy an image, a small offer appears at the edge of the screen. Press \(Image(systemName: symbol))\(Image(systemName: symbol)) to keep it."
+      "When you copy an image, a small offer appears at the edge of the screen. Press \(keycap.inline) to keep it."
     )
   }
 
@@ -365,7 +354,7 @@ private struct ClipboardStep: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       StepHeader(step: .clipboard, title: "Saving copied images", message: message)
-      OfferChipView(kind: .clipboard, thumbnail: nil, gesture: model.preferences.gesture)
+      OfferChipView(kind: .clipboard, thumbnail: nil, keycap: model.captureKeycap)
         .padding(.top, 14)
         .padding(.bottom, -4)
       if model.showsClipboardPromptNote {
@@ -380,29 +369,6 @@ private struct ClipboardStep: View {
         .foregroundStyle(Color.helpGray)
         .lineLimit(2)
         .padding(.top, 10)
-    }
-  }
-}
-
-private struct DoneStep: View {
-  let model: FirstRunModel
-  @Environment(\.colorScheme) private var colorScheme
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      StepHeader(
-        step: .done, title: "You're all set",
-        message: Text("Press \(model.summonKeyText) to open Thoughts."))
-      Text(verbatim: model.summonKeyText)
-        .font(.system(size: 22, weight: .regular))
-        .foregroundStyle(Color(nsColor: .secondaryLabelColor))
-        .padding(.horizontal, 18)
-        .frame(height: 52)
-        .background(
-          Palette(scheme: colorScheme).note,
-          in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-        )
-        .padding(.top, 28)
     }
   }
 }

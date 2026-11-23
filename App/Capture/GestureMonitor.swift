@@ -53,7 +53,7 @@ final class GestureMonitor {
 
   private func follow() {
     withObservationTracking {
-      _ = preferences.gesture
+      _ = preferences.captureMethod
     } onChange: { [weak self] in
       Task { @MainActor in
         guard let self, self.running else { return }
@@ -65,7 +65,7 @@ final class GestureMonitor {
 
   private func apply() {
     uninstall()
-    guard let modifier = preferences.gesture else { return }
+    guard let modifier = preferences.captureMethod.modifier else { return }
     detector = DoubleTapDetector(modifier: modifier)
     let mask: NSEvent.EventTypeMask = [.flagsChanged, .keyDown]
     global = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in

@@ -57,27 +57,6 @@ extension Modifier {
   }
 }
 
-enum GestureText {
-  static func title(_ modifier: Modifier?) -> LocalizedStringKey {
-    modifier?.twiceTitle ?? "Off"
-  }
-}
-
-struct GesturePicker: View {
-  @Binding var selection: Modifier?
-  var options: [Modifier?] = [nil, .shift, .option, .control, .command]
-
-  var body: some View {
-    Picker("", selection: $selection) {
-      ForEach(options, id: \.self) { option in
-        Text(GestureText.title(option)).tag(option)
-      }
-    }
-    .labelsHidden()
-    .pickerStyle(.menu)
-  }
-}
-
 extension Modifier {
   var symbolName: String {
     switch self {
