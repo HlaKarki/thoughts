@@ -123,17 +123,101 @@ struct EditInPlaceTests {
       try rig.fixture.store.entries().compactMap(\.thought).first?.content == .text("original"))
   }
 
-  @Test func clickingAnotherRowEndsTheEditAndClickingTheEditedRowKeepsIt() throws {
+  @Test func clickingInsideTheEditedRowKeepsTheText() throws {
+    let rig = try ThoughtActionsTests.rig()
+    defer { rig.board.releaseGlobally() }
+    let first = try rig.fixture.addText("one", daysAgo: 2)
+    try rig.fixture.reload()
+    Self.begin(rig, first)
+    rig.fixture.model.editText = "kept while clicking inside"
+    rig.fixture.model.select(first.file.lastPathComponent, extend: false)
+    #expect(rig.fixture.model.editText == "kept while clicking inside")
+    #expect(rig.fixture.model.focus == .edit)
+  }
+
+  @Test func clickingAnotherRowSavesTheEditThenMovesTheSelection() async throws {
+    let rig = try ThoughtActionsTests.rig()
+    defer { rig.board.releaseGlobally() }
+    let first = try rig.fixture.addText("one", daysAgo: 2)
+    let second = try rig.fixture.addText("two", daysAgo: 1)
+    try rig.fixture.reload()
+    rig.fixture.model.onCommand = { rig.actions.perform($0) }
+    Self.begin(rig, first)
+    rig.fixture.model.editText = "one, edited"
+    rig.fixture.model.select(second.file.lastPathComponent, extend: false)
+    #expect(rig.fixture.model.selection == [first.file.lastPathComponent])
+    await rig.actions.pending?.value
+    #expect(rig.fixture.model.editing == nil)
+    #expect(rig.fixture.model.selection == [second.file.lastPathComponent])
+    #expect(rig.fixture.model.focus == .list)
+    let stored = try rig.fixture.store.entries().compactMap(\.thought)
+    #expect(stored.contains { $0.content == .text("one, edited") })
+  }
+
+  @Test func clickingAnotherRowWithTheTextUnchangedMovesAtOnce() throws {
+    let rig = try ThoughtActionsTests.rig()
+    defer { rig.board.releaseGlobally() }
+    let first = try rig.fixture.addText("one", daysAgo: 2)
+    let second = try rig.fixture.addText("two", daysAgo: 1)
+    try rig.fixture.reload()
+    rig.fixture.model.onCommand = { rig.actions.perform($0) }
+    Self.begin(rig, first)
+    rig.fixture.model.select(second.file.lastPathComponent, extend: false)
+    #expect(rig.fixture.model.editing == nil)
+    #expect(rig.fixture.model.selection == [second.file.lastPathComponent])
+  }
+
+  @Test func aConflictOnClickAwayKeepsTheEditAndTheSelection() async throws {
+    let rig = try ThoughtActionsTests.rig()
+    defer { rig.board.releaseGlobally() }
+    let first = try rig.fixture.addText("one", daysAgo: 2)
+    let second = try rig.fixture.addText("two", daysAgo: 1)
+    try rig.fixture.reload()
+    rig.fixture.model.onCommand = { rig.actions.perform($0) }
+    Self.begin(rig, first)
+    rig.fixture.model.editText = "my version"
+    _ = try rig.fixture.store.setDone(true, for: first.id, at: ListFixture.now)
+    rig.fixture.model.select(second.file.lastPathComponent, extend: false)
+    await rig.actions.pending?.value
+    #expect(rig.fixture.model.editing?.name == first.file.lastPathComponent)
+    #expect(rig.fixture.model.editing?.text == "my version")
+    #expect(rig.fixture.model.selection == [first.file.lastPathComponent])
+    #expect(
+      rig.fixture.model.hint == "Changed on disk. Press Enter again to save your text.")
+  }
+
+  @Test func hidingThePanelKeepsTheEditAndItsText() throws {
+    let rig = try ThoughtActionsTests.rig()
+    defer { rig.board.releaseGlobally() }
+    let first = try rig.fixture.addText("one", daysAgo: 1)
+    try rig.fixture.reload()
+    rig.fixture.model.panelDidShow()
+    Self.begin(rig, first)
+    rig.fixture.model.editText = "half typed"
+    rig.fixture.model.panelDidHide()
+    rig.fixture.model.panelDidShow()
+    #expect(rig.fixture.model.editing?.text == "half typed")
+    #expect(rig.fixture.model.editing?.name == first.file.lastPathComponent)
+    rig.fixture.model.perform(.cancelEdit)
+    #expect(rig.fixture.model.editing == nil)
+  }
+
+  @Test func aSaveResultForAnotherRowDoesNotEndTheCurrentEdit() throws {
     let rig = try ThoughtActionsTests.rig()
     defer { rig.board.releaseGlobally() }
     let first = try rig.fixture.addText("one", daysAgo: 2)
     let second = try rig.fixture.addText("two", daysAgo: 1)
     try rig.fixture.reload()
     Self.begin(rig, first)
-    rig.fixture.model.editText = "kept while clicking inside"
-    rig.fixture.model.select(first.file.lastPathComponent, extend: false)
-    #expect(rig.fixture.model.editText == "kept while clicking inside")
-    rig.fixture.model.select(second.file.lastPathComponent, extend: false)
-    #expect(rig.fixture.model.editing == nil)
+    rig.fixture.model.perform(.cancelEdit)
+    Self.begin(rig, second)
+    rig.fixture.model.editText = "second, typing"
+    let saved = try rig.fixture.store.setText("one, saved", of: first.id, expected: first.version)
+    rig.fixture.model.finishEdit(.saved(saved), for: first.file.lastPathComponent)
+    rig.fixture.model.finishEdit(.deleted, for: first.file.lastPathComponent)
+    rig.fixture.model.finishEdit(.failed("nope"), for: first.file.lastPathComponent)
+    #expect(rig.fixture.model.editing?.name == second.file.lastPathComponent)
+    #expect(rig.fixture.model.editing?.text == "second, typing")
+    #expect(rig.fixture.model.focus == .edit)
   }
 }

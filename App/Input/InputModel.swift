@@ -82,8 +82,10 @@ final class InputModel {
 
   @discardableResult
   func takeImage(from pasteboard: NSPasteboard) -> Bool {
-    guard let found = Self.image(in: pasteboard) else { return false }
-    attachment = .image(found.input, preview: found.preview)
+    guard case .image(let input, let preview) = PasteboardReader.paste(from: pasteboard) else {
+      return false
+    }
+    attachment = .image(input, preview: preview)
     attachmentChangeCount = pasteboard.changeCount
     return true
   }
@@ -117,22 +119,5 @@ final class InputModel {
       onFailure(error.localizedDescription)
     }
     return false
-  }
-
-  private static func image(in pasteboard: NSPasteboard) -> (input: ImageInput, preview: NSImage)? {
-    for type in [UTType.png, .tiff] {
-      let name = NSPasteboard.PasteboardType(type.identifier)
-      if let data = pasteboard.data(forType: name), let preview = NSImage(data: data) {
-        return (.data(data, type), preview)
-      }
-    }
-    let files =
-      (pasteboard.readObjects(
-        forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
-    for file in files {
-      let isImage = UTType(filenameExtension: file.pathExtension)?.conforms(to: .image) == true
-      if isImage, let preview = NSImage(contentsOf: file) { return (.file(file), preview) }
-    }
-    return nil
   }
 }

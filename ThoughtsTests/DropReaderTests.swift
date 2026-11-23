@@ -91,4 +91,21 @@ struct DropReaderTests {
     board.setString("   ", forType: .string)
     #expect(DropReader.thoughts(from: board, source: nil, now: Self.now).isEmpty)
   }
+
+  @Test func aFinderStyleDropOfAnImageFileKeepsTheFileNotItsIcon() throws {
+    let folder = TempFolder()
+    try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
+    let file = folder.url.appendingPathComponent("capture.png")
+    try ListFixture.png().write(to: file)
+    let board = Self.board()
+    defer { board.releaseGlobally() }
+    try InputModelTests.fill(board, file: file, image: true)
+    let thoughts = DropReader.thoughts(from: board, source: nil, now: Self.now)
+    #expect(thoughts.count == 1)
+    guard case .image(.file(let stored), _) = thoughts.first?.content else {
+      Issue.record("expected the image file")
+      return
+    }
+    #expect(stored.lastPathComponent == "capture.png")
+  }
 }

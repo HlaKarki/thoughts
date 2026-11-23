@@ -18,6 +18,7 @@
     "Copy": {},
     "Copy path": {},
     "Couldn't open where this came from": {},
+    "Cut": {},
     "Delete": {},
     "Done": {},
     "Drop to add a thought": {},
@@ -39,6 +40,7 @@
     "Paste": {},
     "Preview": {},
     "Quit Thoughts": {},
+    "Redo": {},
     "Remove image": {},
     "Save": {},
     "Saved": {},
@@ -47,6 +49,7 @@
     "Search actions": {},
     "Search thoughts": {},
     "Select": {},
+    "Select All": {},
     "Settings…": {},
     "Show in Finder": {},
     "Text in image": {},
@@ -59,6 +62,7 @@
     "This thought was deleted.": {},
     "Thoughts can't start": {},
     "Type below and press Return to add one. In any app, press ⇧⇧ to save the selected text or a copied image.": {},
+    "Undo": {},
     "done": {}
   },
   "version": "1.0"

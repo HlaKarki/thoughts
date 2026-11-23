@@ -118,6 +118,9 @@ enum KeyRouterCases {
       name: "Command V in an edit is left to the field", key: KeyEquivalent("v"),
       modifiers: .command, focus: .edit, expected: nil),
     KeyRouterCase(
+      name: "Command C in an edit is left to the field", key: KeyEquivalent("c"),
+      modifiers: .command, focus: .edit, expected: nil),
+    KeyRouterCase(
       name: "Space in an edit is left to the field", key: .space, focus: .edit, expected: nil),
   ]
 

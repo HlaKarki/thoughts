@@ -101,4 +101,85 @@ struct InputModelTests {
     board.clearContents()
     #expect(!fixture.input.drop(board))
   }
+
+  static func fill(_ board: NSPasteboard, file: URL? = nil, text: String? = nil, image: Bool) throws
+  {
+    board.clearContents()
+    if let file { board.writeObjects([file as NSURL]) }
+    if let text {
+      board.addTypes([.string], owner: nil)
+      board.setString(text, forType: .string)
+    }
+    if image {
+      let tiff = try #require(NSImage(data: try ListFixture.png())?.tiffRepresentation)
+      board.addTypes([.tiff], owner: nil)
+      board.setData(tiff, forType: .tiff)
+    }
+  }
+
+  @Test func anImageFileCopiedInFinderAttachesThatFileNotItsIcon() throws {
+    let (fixture, _, board) = try Self.rig()
+    defer { board.releaseGlobally() }
+    let folder = TempFolder()
+    try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
+    let file = folder.url.appendingPathComponent("capture.png")
+    try ListFixture.png().write(to: file)
+    try Self.fill(board, file: file, image: true)
+    fixture.input.paste(board)
+    guard case .image(.file(let attached), _) = fixture.input.attachment else {
+      Issue.record("expected the image file")
+      return
+    }
+    #expect(attached.lastPathComponent == "capture.png")
+  }
+
+  @Test func aNonImageFileCopiedInFinderAttachesNothingFromItsIcon() throws {
+    let (fixture, _, board) = try Self.rig()
+    defer { board.releaseGlobally() }
+    let folder = TempFolder()
+    try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
+    let file = folder.url.appendingPathComponent("report.pdf")
+    try Data("%PDF-1.4".utf8).write(to: file)
+    try Self.fill(board, file: file, image: true)
+    #expect(!fixture.input.takeImage(from: board))
+    fixture.input.paste(board)
+    #expect(fixture.input.attachment == nil)
+  }
+
+  @Test func copiedCellTextGoesIntoTheFieldEvenWithAPictureBesideIt() throws {
+    let (fixture, _, board) = try Self.rig()
+    defer { board.releaseGlobally() }
+    try Self.fill(board, text: "Q3\t4200", image: true)
+    #expect(!fixture.input.takeImage(from: board))
+    fixture.input.paste(board)
+    #expect(fixture.input.text == "Q3\t4200")
+    #expect(fixture.input.attachment == nil)
+  }
+
+  @Test func aBrowserCopyImageAttachesThePictureNotItsAddress() throws {
+    let (fixture, _, board) = try Self.rig()
+    defer { board.releaseGlobally() }
+    try Self.fill(board, text: "https://example.com/cat.png", image: true)
+    fixture.input.paste(board)
+    #expect(fixture.input.attachment != nil)
+    #expect(fixture.input.text.isEmpty)
+  }
+
+  @Test func aCopiedLinkWithNoPictureIsText() throws {
+    let (fixture, _, board) = try Self.rig()
+    defer { board.releaseGlobally() }
+    try Self.fill(board, text: "https://example.com/cat.png", image: false)
+    fixture.input.paste(board)
+    #expect(fixture.input.text == "https://example.com/cat.png")
+    #expect(fixture.input.attachment == nil)
+  }
+
+  @Test func pictureDataWithNoTextAttaches() throws {
+    let (fixture, _, board) = try Self.rig()
+    defer { board.releaseGlobally() }
+    try Self.fill(board, image: true)
+    fixture.input.paste(board)
+    #expect(fixture.input.attachment != nil)
+    #expect(fixture.input.text.isEmpty)
+  }
 }

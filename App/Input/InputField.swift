@@ -6,9 +6,16 @@ final class InputTextField: NSTextField {
   private var wantsFocus = false
 
   func setFocused(_ focused: Bool) {
-    guard focused != wantsFocus else { return }
+    let changed = focused != wantsFocus
     wantsFocus = focused
-    DispatchQueue.main.async { [weak self] in self?.applyFocus() }
+    guard focused || changed else { return }
+    scheduleFocus()
+  }
+
+  private func scheduleFocus() {
+    for delay in [0.0, 0.05, 0.2] {
+      DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.applyFocus() }
+    }
   }
 
   private func applyFocus() {
@@ -23,7 +30,7 @@ final class InputTextField: NSTextField {
   override func viewDidMoveToWindow() {
     super.viewDidMoveToWindow()
     guard wantsFocus, window != nil else { return }
-    DispatchQueue.main.async { [weak self] in self?.applyFocus() }
+    scheduleFocus()
   }
 
   override func becomeFirstResponder() -> Bool {

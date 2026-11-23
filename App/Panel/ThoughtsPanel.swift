@@ -8,6 +8,18 @@ final class PasteFieldEditor: NSTextView {
     if onPaste?(pasteboard) == true { return }
     super.paste(sender)
   }
+
+  override func registerForDraggedTypes(_ newTypes: [NSPasteboard.PasteboardType]) {}
+
+  override func validateUserInterfaceItem(_ item: any NSValidatedUserInterfaceItem) -> Bool {
+    if item.action == #selector(NSText.paste(_:)), canPaste { return true }
+    return super.validateUserInterfaceItem(item)
+  }
+
+  private var canPaste: Bool {
+    if case .nothing = PasteboardReader.paste(from: pasteboard) { return false }
+    return true
+  }
 }
 
 final class ThoughtsPanel: NSPanel {
@@ -39,6 +51,12 @@ final class ThoughtsPanel: NSPanel {
 
   override func cancelOperation(_ sender: Any?) {
     onCancel?()
+  }
+
+  override func makeFirstResponder(_ responder: NSResponder?) -> Bool {
+    let accepted = super.makeFirstResponder(responder)
+    if accepted, let editor = firstResponder as? NSTextView { editor.unregisterDraggedTypes() }
+    return accepted
   }
 
   override func fieldEditor(_ createFlag: Bool, for object: Any?) -> NSText? {

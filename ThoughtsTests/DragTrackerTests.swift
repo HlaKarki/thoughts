@@ -23,12 +23,17 @@ struct DragTrackerTests {
     let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
     defer { board.releaseGlobally() }
     var handler: (@MainActor (NSEvent.EventType) -> Void)?
+    var localHandler: (@MainActor (NSEvent.EventType) -> Void)?
     var removed = 0
     let monitor = DragSessionMonitor(
       pasteboard: board,
       install: { _, run in
         handler = run
-        return "token"
+        return "global"
+      },
+      installLocal: { _, run in
+        localHandler = run
+        return "local"
       },
       remove: { _ in removed += 1 })
     var log: [String] = []
@@ -43,8 +48,14 @@ struct DragTrackerTests {
     #expect(monitor.isDragging)
     handler?(.leftMouseUp)
     #expect(log == ["start", "end"])
+    handler?(.leftMouseDown)
+    board.clearContents()
+    board.setString("y", forType: .string)
+    handler?(.leftMouseDragged)
+    localHandler?(.leftMouseUp)
+    #expect(log == ["start", "end", "start", "end"])
     monitor.stop()
-    #expect(removed == 1)
+    #expect(removed == 2)
   }
 
   @Test func theZoneHugsTheScreenEdgeOnThePanelSide() {

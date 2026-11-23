@@ -128,7 +128,7 @@ final class ThoughtActions {
           return .failed(error.localizedDescription)
         }
       }.value
-      list?.finishEdit(outcome)
+      list?.finishEdit(outcome, for: session.name)
     }
   }
 

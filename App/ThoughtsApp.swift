@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     guard !Self.runsUnderTests else { return }
+    installMenu()
     do {
       state = try AppState()
     } catch {
@@ -32,6 +33,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       alert.runModal()
       NSApp.terminate(nil)
     }
+  }
+
+  private func installMenu() {
+    NSApp.mainMenu = MainMenu.build()
+    DispatchQueue.main.async { NSApp.mainMenu = MainMenu.build() }
   }
 
   func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool

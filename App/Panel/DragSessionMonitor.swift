@@ -49,17 +49,20 @@ final class DragSessionMonitor {
 
   private let pasteboard: NSPasteboard
   private let install: Install
+  private let installLocal: Install
   private let remove: (Any) -> Void
   private var tracker: DragTracker
-  private var token: Any?
+  private var tokens: [Any] = []
 
   init(
     pasteboard: NSPasteboard = NSPasteboard(name: .drag),
     install: @escaping Install = DragSessionMonitor.installGlobal,
+    installLocal: @escaping Install = DragSessionMonitor.installLocal,
     remove: @escaping (Any) -> Void = { NSEvent.removeMonitor($0) }
   ) {
     self.pasteboard = pasteboard
     self.install = install
+    self.installLocal = installLocal
     self.remove = remove
     tracker = DragTracker(baseline: pasteboard.changeCount)
   }
@@ -67,16 +70,18 @@ final class DragSessionMonitor {
   var isDragging: Bool { tracker.isActive }
 
   func start() {
-    guard token == nil else { return }
+    guard tokens.isEmpty else { return }
     tracker = DragTracker(baseline: pasteboard.changeCount)
-    token = install([.leftMouseDown, .leftMouseDragged, .leftMouseUp]) { [weak self] type in
+    let mask: NSEvent.EventTypeMask = [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
+    let handler: @MainActor (NSEvent.EventType) -> Void = { [weak self] type in
       self?.receive(type)
     }
+    tokens = [install(mask, handler), installLocal(mask, handler)].compactMap { $0 }
   }
 
   func stop() {
-    if let token { remove(token) }
-    token = nil
+    tokens.forEach(remove)
+    tokens = []
     if tracker.isActive { onEnd() }
     tracker = DragTracker(baseline: pasteboard.changeCount)
   }
@@ -102,6 +107,16 @@ final class DragSessionMonitor {
     NSEvent.addGlobalMonitorForEvents(matching: mask) { event in
       let type = event.type
       MainActor.assumeIsolated { handler(type) }
+    }
+  }
+
+  nonisolated static func installLocal(
+    _ mask: NSEvent.EventTypeMask, _ handler: @escaping @MainActor (NSEvent.EventType) -> Void
+  ) -> Any? {
+    NSEvent.addLocalMonitorForEvents(matching: mask) { event in
+      let type = event.type
+      MainActor.assumeIsolated { handler(type) }
+      return event
     }
   }
 }

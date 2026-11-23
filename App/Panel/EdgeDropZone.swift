@@ -71,6 +71,7 @@ final class EdgeDropZone {
       guard let self else { return false }
       noteDrop()
       onTargetChange(false)
+      panel.makeKey()
       return onDrop(pasteboard)
     }
     let zone = EdgeDropPanel(
@@ -83,7 +84,7 @@ final class EdgeDropZone {
 
   private func entered() {
     if !panel.isShown {
-      panel.show()
+      panel.showForDrag()
       shownByZone = true
     }
     onTargetChange(true)

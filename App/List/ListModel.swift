@@ -48,6 +48,7 @@ final class ListModel {
   @ObservationIgnored private var hintTask: Task<Void, Never>?
   @ObservationIgnored private var birthDates: [String: Date] = [:]
   @ObservationIgnored private var searchTask: Task<Void, Never>?
+  @ObservationIgnored private var queuedSelect: (name: String, extend: Bool)?
   @ObservationIgnored private let searchDelay: Duration
   @ObservationIgnored var onCommand: ((KeyCommand) -> Void)?
   @ObservationIgnored var onPreviewChange: ((Thought?) -> Void)?
@@ -82,11 +83,7 @@ final class ListModel {
   }
   var menuHighlight = 0
   private(set) var editing: EditSession?
-  var focus: Focus = .input {
-    didSet {
-      if oldValue == .edit, focus != .edit, editing?.isSaving == false { editing = nil }
-    }
-  }
+  var focus: Focus = .input
   var query = "" {
     didSet {
       guard query != oldValue else { return }
@@ -248,6 +245,17 @@ final class ListModel {
 
   func select(_ name: String, extend: Bool) {
     if editing?.name == name { return }
+    if let session = editing {
+      guard !session.isSaving else { return }
+      queuedSelect = (name, extend)
+      perform(.saveEdit)
+      if editing == nil {
+        runQueuedSelect()
+      } else if editing?.isSaving != true {
+        queuedSelect = nil
+      }
+      return
+    }
     focus = .list
     let names = visible.map(\.fileName)
     guard let target = names.firstIndex(of: name) else { return }
@@ -345,6 +353,13 @@ final class ListModel {
   private func endEdit() {
     editing = nil
     if focus == .edit { focus = .list }
+    runQueuedSelect()
+  }
+
+  private func runQueuedSelect() {
+    guard let next = queuedSelect else { return }
+    queuedSelect = nil
+    select(next.name, extend: next.extend)
   }
 
   private func endEditIfDeleted() {
@@ -359,14 +374,16 @@ final class ListModel {
     editing?.isSaving = true
   }
 
-  func finishEdit(_ outcome: EditOutcome) {
+  func finishEdit(_ outcome: EditOutcome, for name: String) {
+    let current = editing?.name == name
+    if current { editing?.isSaving = false }
     switch outcome {
     case .saved(let thought):
       replace(thought)
-      endEdit()
+      if current { endEdit() }
     case .changed(let fresh):
       load()
-      guard editing != nil else { return }
+      guard current, editing?.name == name else { return }
       guard let fresh else {
         endEdit()
         showHint(String(localized: "That thought changed on disk"))
@@ -374,14 +391,14 @@ final class ListModel {
       }
       replace(fresh)
       editing?.version = fresh.version
-      editing?.isSaving = false
+      queuedSelect = nil
       showHint(String(localized: "Changed on disk. Press Enter again to save your text."))
     case .deleted:
-      endEdit()
       load()
+      if current, editing?.name == name { endEdit() }
       showHint(String(localized: "This thought was deleted."))
     case .failed(let message):
-      editing?.isSaving = false
+      if current { queuedSelect = nil }
       showHint(message)
     }
   }
@@ -472,7 +489,6 @@ final class ListModel {
     isPreviewing = false
     isMenuOpen = false
     menuQuery = ""
-    cancelEdit()
     hintTask?.cancel()
   }
 

@@ -51,8 +51,20 @@ final class PanelController {
   }
 
   func show() {
+    present(makeKey: true)
+  }
+
+  func showForDrag() {
+    present(makeKey: false)
+  }
+
+  func makeKey() {
+    panel.makeKeyAndOrderFront(nil)
+  }
+
+  private func present(makeKey: Bool) {
     guard !isShown else {
-      panel.makeKeyAndOrderFront(nil)
+      if makeKey { panel.makeKeyAndOrderFront(nil) }
       return
     }
     onWillShow?()
@@ -66,7 +78,11 @@ final class PanelController {
       panel.setFrame(Self.offscreenFrame(from: target, edge: preferences.edge), display: false)
       panel.alphaValue = 0
     }
-    panel.makeKeyAndOrderFront(nil)
+    if makeKey {
+      panel.makeKeyAndOrderFront(nil)
+    } else {
+      panel.orderFrontRegardless()
+    }
     animate(frame: target, alpha: 1, completion: nil)
   }
 

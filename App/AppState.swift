@@ -46,8 +46,8 @@ final class AppState {
     self.preview = preview
     list.onPreviewChange = { [preview] thought in preview.update(showing: thought) }
     panel.onWillShow = { [list] in
-      list.focus = .input
-      list.selection = []
+      list.focus = list.editing == nil ? .input : .edit
+      if list.editing == nil { list.selection = [] }
       list.now = Date()
       list.panelDidShow()
     }
@@ -59,8 +59,9 @@ final class AppState {
     zone.onDrop = { [input] in input.drop($0) }
     content.onEnter = { [input] in input.isDropTargeted = true }
     content.onExit = { [input] in input.isDropTargeted = false }
-    content.onDrop = { [input, zone] pasteboard in
+    content.onDrop = { [input, zone, panel] pasteboard in
       zone.noteDrop()
+      panel.makeKey()
       return input.drop(pasteboard)
     }
     panel.onPaste = { [list, input] pasteboard in

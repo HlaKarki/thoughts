@@ -3,6 +3,8 @@ import SwiftUI
 import ThoughtsCore
 
 final class EditTextView: NSTextView {
+  var onFocus: (() -> Void)?
+
   static let font = NSFont.systemFont(ofSize: 13)
   static let lineSpacing: CGFloat = 2
 
@@ -41,6 +43,8 @@ final class EditTextView: NSTextView {
     fatalError("init(coder:) is not supported")
   }
 
+  override func registerForDraggedTypes(_ newTypes: [NSPasteboard.PasteboardType]) {}
+
   func setText(_ text: String) {
     guard string != text else { return }
     textStorage?.setAttributedString(
@@ -66,6 +70,19 @@ final class EditTextView: NSTextView {
     }
   }
 
+  override func becomeFirstResponder() -> Bool {
+    let accepted = super.becomeFirstResponder()
+    if accepted { onFocus?() }
+    return accepted
+  }
+
+  func claimFocus() {
+    DispatchQueue.main.async { [weak self] in
+      guard let self, let window, window.firstResponder !== self else { return }
+      window.makeFirstResponder(self)
+    }
+  }
+
   override func keyDown(with event: NSEvent) {
     let isReturn = event.keyCode == 36 || event.keyCode == 76
     let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
@@ -79,6 +96,8 @@ final class EditTextView: NSTextView {
 
 struct EditField: NSViewRepresentable {
   @Binding var text: String
+  let isFocused: Bool
+  let onFocus: () -> Void
 
   func makeCoordinator() -> Coordinator {
     Coordinator(text: $text)
@@ -93,7 +112,9 @@ struct EditField: NSViewRepresentable {
 
   func updateNSView(_ view: EditTextView, context: Context) {
     context.coordinator.text = $text
+    view.onFocus = onFocus
     view.setText(text)
+    if isFocused { view.claimFocus() }
   }
 
   func sizeThatFits(_ proposal: ProposedViewSize, nsView: EditTextView, context: Context)
@@ -127,8 +148,10 @@ struct EditRow: View {
     RowFrame(time: time, selected: false) {
       VStack(alignment: .leading, spacing: 6) {
         if let url = thought.imageFileURL { RowThumbnail(url: url) }
-        EditField(text: $list.editText)
-          .padding(.vertical, 1)
+        EditField(
+          text: $list.editText, isFocused: list.focus == .edit, onFocus: { list.focus = .edit }
+        )
+        .padding(.vertical, 1)
       }
     }
     .background { surface }
