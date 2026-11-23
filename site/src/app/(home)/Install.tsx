@@ -1,6 +1,6 @@
 import * as stylex from '@stylexjs/stylex'
 import { AppIcon } from '@/components/AppIcon'
-import { DownloadButton } from '@/components/DownloadButton'
+import { ButtonLink } from '@/components/ButtonLink'
 import { RichText } from '@/components/RichText'
 import { install } from '@/content/install'
 import { layout } from '@/styles/layout'
@@ -17,7 +17,7 @@ export function Install() {
             <p {...stylex.props(styles.body)}>{install.body}</p>
           </div>
           <div {...stylex.props(styles.download)}>
-            <DownloadButton link={install.download} />
+            <ButtonLink link={install.download} />
             <p {...stylex.props(styles.requirement)}>{install.requirement}</p>
           </div>
         </div>

@@ -7,7 +7,7 @@ type Props = {
   readonly xstyle?: stylex.StyleXStyles
 }
 
-export function DownloadButton({ link, xstyle }: Props) {
+export function ButtonLink({ link, xstyle }: Props) {
   return (
     <a href={link.href} {...stylex.props(styles.button, xstyle)}>
       {link.label}

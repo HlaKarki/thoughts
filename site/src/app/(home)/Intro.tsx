@@ -1,5 +1,5 @@
 import * as stylex from '@stylexjs/stylex'
-import { DownloadButton } from '@/components/DownloadButton'
+import { ButtonLink } from '@/components/ButtonLink'
 import { intro } from '@/content/intro'
 import { color, font, leading, media, radius, size, space, tracking, width } from '@/styles/tokens.stylex'
 
@@ -12,7 +12,7 @@ export function Intro() {
       <p {...stylex.props(styles.lead)}>{intro.lead}</p>
       <div {...stylex.props(styles.install)}>
         <div {...stylex.props(styles.actions)}>
-          <DownloadButton link={intro.download} />
+          <ButtonLink link={intro.download} />
           <code aria-label={intro.brewLabel} {...stylex.props(styles.brew)}>
             {intro.brew}
           </code>
