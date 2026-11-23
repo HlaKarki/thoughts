@@ -1,5 +1,6 @@
 import { site } from './site'
-import { sources, thoughts } from './thoughts'
+import { clockDate } from '@/lib/stamp'
+import { sources, thoughts, today } from './thoughts'
 
 export type PanelRow =
   | {
@@ -54,7 +55,7 @@ export const hero: Hero = {
   menuBar: {
     app: sources.recipe.app,
     menus: ['File', 'Edit', 'View', 'History', 'Bookmarks', 'Window', 'Help'],
-    clock: `Mon Nov 23 ${thoughts.dough.time} AM`,
+    clock: `${clockDate(today)} ${thoughts.dough.time} AM`,
   },
   browser: {
     address: 'example.com',

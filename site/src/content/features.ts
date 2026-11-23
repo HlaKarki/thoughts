@@ -1,6 +1,7 @@
 import { highlight } from '@/lib/highlight'
+import { stamp } from '@/lib/stamp'
 import { site } from './site'
-import { sourceLine, sources, thoughts } from './thoughts'
+import { sourceLine, sources, thoughts, today } from './thoughts'
 import type { Rich } from './types'
 
 type Card<Tile> = {
@@ -75,6 +76,8 @@ type Features = {
 
 const searchQuery = 'oven'
 const agentThought = 'Heat the oven at 4:30'
+const ovenFile = { id: 'm4q8tz2c', ...stamp(today, thoughts.oven.time, 12) }
+const ovenName = `${ovenFile.file}-${ovenFile.id}`
 
 export const features: Features = {
   heading: ['Save it in the app', 'where you found it.'],
@@ -136,14 +139,14 @@ export const features: Features = {
     ],
     tile: {
       label: 'A line typed into the Markdown file shows up in the panel.',
-      fileName: '20261123-100512-m4q8tz2c.md',
+      fileName: `${ovenName}.md`,
       frontMatter: [
         '---',
-        'id: m4q8tz2c',
-        'created: 2026-11-23T10:05:12.408-05:00',
+        `id: ${ovenFile.id}`,
+        `created: ${ovenFile.iso}.408-05:00`,
         'done: null',
         'cleared: false',
-        'image: 20261123-100512-m4q8tz2c.png',
+        `image: ${ovenName}.png`,
         'source:',
         `  app: ${sources.catPhoto.app}`,
         `  bundle: ${sources.catPhoto.bundle}`,
