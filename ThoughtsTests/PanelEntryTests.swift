@@ -98,10 +98,35 @@ struct PanelEntryTests {
     #expect(outcome(.show, lost: true, keepOpen: true) == .none)
   }
 
-  @Test func aLostKeyFlagSurvivesTheMenuOpeningOnlyWhileThePanelIsShownAndNotKey() {
-    #expect(PanelController.lostKeyStillHolds(flag: true, isShown: true, isKey: false))
-    #expect(!PanelController.lostKeyStillHolds(flag: true, isShown: true, isKey: true))
-    #expect(!PanelController.lostKeyStillHolds(flag: true, isShown: false, isKey: false))
-    #expect(!PanelController.lostKeyStillHolds(flag: false, isShown: true, isKey: false))
+  @Test func aLostKeyFlagSurvivesTheMenuOpeningOnlyForTheClickThatLostTheKey() {
+    func held(event: Int?, opened: Int?, isShown: Bool = true, isKey: Bool = false) -> Bool {
+      var tracker = LostKeyTracker()
+      tracker.lostKey(toEvent: event)
+      tracker.menuOpened(event: opened, isShown: isShown, isKey: isKey)
+      return tracker.held
+    }
+    #expect(held(event: 5, opened: 5))
+    #expect(!held(event: 5, opened: 5, isKey: true))
+    #expect(!held(event: 5, opened: 5, isShown: false))
+    #expect(!held(event: 5, opened: 9))
+    #expect(!held(event: 5, opened: nil))
+    #expect(!held(event: nil, opened: nil))
+  }
+
+  @Test func aClickThatOpenedNoMenuDoesNotRestoreTheKeyAtALaterMenuClosedWithNoPick() {
+    var tracker = LostKeyTracker()
+    tracker.lostKey(toEvent: 5)
+    tracker.menuOpened(event: 9, isShown: true, isKey: false)
+    let outcome = PanelController.afterMenuClosed(
+      pick: .none, lostKeyToOwnIcon: tracker.held, keepOpen: false)
+    #expect(outcome == .none)
+  }
+
+  @Test func aNewKeyLossReplacesTheClickRecordedByAnOlderOne() {
+    var tracker = LostKeyTracker()
+    tracker.lostKey(toEvent: 5)
+    tracker.lostKey(toEvent: 9)
+    tracker.menuOpened(event: 9, isShown: true, isKey: false)
+    #expect(tracker.held)
   }
 }

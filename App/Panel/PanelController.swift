@@ -12,6 +12,27 @@ enum MenuCloseOutcome: Equatable {
   case hide
 }
 
+struct LostKeyTracker: Equatable {
+  private var event: Int?
+
+  var held: Bool { event != nil }
+
+  mutating func lostKey(toEvent number: Int?) {
+    event = number
+  }
+
+  mutating func menuOpened(event number: Int?, isShown: Bool, isKey: Bool) {
+    guard held, isShown, !isKey, number == event else {
+      event = nil
+      return
+    }
+  }
+
+  mutating func clear() {
+    event = nil
+  }
+}
+
 @MainActor
 final class PanelController {
   static let width: CGFloat = 360
@@ -24,7 +45,7 @@ final class PanelController {
   private var hiding = false
   private var transition = 0
   var ownIconInUse: @MainActor () -> Bool = { false }
-  private var lostKeyToOwnIcon = false
+  private var lostKey = LostKeyTracker()
   var onWillShow: (() -> Void)?
   var onWillHide: (() -> Void)?
   var onDidChangeShown: (() -> Void)?
@@ -81,8 +102,12 @@ final class PanelController {
     }
   }
 
-  static func lostKeyStillHolds(flag: Bool, isShown: Bool, isKey: Bool) -> Bool {
-    flag && isShown && !isKey
+  static func mouseEventNumber(_ event: NSEvent?) -> Int? {
+    guard let event else { return nil }
+    switch event.type {
+    case .leftMouseDown, .rightMouseDown, .otherMouseDown: return event.eventNumber
+    default: return nil
+    }
   }
 
   static func hidesOnKeyLoss(keepOpen: Bool, ownIconInUse: Bool) -> Bool {
@@ -107,7 +132,7 @@ final class PanelController {
   }
 
   private func present(makeKey: Bool, on screen: NSScreen?) {
-    lostKeyToOwnIcon = false
+    lostKey.clear()
     if isShown {
       if makeKey { refocus(on: screen) }
       return
@@ -147,13 +172,13 @@ final class PanelController {
   }
 
   func ownMenuOpened() {
-    lostKeyToOwnIcon = Self.lostKeyStillHolds(
-      flag: lostKeyToOwnIcon, isShown: isShown, isKey: panel.isKeyWindow)
+    lostKey.menuOpened(
+      event: Self.mouseEventNumber(NSApp.currentEvent), isShown: isShown, isKey: panel.isKeyWindow)
   }
 
   func ownMenuClosed(_ pick: MenuPick) {
-    let lost = lostKeyToOwnIcon
-    lostKeyToOwnIcon = false
+    let lost = lostKey.held
+    lostKey.clear()
     guard isShown else { return }
     let outcome = Self.afterMenuClosed(
       pick: pick, lostKeyToOwnIcon: lost, keepOpen: preferences.keepOpen)
@@ -166,7 +191,7 @@ final class PanelController {
 
   func hide() {
     guard isShown else { return }
-    lostKeyToOwnIcon = false
+    lostKey.clear()
     onWillHide?()
     hiding = true
     restingFrame = nil
@@ -190,9 +215,7 @@ final class PanelController {
   private func resignedKey() {
     guard isShown else { return }
     let ownIcon = ownIconInUse()
-    if ownIcon, !lostKeyToOwnIcon {
-      lostKeyToOwnIcon = true
-    }
+    if ownIcon { lostKey.lostKey(toEvent: Self.mouseEventNumber(NSApp.currentEvent)) }
     guard Self.hidesOnKeyLoss(keepOpen: preferences.keepOpen, ownIconInUse: ownIcon) else {
       return
     }
