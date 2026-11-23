@@ -57,8 +57,17 @@ struct CaptureDecisionTests {
     #expect(without == .saveClipboardImage)
   }
 
-  @Test func emptyAnswerAsksForCopy() {
-    #expect(CaptureDecision.decide(Self.context(selection: .empty)) == .copyFallback)
+  @Test func anEmptyAnswerFromASelectableElementNeverAsksForCopy() {
+    #expect(CaptureDecision.decide(Self.context(selection: .empty)) == .nothingToSave)
+    #expect(
+      CaptureDecision.decide(Self.context(selection: .empty, imageAge: 5)) == .saveClipboardImage)
+  }
+
+  @Test func aDisabledCopyItemNeverAsksForCopy() {
+    #expect(CaptureDecision.decide(Self.context(selection: .copyDisabled)) == .nothingToSave)
+    #expect(
+      CaptureDecision.decide(Self.context(selection: .copyDisabled, imageAge: 5))
+        == .saveClipboardImage)
   }
 
   @Test func emptyAnswerInAnAppThatCopiesWithoutASelectionSkipsCopy() {

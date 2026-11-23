@@ -6,6 +6,7 @@ public enum SelectionProbe: Sendable, Equatable {
   case unavailable
   case secureField
   case copiedNothing
+  case copyDisabled
 }
 
 public struct ClipboardImage: Sendable, Equatable {
@@ -72,9 +73,9 @@ public enum CaptureDecision {
     case .text(let text) where !isBlank(text):
       return context.saved.newestIsText(text, from: context.source)
         ? .alreadySaved : .saveText(text)
-    case .text, .empty, .unavailable:
+    case .text, .unavailable:
       if context.fallbackAllowed { return .copyFallback }
-    case .copiedNothing:
+    case .empty, .copyDisabled, .copiedNothing:
       break
     }
     guard hasRecentImage(context) else { return .nothingToSave }

@@ -120,6 +120,30 @@ struct CaptureCoordinatorTests {
     #expect(rig.writer.ownChangeCounts == [11, 12])
   }
 
+  @Test func anAppWithNothingToCopyNeverGetsTheCopyKey() async throws {
+    for probe in [SelectionProbe.empty, .copyDisabled] {
+      let rig = try Self.rig()
+      defer { rig.board.releaseGlobally() }
+      rig.reader.probeResult = probe
+      #expect(await rig.coordinator.capture() == .nothingToSave)
+      #expect(rig.reader.copies == 0)
+      #expect(rig.plays.count == 0)
+    }
+  }
+
+  @Test func anAppThatGivesNoEvidenceStillGetsTheCopyKey() async throws {
+    let rig = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    rig.reader.probeResult = .unavailable
+    rig.reader.copyResult = .text("from a silent app")
+    guard case .saved(let thought) = await rig.coordinator.capture() else {
+      Issue.record("expected a save")
+      return
+    }
+    #expect(thought.content == .text("from a silent app"))
+    #expect(rig.reader.copies == 1)
+  }
+
   @Test func emptyAnswerInAnEditorThatCopiesALineSavesNothing() async throws {
     let rig = try Self.rig(front: Self.editor)
     defer { rig.board.releaseGlobally() }
