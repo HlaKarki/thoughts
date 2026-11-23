@@ -9,7 +9,7 @@ type Props = {
 
 export function AppIcon({ size, decorative = false, xstyle }: Props) {
   return (
-    <picture {...stylex.props(styles.picture, xstyle)}>
+    <picture {...stylex.props(styles.picture, styles.size(size), xstyle)}>
       <source srcSet={site.icon.dark} media="(prefers-color-scheme: dark)" />
       <img
         src={site.icon.light}
@@ -27,6 +27,10 @@ const styles = stylex.create({
     display: 'block',
     flexShrink: 0,
   },
+  size: (size: number) => ({
+    width: size,
+    height: size,
+  }),
   image: {
     display: 'block',
     width: '100%',
