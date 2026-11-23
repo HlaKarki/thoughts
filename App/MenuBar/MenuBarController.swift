@@ -33,6 +33,10 @@ final class MenuBarController {
     surface.onRemoved = nil
   }
 
+  func ownIconInUse(event: NSEvent?) -> Bool {
+    menu.isOpen || surface.isOwnClick(event)
+  }
+
   func apply() {
     if surface.isVisible != preferences.showsMenuBarIcon {
       surface.isVisible = preferences.showsMenuBarIcon

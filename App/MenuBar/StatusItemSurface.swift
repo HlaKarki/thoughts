@@ -5,6 +5,7 @@ protocol StatusItemSurface: AnyObject {
   var isVisible: Bool { get set }
   var onRemoved: (@MainActor () -> Void)? { get set }
   var screen: NSScreen? { get }
+  func isOwnClick(_ event: NSEvent?) -> Bool
   func present(updateWaiting: Bool, label: String)
 }
 
@@ -47,6 +48,13 @@ final class SystemStatusItem: StatusItemSurface {
   }
 
   var screen: NSScreen? { item.button?.window?.screen }
+
+  func isOwnClick(_ event: NSEvent?) -> Bool {
+    guard let event, let window = item.button?.window, event.window === window else {
+      return false
+    }
+    return event.type == .leftMouseDown || event.type == .rightMouseDown
+  }
 
   func present(updateWaiting: Bool, label: String) {
     guard let button = item.button else { return }

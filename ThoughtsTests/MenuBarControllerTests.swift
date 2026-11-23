@@ -9,7 +9,10 @@ struct MenuBarControllerTests {
     var isVisible = true
     var onRemoved: (@MainActor () -> Void)?
     var screen: NSScreen? = NSScreen.screens.first
+    var clickIsOwn = false
     private(set) var presented: [(updateWaiting: Bool, label: String)] = []
+
+    func isOwnClick(_ event: NSEvent?) -> Bool { clickIsOwn }
 
     func present(updateWaiting: Bool, label: String) {
       presented.append((updateWaiting, label))
@@ -112,6 +115,18 @@ struct MenuBarControllerTests {
     rig.menu.menu.performActionForItem(at: 0)
     #expect(rig.screens.values.count == 1)
     #expect(rig.screens.values.first.flatMap { $0 } === rig.surface.screen)
+  }
+
+  @Test func theIconCountsAsInUseWhileItsMenuIsOpenOrItWasJustClicked() throws {
+    let rig = try Rig()
+    #expect(!rig.controller.ownIconInUse(event: nil))
+    rig.surface.clickIsOwn = true
+    #expect(rig.controller.ownIconInUse(event: nil))
+    rig.surface.clickIsOwn = false
+    rig.menu.menuWillOpen(rig.menu.menu)
+    #expect(rig.controller.ownIconInUse(event: nil))
+    rig.menu.menuDidClose(rig.menu.menu)
+    #expect(!rig.controller.ownIconInUse(event: nil))
   }
 
   @Test func stoppingLeavesTheSettingAloneWhenTheIconGoes() throws {

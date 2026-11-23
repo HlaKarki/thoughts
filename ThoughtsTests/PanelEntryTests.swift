@@ -58,4 +58,11 @@ struct PanelEntryTests {
     stage.entry.fromMenu(on: screen)
     #expect(stage.shows.first.flatMap { $0 } === screen)
   }
+
+  @Test func keyLossHidesThePanelUnlessKeepOpenIsOnOrItsOwnIconIsInUse() {
+    #expect(PanelController.hidesOnKeyLoss(keepOpen: false, ownIconInUse: false))
+    #expect(!PanelController.hidesOnKeyLoss(keepOpen: true, ownIconInUse: false))
+    #expect(!PanelController.hidesOnKeyLoss(keepOpen: false, ownIconInUse: true))
+    #expect(!PanelController.hidesOnKeyLoss(keepOpen: true, ownIconInUse: true))
+  }
 }

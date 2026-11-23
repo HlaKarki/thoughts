@@ -11,6 +11,7 @@ final class PanelController {
   private let preferences: Preferences
   private var hiding = false
   private var transition = 0
+  var ownIconInUse: @MainActor () -> Bool = { false }
   var onWillShow: (() -> Void)?
   var onWillHide: (() -> Void)?
   var onDidChangeShown: (() -> Void)?
@@ -45,6 +46,10 @@ final class PanelController {
       case .right: visible.maxX - edgeInset - width
       }
     return CGRect(x: x, y: visible.midY - height / 2, width: width, height: height)
+  }
+
+  static func hidesOnKeyLoss(keepOpen: Bool, ownIconInUse: Bool) -> Bool {
+    !keepOpen && !ownIconInUse
   }
 
   static func offscreenFrame(from frame: CGRect, edge: PanelEdge) -> CGRect {
@@ -114,7 +119,9 @@ final class PanelController {
   }
 
   private func resignedKey() {
-    guard isShown, !preferences.keepOpen else { return }
+    guard isShown,
+      Self.hidesOnKeyLoss(keepOpen: preferences.keepOpen, ownIconInUse: ownIconInUse())
+    else { return }
     hide()
   }
 
