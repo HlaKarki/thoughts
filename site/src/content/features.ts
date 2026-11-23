@@ -1,0 +1,197 @@
+import { site } from './site'
+import type { Rich } from './types'
+
+type Card<Tile> = {
+  readonly heading: string
+  readonly body: Rich
+  readonly tile: Tile
+}
+
+type Features = {
+  readonly heading: string
+  readonly headingMuted: string
+  readonly body: string
+  readonly selection: Card<{
+    readonly label: string
+    readonly selectionWide: ReadonlyArray<string>
+    readonly selectionNarrow: ReadonlyArray<string>
+    readonly key: string
+    readonly saved: string
+    readonly row: string
+    readonly time: string
+  }>
+  readonly screenshot: Card<{
+    readonly label: string
+    readonly windowTitle: string
+    readonly photo: string
+    readonly offerTitle: string
+    readonly offerSubtitle: string
+    readonly offerKeys: string
+    readonly time: string
+  }>
+  readonly search: Card<{
+    readonly label: string
+    readonly query: string
+    readonly page: {
+      readonly source: string
+      readonly text: Rich
+      readonly time: string
+    }
+    readonly note: {
+      readonly text: Rich
+      readonly source: string
+      readonly time: string
+    }
+    readonly newest: {
+      readonly text: string
+      readonly time: string
+    }
+  }>
+  readonly markdown: Card<{
+    readonly label: string
+    readonly fileName: string
+    readonly frontMatter: string
+    readonly typed: string
+    readonly note: string
+    readonly time: string
+  }>
+  readonly agents: Card<{
+    readonly label: string
+    readonly title: string
+    readonly prompt: string
+    readonly command: string
+    readonly commandNarrow: readonly [string, string]
+    readonly output: string
+    readonly row: string
+    readonly time: string
+  }>
+  readonly privacy: Card<{
+    readonly label: string
+    readonly accessibility: string
+    readonly files: string
+    readonly app: string
+    readonly folder: string
+  }>
+}
+
+export const features: Features = {
+  heading: 'Save it in the app where you found it.',
+  headingMuted: 'Find it later in one list.',
+  body: 'Text, screenshots and your own notes go to the same list at the edge of your screen. Saved text keeps the app and window it came from, so you can go back to it.',
+  selection: {
+    heading: 'Press Shift twice to keep a selection',
+    body: [
+      'Select text in any app and press Shift twice. Thoughts saves it with the app and window it came from, and a tick at the edge of the screen tells you it worked.',
+    ],
+    tile: {
+      label: 'A selected sentence on a recipe page becomes the newest thought in the panel.',
+      selectionWide: ['Let the dough rest for 30 minutes', 'before you add the salt.'],
+      selectionNarrow: ['Let the dough rest for', '30 minutes before you', 'add the salt.'],
+      key: '⇧',
+      saved: 'Saved',
+      row: 'Let the dough rest for 30 minutes before you add the salt.',
+      time: '10:24',
+    },
+  },
+  screenshot: {
+    heading: 'Keep a screenshot with a click',
+    body: [
+      'Copy an image or take a screenshot, and a small offer slides in at the edge of the screen. Click it or press Shift twice to keep the image as a thought.',
+    ],
+    tile: {
+      label: 'A screenshot of a cat photo becomes a thought in the panel.',
+      windowTitle: 'IMG_0412.jpeg',
+      photo: site.photos.cat,
+      offerTitle: 'Image copied',
+      offerSubtitle: 'Keep as a thought?',
+      offerKeys: '⇧⇧',
+      time: '10:05',
+    },
+  },
+  search: {
+    heading: 'Search finds the words in your screenshots too',
+    body: [
+      'Press ⌘F in the panel and start typing. The list narrows to the thoughts that match, including the text inside screenshots. Esc clears the search.',
+    ],
+    tile: {
+      label: 'A search for oven finds a recipe screenshot and a note.',
+      query: 'oven',
+      page: {
+        source: 'Safari: Sourdough, step by step',
+        text: ['Text in image: "Heat the ', { strong: 'oven' }, ' to 250°C"'],
+        time: '9:58',
+      },
+      note: {
+        text: ['Which one goes in the ', { strong: 'oven' }, '?'],
+        source: 'Preview: IMG_0412.jpeg',
+        time: '10:05',
+      },
+      newest: {
+        text: 'Let the dough rest for 30 minutes before you add the salt.',
+        time: '10:24',
+      },
+    },
+  },
+  markdown: {
+    heading: 'Every thought is a Markdown file',
+    body: [
+      'Each thought is one Markdown file in a folder you choose, and its front matter records where it came from. Edit the file in any editor and the panel shows the change.',
+    ],
+    tile: {
+      label: 'A line typed into the Markdown file shows up in the panel.',
+      fileName: '20261123-100512-m4q8tz2c.md',
+      frontMatter: [
+        '---',
+        'id: m4q8tz2c',
+        'created: 2026-11-23T10:05:12.408-05:00',
+        'done: null',
+        'cleared: false',
+        'image: 20261123-100512-m4q8tz2c.png',
+        'source:',
+        '  app: Preview',
+        '  bundle: com.apple.Preview',
+        '  window: IMG_0412.jpeg',
+        '---',
+        'Which one goes in the oven?',
+      ].join('\n'),
+      typed: 'Not the cat.',
+      note: 'Which one goes in the oven?',
+      time: '10:05',
+    },
+  },
+  agents: {
+    heading: 'Your agents can add thoughts too',
+    body: [
+      'The ',
+      { code: 'thoughts' },
+      ' command uses the same folder as the app, so a script can run ',
+      { code: 'thoughts add' },
+      '. Add ',
+      { code: 'thoughts mcp' },
+      ' to an MCP client and your agent can list, add and search thoughts.',
+    ],
+    tile: {
+      label: 'A command in Terminal adds a thought to the panel.',
+      title: 'Terminal',
+      prompt: '$ ',
+      command: 'thoughts add "Heat the oven at 4:30"',
+      commandNarrow: ['thoughts add "Heat', ' the oven at 4:30"'],
+      output: 'k9w3a7rd',
+      row: 'Heat the oven at 4:30',
+      time: '10:32',
+    },
+  },
+  privacy: {
+    heading: 'Thoughts asks for Accessibility and your screenshot folder',
+    body: [
+      'Accessibility lets Thoughts read the text you select and its window title. It asks for the screenshot folder only when macOS guards it, as it does the Desktop. The update check is its only network request.',
+    ],
+    tile: {
+      label: 'Thoughts turned on in the Accessibility and Files and Folders lists of System Settings.',
+      accessibility: 'Accessibility',
+      files: 'Files and Folders',
+      app: 'Thoughts',
+      folder: 'Desktop Folder',
+    },
+  },
+}
