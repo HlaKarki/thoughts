@@ -23,6 +23,7 @@ public struct Thought: Identifiable, Sendable, Equatable {
   public var content: ThoughtContent
   public var source: Source?
   public var extraFrontMatter: String
+  public var extraSource: String
   public let file: URL
   public var version: FileVersion
 
@@ -34,6 +35,7 @@ public struct Thought: Identifiable, Sendable, Equatable {
     content: ThoughtContent,
     source: Source? = nil,
     extraFrontMatter: String = "",
+    extraSource: String = "",
     file: URL,
     version: FileVersion
   ) {
@@ -44,6 +46,7 @@ public struct Thought: Identifiable, Sendable, Equatable {
     self.content = content
     self.source = source
     self.extraFrontMatter = extraFrontMatter
+    self.extraSource = extraSource
     self.file = file
     self.version = version
   }

@@ -5,10 +5,13 @@ public enum FrontMatterCodec {
   private static let ownKeys: Set<String> = [
     "id", "created", "done", "cleared", "image", "source",
   ]
+  private static let sourceKeys: Set<String> = [
+    "app", "bundle", "window", "url", "title", "file",
+  ]
 
   public static func encode(_ thought: Thought) -> String {
     var pairs: [(Node, Node)] = [
-      (key("id"), plain(thought.id.rawValue)),
+      (key("id"), string(thought.id.rawValue)),
       (key("created"), plain(format(thought.created, in: .current))),
       (key("done"), plain(thought.done.map { format($0, in: .current) } ?? "null")),
       (key("cleared"), plain(thought.cleared ? "true" : "false")),
@@ -21,7 +24,7 @@ public enum FrontMatterCodec {
       pairs.append((key("image"), string(fileName)))
       body = note
     }
-    if let source = thought.source, let node = sourceNode(source) {
+    if let node = sourceNode(thought.source, extra: thought.extraSource) {
       pairs.append((key("source"), node))
     }
     var yaml = emit(Node(pairs))
@@ -93,6 +96,7 @@ public enum FrontMatterCodec {
         content: content,
         source: fields.source,
         extraFrontMatter: extra.isEmpty ? "" : emit(Node(extra)),
+        extraSource: fields.extraSource,
         file: file,
         version: version
       )
@@ -100,8 +104,12 @@ public enum FrontMatterCodec {
     }
   }
 
+  static func canonical(_ date: Date) -> Date {
+    Date(timeIntervalSince1970: (date.timeIntervalSince1970 * 1000).rounded() / 1000)
+  }
+
   static func format(_ date: Date, in zone: TimeZone) -> String {
-    let milliseconds = Int((date.timeIntervalSince1970 * 1000).rounded())
+    let milliseconds = Int((canonical(date).timeIntervalSince1970 * 1000).rounded())
     let seconds = Date(timeIntervalSince1970: Double(milliseconds.floorDivided(by: 1000)))
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = zone
@@ -119,11 +127,38 @@ public enum FrontMatterCodec {
   }
 
   static func parseDate(_ text: String) -> Date? {
-    let fractional = Date.ISO8601FormatStyle(
-      timeZoneSeparator: .colon, includingFractionalSeconds: true)
-    let whole = Date.ISO8601FormatStyle(timeZoneSeparator: .colon)
-    guard let date = (try? fractional.parse(text)) ?? (try? whole.parse(text)) else { return nil }
-    return Date(timeIntervalSince1970: (date.timeIntervalSince1970 * 1000).rounded() / 1000)
+    let pattern =
+      #"([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})(?:(?:[Tt]|[ \t]+)([0-9]{1,2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]*))?(?:[ \t]*(?:(Z)|([-+])([0-9]{1,2})(?::?([0-9]{2}))?))?)?"#
+    guard
+      let regex = try? Regex(pattern),
+      let match = try? regex.wholeMatch(in: text.trimmingCharacters(in: .whitespaces))
+    else { return nil }
+
+    func group(_ index: Int) -> String? { match.output[index].substring.map(String.init) }
+    func number(_ index: Int) -> Int { group(index).flatMap(Int.init) ?? 0 }
+
+    var offset = 0
+    if let sign = group(9) {
+      let hours = number(10)
+      let minutes = number(11)
+      guard hours <= 23, minutes <= 59 else { return nil }
+      offset = (hours * 3600 + minutes * 60) * (sign == "-" ? -1 : 1)
+    }
+    guard let zone = TimeZone(secondsFromGMT: offset) else { return nil }
+
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = zone
+    let components = DateComponents(
+      year: number(1), month: number(2), day: number(3),
+      hour: number(4), minute: number(5), second: number(6))
+    guard
+      let whole = calendar.date(from: components),
+      calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: whole)
+        == components
+    else { return nil }
+
+    let fraction = group(7).flatMap { $0.isEmpty ? nil : Double("0." + $0) } ?? 0
+    return canonical(whole.addingTimeInterval(fraction))
   }
 }
 
@@ -138,6 +173,7 @@ private struct Fields {
   var cleared: Bool
   var image: String?
   var source: Source?
+  var extraSource: String
 }
 
 extension FrontMatterCodec {
@@ -167,7 +203,7 @@ extension FrontMatterCodec {
       }
 
       var done: Date?
-      if let node = values["done"], node.scalar.flatMap(NSNull.construct) == nil {
+      if let node = values["done"], !isNull(node) {
         guard let raw = node.scalar?.string, let date = parseDate(raw) else {
           throw Failure(reason: "done is not an ISO 8601 date or null")
         }
@@ -181,20 +217,23 @@ extension FrontMatterCodec {
       }
 
       var image: String?
-      if let node = values["image"] {
-        guard let name = node.scalar?.string, !name.isEmpty else {
-          throw Failure(reason: "image is not a file name")
+      if let node = values["image"], !isNull(node) {
+        guard let name = node.scalar?.string, isFileName(name) else {
+          throw Failure(reason: "image is not a plain file name")
         }
         image = name
       }
 
       var source: Source?
+      var extraSource = ""
       if let node = values["source"] {
-        source = try sourceValue(node)
+        (source, extraSource) = try sourceValue(node)
       }
 
       return .success(
-        Fields(id: id, created: created, done: done, cleared: cleared, image: image, source: source)
+        Fields(
+          id: id, created: created, done: done, cleared: cleared, image: image, source: source,
+          extraSource: extraSource)
       )
     } catch let failure as Failure {
       return .failure(failure)
@@ -203,50 +242,61 @@ extension FrontMatterCodec {
     }
   }
 
-  fileprivate static func sourceValue(_ node: Node) throws -> Source? {
-    if node.scalar.flatMap(NSNull.construct) != nil { return nil }
+  fileprivate static func sourceValue(_ node: Node) throws -> (Source?, String) {
+    if isNull(node) { return (nil, "") }
     guard case .mapping(let mapping) = node else {
       throw Failure(reason: "source is not a mapping")
     }
     var source = Source()
+    var extra: [(Node, Node)] = []
     for (keyNode, valueNode) in mapping {
-      guard let name = keyNode.scalar?.string else { continue }
-      switch name {
-      case "app", "bundle", "window", "url", "title", "file":
-        guard let value = valueNode.scalar?.string else {
-          throw Failure(reason: "source.\(name) is not text")
-        }
-        switch name {
-        case "app": source.app = value
-        case "bundle": source.bundleID = value
-        case "window": source.window = value
-        case "title": source.title = value
-        case "file": source.file = value
-        default:
-          guard let url = URL(string: value) else {
-            throw Failure(reason: "source.url is not a URL")
-          }
-          source.url = url
-        }
-      default:
+      guard let name = keyNode.scalar?.string, sourceKeys.contains(name) else {
+        extra.append((keyNode, valueNode))
         continue
       }
+      if isNull(valueNode) { continue }
+      guard let value = valueNode.scalar?.string else {
+        throw Failure(reason: "source.\(name) is not text")
+      }
+      switch name {
+      case "app": source.app = value
+      case "bundle": source.bundleID = value
+      case "window": source.window = value
+      case "title": source.title = value
+      case "file": source.file = value
+      default:
+        guard let url = URL(string: value) else {
+          throw Failure(reason: "source.url is not a URL")
+        }
+        source.url = url
+      }
     }
-    return source
+    return (source == Source() ? nil : source, extra.isEmpty ? "" : emit(Node(extra)))
   }
 
-  fileprivate static func sourceNode(_ source: Source) -> Node? {
+  fileprivate static func sourceNode(_ source: Source?, extra: String) -> Node? {
     var pairs: [(Node, Node)] = []
     func add(_ name: String, _ value: String?) {
       if let value { pairs.append((key(name), string(value))) }
     }
-    add("app", source.app)
-    add("bundle", source.bundleID)
-    add("window", source.window)
-    add("url", source.url?.absoluteString)
-    add("title", source.title)
-    add("file", source.file)
+    add("app", source?.app)
+    add("bundle", source?.bundleID)
+    add("window", source?.window)
+    add("url", source?.url?.absoluteString)
+    add("title", source?.title)
+    add("file", source?.file)
+    if case .mapping(let mapping)? = try? compose(yaml: extra) {
+      pairs.append(contentsOf: Array(mapping))
+    }
     return pairs.isEmpty ? nil : Node(pairs)
+  }
+
+  fileprivate static func isNull(_ node: Node) -> Bool {
+    node.scalar.flatMap(NSNull.construct) != nil
+  }
+
+  fileprivate static func isFileName(_ name: String) -> Bool {
+    !name.isEmpty && name != "." && name != ".." && !name.contains("/")
   }
 
   fileprivate static func split(_ text: String) -> (yaml: String, body: String)? {

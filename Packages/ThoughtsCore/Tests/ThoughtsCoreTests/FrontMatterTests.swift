@@ -198,3 +198,111 @@ private func decode(_ text: String) -> ThoughtEntry {
   #expect(ThoughtID(rawValue: "") == nil)
   #expect(ThoughtID(rawValue: "a/b") == nil)
 }
+
+private func thought(from text: String) -> Thought? {
+  guard case .thought(let thought) = decode(text) else { return nil }
+  return thought
+}
+
+@Test func plainNullImageIsAbsent() {
+  let result = thought(from: "---\nimage: null\n---\nx\n")
+  #expect(result?.content == .text("x"))
+}
+
+@Test func plainNullSourceFieldsAreAbsent() {
+  let result = thought(from: "---\nsource: {window: null, url: ~, app: Code}\n---\nx\n")
+  #expect(result?.source == Source(app: "Code"))
+  let empty = thought(from: "---\nsource: {window: null, url: ~}\n---\nx\n")
+  #expect(empty?.source == nil)
+}
+
+@Test func quotedNullStaysText() {
+  let result = thought(from: "---\nsource: {window: 'null'}\n---\nx\n")
+  #expect(result?.source?.window == "null")
+}
+
+@Test func imageWithPathIsMalformed() {
+  for name in ["../../Documents/taxes.pdf", "sub/a.png", "/etc/passwd", ".", ".."] {
+    guard case .malformed(_, let reason) = decode("---\nimage: \(name)\n---\nx\n") else {
+      Issue.record("expected malformed for \(name)")
+      continue
+    }
+    #expect(!reason.isEmpty)
+  }
+  #expect(
+    thought(from: "---\nimage: shot.png\n---\nx\n")?.content
+      == .image(fileName: "shot.png", note: "x"))
+}
+
+@Test func readsYAMLTimestampForms() {
+  let expected = Date(timeIntervalSince1970: 1_795_389_243.12)
+  let forms = [
+    "2026-11-22T18:14:03.120-05:00",
+    "2026-11-22 18:14:03.120000-05:00",
+    "2026-11-22t18:14:03.12 -05:00",
+    "2026-11-22 18:14:03.12 -5",
+    "2026-11-22T23:14:03.120Z",
+    "2026-11-22 23:14:03.12 Z",
+    "2026-11-22 18:14:03.120-0500",
+  ]
+  for form in forms {
+    #expect(FrontMatterCodec.parseDate(form) == expected, "\(form)")
+  }
+  #expect(
+    FrontMatterCodec.parseDate("2026-11-22 23:14:03") == Date(timeIntervalSince1970: 1_795_389_243))
+  #expect(
+    thought(from: "---\ncreated: 2026-11-22 18:14:03.120000-05:00\n---\nx\n")?.created == expected)
+  #expect(FrontMatterCodec.parseDate("2026-13-22T18:14:03Z") == nil)
+  #expect(FrontMatterCodec.parseDate("yesterday") == nil)
+}
+
+@Test func canonicalMatchesWhatTheCodecWritesAndReads() {
+  let raw = Date(timeIntervalSince1970: 1_795_389_243.1237)
+  let canonical = FrontMatterCodec.canonical(raw)
+  #expect(canonical == Date(timeIntervalSince1970: 1_795_389_243.124))
+  #expect(FrontMatterCodec.canonical(canonical) == canonical)
+  let zone = TimeZone(secondsFromGMT: 3600)!
+  #expect(FrontMatterCodec.parseDate(FrontMatterCodec.format(raw, in: zone)) == canonical)
+}
+
+@Test func numericLookingIdsAreQuoted() {
+  for id in ["1e234567", "0x12ab34", "12345678", "2026-11-22"] {
+    let original = makeThought(id: id)
+    let encoded = FrontMatterCodec.encode(original)
+    #expect(encoded.contains("id: '\(id)'"), "\(id)")
+    #expect(decode(encoded) == .thought(original))
+  }
+}
+
+@Test func keepsUnknownSourceKeys() {
+  let text = "---\nsource: {app: Code, line: 12, extra: {a: 1}}\n---\nx\n"
+  guard let first = thought(from: text) else {
+    Issue.record("expected thought")
+    return
+  }
+  #expect(first.source == Source(app: "Code"))
+  let encoded = FrontMatterCodec.encode(first)
+  #expect(encoded.contains("line: 12"))
+  #expect(thought(from: encoded) == first)
+}
+
+@Test func sourceWithOnlyUnknownKeysSurvives() {
+  guard let first = thought(from: "---\nsource: {line: 12}\n---\nx\n") else {
+    Issue.record("expected thought")
+    return
+  }
+  #expect(first.source == nil)
+  #expect(first.extraSource.contains("line: 12"))
+  let again = thought(from: FrontMatterCodec.encode(first))
+  #expect(again == first)
+  #expect(FrontMatterCodec.encode(first).contains("source:\n  line: 12"))
+}
+
+@Test func duplicateKeysAreMalformed() {
+  guard case .malformed(_, let reason) = decode("---\ncleared: true\ncleared: false\n---\nx\n")
+  else {
+    Issue.record("expected malformed")
+    return
+  }
+  #expect(!reason.isEmpty)
+}
