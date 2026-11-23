@@ -41,9 +41,11 @@ The first time you keep a copied image, macOS asks if Thoughts can paste from ot
 
 Thoughts never asks for Input Monitoring.
 
-## Keys
+## Menu bar icon
 
 The menu bar icon is on by default. Its menu has Show Thoughts, Settings…, Check for updates… and Quit Thoughts. To remove it, turn off "Show Thoughts in the menu bar" in Settings or Command-drag it out of the menu bar. The summon key, or opening Thoughts again from Applications, still shows the panel.
+
+## Keys
 
 Anywhere:
 
