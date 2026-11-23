@@ -140,6 +140,7 @@ targets:
         PRODUCT_MODULE_NAME: ThoughtsCLI
         OTHER_CODE_SIGN_FLAGS: $(inherited) --identifier dev.hla.thoughts.cli
         ENTITLEMENTS_REQUIRED: NO
+        SKIP_INSTALL: YES
     dependencies:
       - package: ThoughtsCore
         product: ThoughtsCommands
