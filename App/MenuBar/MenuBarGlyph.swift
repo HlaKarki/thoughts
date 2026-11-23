@@ -1,32 +1,38 @@
 import AppKit
 
 enum MenuBarGlyph {
-  static let size = CGSize(width: 18, height: 18)
-  static let buttonLength: CGFloat = 24
+  static let glyphSize = CGSize(width: 18, height: 18)
   static let dotDiameter: CGFloat = 6
-  static let dotOffset = CGPoint(x: 9, y: 8)
-  static let cutoutRadius: CGFloat = 4
+  static let dotGap: CGFloat = 2
 
-  private static let bar = CGRect(x: 0, y: 2, width: 13, height: 4)
-  private static let caret = CGRect(x: 15, y: 2, width: 3, height: 14)
+  static let bar = CGRect(x: 0, y: 2, width: 13, height: 4)
+  static let caret = CGRect(x: 15, y: 2, width: 3, height: 14)
 
-  static func draw(updateWaiting: Bool) {
+  static func size(updateWaiting: Bool) -> CGSize {
+    updateWaiting
+      ? CGSize(width: glyphSize.width + dotGap + dotDiameter, height: glyphSize.height)
+      : glyphSize
+  }
+
+  static func buttonLength(updateWaiting: Bool) -> CGFloat {
+    updateWaiting ? 30 : 24
+  }
+
+  static var dotRect: CGRect {
+    CGRect(
+      x: glyphSize.width + dotGap, y: caret.maxY - dotDiameter, width: dotDiameter,
+      height: dotDiameter)
+  }
+
+  static func draw() {
     NSBezierPath(roundedRect: bar, xRadius: bar.height / 2, yRadius: bar.height / 2).fill()
     NSBezierPath(roundedRect: caret, xRadius: caret.width / 2, yRadius: caret.width / 2).fill()
-    guard updateWaiting else { return }
-    NSGraphicsContext.current?.compositingOperation = .destinationOut
-    let center = CGPoint(x: size.width / 2 + dotOffset.x, y: size.height / 2 + dotOffset.y)
-    NSBezierPath(
-      ovalIn: CGRect(
-        x: center.x - cutoutRadius, y: center.y - cutoutRadius, width: cutoutRadius * 2,
-        height: cutoutRadius * 2)
-    ).fill()
   }
 
   static func image(updateWaiting: Bool) -> NSImage {
-    let image = NSImage(size: size, flipped: false) { _ in
+    let image = NSImage(size: size(updateWaiting: updateWaiting), flipped: false) { _ in
       NSColor.black.setFill()
-      draw(updateWaiting: updateWaiting)
+      draw()
       return true
     }
     image.isTemplate = true
@@ -34,10 +40,13 @@ enum MenuBarGlyph {
   }
 
   static func dotFrame(in bounds: CGRect, flipped: Bool) -> CGRect {
-    let centerY = flipped ? bounds.midY - dotOffset.y : bounds.midY + dotOffset.y
-    return CGRect(
-      x: bounds.midX + dotOffset.x - dotDiameter / 2, y: centerY - dotDiameter / 2,
-      width: dotDiameter, height: dotDiameter)
+    let canvas = size(updateWaiting: true)
+    let originX = bounds.midX - canvas.width / 2
+    let y =
+      flipped
+      ? bounds.midY - canvas.height / 2 + (canvas.height - dotRect.maxY)
+      : bounds.midY - canvas.height / 2 + dotRect.minY
+    return CGRect(x: originX + dotRect.minX, y: y, width: dotDiameter, height: dotDiameter)
   }
 
   static func label(updateWaiting: Bool) -> String {

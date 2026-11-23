@@ -20,7 +20,7 @@ final class SystemStatusItem: StatusItemSurface {
   private var changing = false
 
   init(menu: NSMenu, statusBar: NSStatusBar = .system) {
-    item = statusBar.statusItem(withLength: MenuBarGlyph.buttonLength)
+    item = statusBar.statusItem(withLength: MenuBarGlyph.buttonLength(updateWaiting: false))
     item.behavior = .removalAllowed
     item.autosaveName = Self.autosaveName
     item.menu = menu
@@ -58,6 +58,7 @@ final class SystemStatusItem: StatusItemSurface {
 
   func present(updateWaiting: Bool, label: String) {
     guard let button = item.button else { return }
+    item.length = MenuBarGlyph.buttonLength(updateWaiting: updateWaiting)
     button.image = MenuBarGlyph.image(updateWaiting: updateWaiting)
     button.setAccessibilityLabel(label)
     dot.isHidden = !updateWaiting
