@@ -62,6 +62,18 @@ struct CommentCheckTests {
     #expect(jsonc == [Hit(path: "wrangler.jsonc", line: 1)])
   }
 
+  @Test func flagsCommentsInExampleXcconfig() {
+    let hits = CommentChecker.hits(path: "Config/Local.xcconfig.example", contents: "A = 1\n// x")
+    #expect(hits == [Hit(path: "Config/Local.xcconfig.example", line: 2)])
+  }
+
+  @Test func flagsHashLinesInGitIgnoreFiles() {
+    let ignore = CommentChecker.hits(path: ".gitignore", contents: "build/\n# x")
+    let attributes = CommentChecker.hits(path: "sub/.gitattributes", contents: "# x\n*.png binary")
+    #expect(ignore == [Hit(path: ".gitignore", line: 2)])
+    #expect(attributes == [Hit(path: "sub/.gitattributes", line: 1)])
+  }
+
   @Test func allowsToolsVersionLineOnly() {
     let line = "// swift-tools-version: 6.2"
     let allowed = CommentChecker.hits(

@@ -23,8 +23,12 @@ enum CommentChecker {
   }
 
   private static func lines(path: String, contents: String) -> [Int] {
-    let name = (path as NSString).lastPathComponent
-    let ext = (path as NSString).pathExtension
+    let routed = path.hasSuffix(".example") ? String(path.dropLast(".example".count)) : path
+    let name = (routed as NSString).lastPathComponent
+    let ext = (routed as NSString).pathExtension
+    if name == ".gitignore" || name == ".gitattributes" {
+      return TextComments.hashLines(in: contents)
+    }
     switch ext {
     case "swift":
       let toolsVersionExempt = name == "Package.swift" && contents.hasPrefix(toolsVersionPrefix)
@@ -38,7 +42,7 @@ enum CommentChecker {
     case "css":
       return TextComments.lines(containing: "/*", in: contents)
     default:
-      let isScript = path.hasPrefix("scripts/") || path.contains("/scripts/")
+      let isScript = routed.hasPrefix("scripts/") || routed.contains("/scripts/")
       return isScript ? TextComments.hashLines(in: contents) : []
     }
   }
