@@ -2,7 +2,6 @@ import * as stylex from '@stylexjs/stylex'
 import type { ReactNode } from 'react'
 import { Keycap } from './Keycap'
 import { Photo } from './Photo'
-import { Tick } from './Icons'
 import { color, font, leading, radius, size } from '@/styles/tokens.stylex'
 
 type ChipProps = {
@@ -15,39 +14,43 @@ function Chip({ children, xstyle }: ChipProps) {
 }
 
 type SavedProps = {
-  readonly label: string
+  readonly title: string
+  readonly message: string
   readonly xstyle?: stylex.StyleXStyles
 }
 
-export function SavedChip({ label, xstyle }: SavedProps) {
+export function SavedChip({ title, message, xstyle }: SavedProps) {
   return (
-    <Chip xstyle={[styles.saved, xstyle]}>
-      <span {...stylex.props(styles.savedSlot)}>
-        <Tick xstyle={styles.tick} />
-      </span>
-      <span {...stylex.props(styles.title)}>{label}</span>
+    <Chip xstyle={[styles.wordsOnly, xstyle]}>
+      <ChipText title={title} message={message} />
     </Chip>
   )
 }
 
 type OfferProps = {
   readonly title: string
-  readonly subtitle: string
+  readonly message: string
   readonly keys: string
   readonly image: string
   readonly xstyle?: stylex.StyleXStyles
 }
 
-export function OfferChip({ title, subtitle, keys, image, xstyle }: OfferProps) {
+export function OfferChip({ title, message, keys, image, xstyle }: OfferProps) {
   return (
-    <Chip xstyle={[styles.offer, xstyle]}>
-      <Photo src={image} xstyle={styles.offerSlot} />
-      <span {...stylex.props(styles.offerText)}>
-        <span {...stylex.props(styles.title)}>{title}</span>
-        <span {...stylex.props(styles.subtitle)}>{subtitle}</span>
-      </span>
+    <Chip xstyle={xstyle}>
+      <Photo src={image} xstyle={styles.slot} />
+      <ChipText title={title} message={message} />
       <Keycap variant="offer">{keys}</Keycap>
     </Chip>
+  )
+}
+
+function ChipText({ title, message }: { readonly title: string; readonly message: string }) {
+  return (
+    <span {...stylex.props(styles.text)}>
+      <span {...stylex.props(styles.title)}>{title}</span>
+      <span {...stylex.props(styles.message)}>{message}</span>
+    </span>
   )
 }
 
@@ -56,9 +59,12 @@ const styles = stylex.create({
     position: 'absolute',
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
-    paddingLeft: 7,
-    borderRadius: radius.r10,
+    gap: 10,
+    width: 300,
+    height: 60,
+    paddingLeft: 10,
+    paddingRight: 12,
+    borderRadius: radius.r14,
     borderWidth: 1,
     borderStyle: 'solid',
     borderColor: color.chipBorder,
@@ -66,37 +72,18 @@ const styles = stylex.create({
     boxShadow: color.chipShadow,
     fontFamily: font.text,
   },
-  saved: {
-    width: 164,
-    height: 40,
-    paddingRight: 10,
+  wordsOnly: {
+    paddingLeft: 16,
   },
-  savedSlot: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+  slot: {
     flexShrink: 0,
-    width: 26,
-    height: 26,
-    borderRadius: radius.r5,
-    backgroundColor: color.chipSlot,
+    width: 40,
+    height: 40,
+    borderRadius: radius.r7,
+    backgroundSize: '71.7px 78.9px',
+    backgroundPosition: '-13.7px -24.9px',
   },
-  tick: {
-    color: color.success,
-  },
-  offer: {
-    width: 196,
-    height: 44,
-    paddingRight: 9,
-  },
-  offerSlot: {
-    width: 30,
-    height: 30,
-    borderRadius: radius.r6,
-    backgroundSize: '53.8px 59.2px',
-    backgroundPosition: '-10.3px -18.7px',
-  },
-  offerText: {
+  text: {
     display: 'flex',
     flexDirection: 'column',
     flexGrow: 1,
@@ -105,15 +92,18 @@ const styles = stylex.create({
   },
   title: {
     color: color.chipTitle,
-    fontSize: size.s12,
+    fontSize: size.s13,
     fontWeight: 600,
-    lineHeight: leading.l16,
-    whiteSpace: 'pre',
+    lineHeight: leading.l18,
+    whiteSpace: 'nowrap',
   },
-  subtitle: {
+  message: {
+    display: '-webkit-box',
+    overflow: 'hidden',
+    WebkitBoxOrient: 'vertical',
+    WebkitLineClamp: 2,
     color: color.chipSubtitle,
-    fontSize: size.s11,
-    lineHeight: leading.l14,
-    whiteSpace: 'pre',
+    fontSize: size.s12,
+    lineHeight: leading.l16,
   },
 })

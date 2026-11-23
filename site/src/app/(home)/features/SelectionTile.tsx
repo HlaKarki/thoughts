@@ -87,7 +87,7 @@ export function SelectionTile() {
         <MiniBarsRow widths={[76]} />
         <MiniRow time={tile.time}>{tile.row}</MiniRow>
       </MiniPanel>
-      <SavedChip label={tile.saved} xstyle={[styles.chip, loop.long, styles.chipIn]} />
+      <SavedChip title={tile.saved} message={tile.row} xstyle={[styles.chip, loop.long, styles.chipIn]} />
     </Tile>
   )
 }
@@ -95,7 +95,7 @@ export function SelectionTile() {
 const styles = stylex.create({
   stack: {
     position: 'absolute',
-    top: { default: 65, [media.wide]: 24 },
+    top: { default: 41, [media.wide]: 24 },
     left: { default: 16, [media.wide]: 24 },
     display: 'flex',
     flexDirection: 'column',
@@ -160,8 +160,8 @@ const styles = stylex.create({
     animationName: { default: null, [media.motion]: panelIn },
   },
   chip: {
-    top: { default: 344, [media.wide]: 256 },
-    left: { default: 178, [media.wide]: 312 },
+    top: { default: 324, [media.wide]: 236 },
+    left: { default: 42, [media.wide]: 176 },
     opacity: 0,
   },
   chipIn: {

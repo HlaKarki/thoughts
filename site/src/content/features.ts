@@ -26,7 +26,7 @@ type Features = {
     readonly windowTitle: string
     readonly photo: string
     readonly offerTitle: string
-    readonly offerSubtitle: string
+    readonly offerMessage: string
     readonly offerKeys: string
     readonly time: string
   }>
@@ -88,7 +88,7 @@ export const features: Features = {
   selection: {
     heading: 'Press Shift twice to keep a selection',
     body: [
-      'Select text in any app and press Shift twice. Thoughts saves it with the app and window it came from, and a tick at the edge of the screen tells you it worked.',
+      'Select text in any app and press Shift twice. Thoughts saves it with the app and window it came from, and a note at the edge of the screen shows what it saved.',
     ],
     tile: {
       label: 'A selected sentence on a recipe page becomes the newest thought in the panel.',
@@ -108,7 +108,7 @@ export const features: Features = {
       windowTitle: sources.catPhoto.window,
       photo: site.photos.cat,
       offerTitle: 'Image copied',
-      offerSubtitle: 'Keep as a thought?',
+      offerMessage: 'Keep as a thought?',
       offerKeys: '⇧⇧',
       time: thoughts.oven.time,
     },

@@ -30,7 +30,6 @@ export const size = stylex.defineConsts({
 })
 
 export const leading = stylex.defineConsts({
-  l14: '14px',
   l15: '15px',
   l16: '16px',
   l18: '18px',
@@ -76,6 +75,7 @@ export const radius = stylex.defineConsts({
   r10: '10px',
   r11: '11px',
   r12: '12px',
+  r14: '14px',
   r16: '16px',
   r19: '19px',
   r20: '20px',
@@ -181,7 +181,6 @@ export const color = stylex.defineVars({
   chipSlot: { default: '#EEEEEE', [DARK]: '#3A3A3A' },
   chipTitle: { default: '#151515', [DARK]: '#E6E6E6' },
   chipSubtitle: { default: '#6E6E6E', [DARK]: '#A0A0A0' },
-  success: '#34C759',
 
   key: { default: '#FFFFFF', [DARK]: '#2A2A2A' },
   keyBorder: { default: '#D1D1D6', [DARK]: '#444444' },

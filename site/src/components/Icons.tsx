@@ -130,15 +130,6 @@ export function MoreDots({ xstyle, width = 16, height = 4, r = 1.6 }: IconProps 
   )
 }
 
-export function Tick({ xstyle }: IconProps) {
-  return (
-    <svg {...svgProps(14, 14, '0 0 14 14', xstyle)}>
-      <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M4.3 7.2 6.2 9 9.8 5.2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
 export function AccessibilityGlyph({ xstyle }: IconProps) {
   return (
     <svg {...svgProps(12, 12, '0 0 12 12', xstyle)}>

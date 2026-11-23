@@ -41,12 +41,13 @@ const styles = stylex.create({
     lineHeight: leading.l16,
   },
   offer: {
-    height: 18,
-    paddingInline: 5,
-    borderRadius: radius.r4,
+    height: 22,
+    minWidth: 22,
+    paddingInline: 6,
+    borderRadius: radius.r5,
     backgroundColor: color.chipSlot,
     color: color.chipSubtitle,
     fontSize: size.s11,
-    lineHeight: leading.l14,
+    lineHeight: leading.l16,
   },
 })

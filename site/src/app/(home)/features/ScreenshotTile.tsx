@@ -66,7 +66,7 @@ export function ScreenshotTile() {
       <span {...stylex.props(styles.region, loop.long, styles.capturing)} />
       <OfferChip
         title={tile.offerTitle}
-        subtitle={tile.offerSubtitle}
+        message={tile.offerMessage}
         keys={tile.offerKeys}
         image={tile.photo}
         xstyle={[styles.offer, loop.long, styles.offering]}
@@ -127,8 +127,8 @@ const styles = stylex.create({
     animationName: { default: null, [media.motion]: capture },
   },
   offer: {
-    top: { default: 336, [media.wide]: 240 },
-    left: { default: 16, [media.wide]: 112 },
+    top: { default: 324, [media.wide]: 236 },
+    left: { default: 42, [media.wide]: 176 },
     opacity: 0,
   },
   offering: {
