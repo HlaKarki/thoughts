@@ -74,6 +74,7 @@ type Features = {
 }
 
 const searchQuery = 'oven'
+const agentThought = 'Heat the oven at 4:30'
 
 export const features: Features = {
   heading: ['Save it in the app', 'where you found it.'],
@@ -170,9 +171,9 @@ export const features: Features = {
       label: 'A command in Terminal adds a thought to the panel.',
       title: 'Terminal',
       prompt: '$ ',
-      command: 'thoughts add "Heat the oven at 4:30"',
+      command: `thoughts add "${agentThought}"`,
       output: 'k9w3a7rd',
-      row: 'Heat the oven at 4:30',
+      row: agentThought,
       time: '10:32',
     },
   },
