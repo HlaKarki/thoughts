@@ -204,6 +204,7 @@ step 7 "Writing the appcast and the cask"
 run_logged appcast $generate_appcast --download-url-prefix "https://github.com/$github_repo/releases/download/$tag/" \
   -o $updates/appcast.xml $updates
 [[ -f $updates/appcast.xml ]] || fail "generate_appcast wrote no appcast.xml"
+grep -q -F '<sparkle-signatures>' $updates/appcast.xml || fail "appcast.xml is not signed, so check that the app sets SURequireSignedFeed"
 sha256=$(shasum -a 256 $zip | cut -d ' ' -f 1)
 write_cask >$release/thoughts.rb
 print "Wrote ${updates#$repo/}/appcast.xml and build/release/thoughts.rb (sha256 $sha256)"

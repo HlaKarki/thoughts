@@ -56,6 +56,7 @@ targets:
         SUFeedURL: https://github.com/HlaKarki/thoughts/releases/latest/download/appcast.xml
         SUPublicEDKey: 0hBOwDutzPP3kabws9Vn3HIfHAyG3dOsH0IQgzBSiGY=
         SUEnableAutomaticChecks: $(THOUGHTS_AUTOMATIC_UPDATE_CHECKS)
+        SURequireSignedFeed: true
         SUScheduledCheckInterval: 86400
     entitlements:
       path: Config/Thoughts.entitlements

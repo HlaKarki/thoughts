@@ -41,6 +41,8 @@
 	<string>https://github.com/HlaKarki/thoughts/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>0hBOwDutzPP3kabws9Vn3HIfHAyG3dOsH0IQgzBSiGY=</string>
+	<key>SURequireSignedFeed</key>
+	<true/>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
 	<key>ThoughtsAppGroup</key>
