@@ -477,3 +477,34 @@ private func checkNewImagesArriveBeforeTheirRecognition(gap: Duration?) async th
   #expect(recognizer.total == count)
   #expect(recognizer.mostPerImage == 1)
 }
+
+@Test func changesIndexedByAnotherProcessReachOnChange() async throws {
+  let scratch = Scratch()
+  let store = scratch.store
+  let doomed = try store.add(NewThought(content: .text("doomed")))
+  let index = try scratch.makeIndex()
+  let other = IndexSync(store: store, index: index, recognizer: nil)
+  _ = try other.reconcile(nil)
+  let deliveries = Deliveries()
+  let live = LiveIndex(location: scratch.location, index: index, recognizer: nil)
+  try live.start { deliveries.record($0) }
+  defer { live.stop() }
+  try await Task.sleep(for: .milliseconds(100))
+
+  let added = try store.add(NewThought(content: .text("from the tool")))
+  _ = try other.reconcile([added.file])
+  #expect(
+    await eventually {
+      deliveries.changes.contains {
+        ($0.added + $0.updated).contains(added.file.lastPathComponent)
+      }
+    })
+
+  try FileManager.default.removeItem(at: doomed.file)
+  _ = try other.reconcile([doomed.file])
+  #expect(
+    await eventually {
+      deliveries.changes.contains { $0.removed.contains(doomed.file.lastPathComponent) }
+    })
+  #expect(deliveries.failures.isEmpty)
+}

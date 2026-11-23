@@ -160,7 +160,10 @@ public final class LiveIndex: @unchecked Sendable {
       guard let files = try self.files(for: events, in: session) else {
         return try session.rowsSync.reconcile(nil)
       }
-      return files.isEmpty ? IndexChanges() : try session.rowsSync.reconcile(files)
+      guard !files.isEmpty else { return IndexChanges() }
+      var changes = try session.rowsSync.reconcile(files)
+      try self.reportOutsideChanges(of: files, in: session, into: &changes)
+      return changes
     }
     guard recognizer != nil, session.active else { return }
     if session.recognitionDue || changes?.isEmpty == false {
@@ -193,6 +196,26 @@ public final class LiveIndex: @unchecked Sendable {
     }
     if !changes.isEmpty { session.onChange(result) }
     return changes
+  }
+
+  private func reportOutsideChanges(
+    of files: [URL], in session: Session, into changes: inout IndexChanges
+  ) throws {
+    let rows = try index.states().keys.map(\.value)
+    let listed = try session.store.markdownNames()
+    let key = IndexSync.ReconcilePlan.folded
+    for name in Set(files.map(\.lastPathComponent)).sorted() where IndexSync.isMarkdownName(name) {
+      if changes.touches(name) { continue }
+      let wanted = key(name)
+      let matching = rows.filter { key($0) == wanted }
+      if !matching.isEmpty {
+        for row in matching where !changes.touches(row) { changes.updated.append(row) }
+      } else if !listed.contains(where: { key($0) == wanted }) {
+        changes.removed.append(name)
+      }
+    }
+    changes.updated.sort()
+    changes.removed.sort()
   }
 
   private func files(for events: [WatchEvent], in session: Session) throws -> [URL]? {
