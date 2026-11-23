@@ -3,7 +3,7 @@ import ThoughtsCore
 
 struct SelectionInspector {
   static let nodeLimit = 400
-  static let textRoles: Set<String> = ["AXTextField", "AXTextArea", "AXComboBox"]
+  static let ancestorLimit = 32
   static let copyKey = "c"
 
   var expired: () -> Bool = { false }
@@ -29,16 +29,35 @@ struct SelectionInspector {
   }
 
   private func reading(of element: any AXNode) -> Reading {
-    var plainAnswered = false
+    var answered = false
     if let plain = element.string(kAXSelectedTextAttribute) {
       if !plain.isEmpty { return .text(plain) }
-      plainAnswered = true
+      answered = true
     }
     if let marked = element.markedSelection() {
-      return marked.isEmpty ? .empty : .text(marked)
+      if !marked.isEmpty { return .text(marked) }
+      answered = true
     }
-    let role = element.string(kAXRoleAttribute) ?? ""
-    return plainAnswered && Self.textRoles.contains(role) ? .empty : .unknown
+    return answered && isNativeTextControl(element) ? .empty : .unknown
+  }
+
+  private func isNativeTextControl(_ element: any AXNode) -> Bool {
+    switch element.string(kAXRoleAttribute) {
+    case "AXTextField", "AXComboBox": return true
+    case "AXTextArea": return !hasWebAreaAncestor(element)
+    default: return false
+    }
+  }
+
+  private func hasWebAreaAncestor(_ element: any AXNode) -> Bool {
+    var current = element
+    for _ in 0..<Self.ancestorLimit {
+      if expired() { return true }
+      guard let parent = current.node(kAXParentAttribute) else { return false }
+      if parent.string(kAXRoleAttribute) == "AXWebArea" { return true }
+      current = parent
+    }
+    return true
   }
 
   private func isSecure(_ element: any AXNode) -> Bool {

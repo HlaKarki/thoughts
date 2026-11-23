@@ -89,9 +89,53 @@ struct SelectionInspectorTests {
     #expect(Self.probe(focused: field, menuBar: bar) == .empty)
   }
 
-  @Test func anEmptyMarkedRangeNeedsNoCopy() {
+  @Test func aNativeTextAreaWithAnEmptySelectionNeedsNoCopy() {
+    let window = Node(role: "AXWindow")
+    let area = Node(role: "AXTextArea", selected: "")
+    area.links[kAXParentAttribute] = window
+    let bar = Self.edit(copy: Self.item(key: "c", enabled: true))
+    #expect(Self.probe(focused: area, menuBar: bar) == .empty)
+  }
+
+  static func hiddenTextTarget(selected: String? = "", marked: String? = nil) -> Node {
+    let page = Node(role: "AXWebArea")
+    let group = Node(role: "AXGroup")
+    group.links[kAXParentAttribute] = page
+    let target = Node(role: "AXTextArea", selected: selected, marked: marked)
+    target.links[kAXParentAttribute] = group
+    return target
+  }
+
+  @Test func aHiddenTextAreaInAWebAreaFallsToTheCopyItem() {
+    let enabled = Self.edit(copy: Self.item(key: "c", enabled: true))
+    let disabled = Self.edit(copy: Self.item(key: "c", enabled: false))
+    #expect(Self.probe(focused: Self.hiddenTextTarget(), menuBar: enabled) == .unavailable)
+    #expect(Self.probe(focused: Self.hiddenTextTarget(), menuBar: disabled) == .copyDisabled)
+  }
+
+  @Test func anEmptyMarkerRangeInAWebAreaFallsToTheCopyItem() {
     let area = Node(role: "AXWebArea", marked: "")
-    #expect(Self.probe(focused: area, menuBar: nil) == .empty)
+    let enabled = Self.edit(copy: Self.item(key: "c", enabled: true))
+    let disabled = Self.edit(copy: Self.item(key: "c", enabled: false))
+    #expect(Self.probe(focused: area, menuBar: enabled) == .unavailable)
+    #expect(Self.probe(focused: area, menuBar: disabled) == .copyDisabled)
+  }
+
+  @Test func aTextAreaWhoseAncestorWalkIsCutOffIsNotTrusted() {
+    let enabled = Self.edit(copy: Self.item(key: "c", enabled: true))
+    #expect(
+      Self.probe(focused: Self.hiddenTextTarget(), menuBar: enabled, expired: { true })
+        == .unavailable)
+    var node = Node(role: "AXGroup")
+    let top = node
+    for _ in 0..<SelectionInspector.ancestorLimit {
+      let parent = Node(role: "AXGroup")
+      node.links[kAXParentAttribute] = parent
+      node = parent
+    }
+    let area = Node(role: "AXTextArea", selected: "")
+    area.links[kAXParentAttribute] = top
+    #expect(Self.probe(focused: area, menuBar: enabled) == .unavailable)
   }
 
   @Test func anEmptyAnswerFromAnOtherElementFallsToTheCopyItem() {
