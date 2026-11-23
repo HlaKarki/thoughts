@@ -27,9 +27,6 @@ struct InputView: View {
     .padding(.top, 10)
     .padding(.bottom, 12)
     .padding(.horizontal, 12)
-    .overlay(alignment: .top) {
-      Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 1)
-    }
   }
 
   private var inputFill: Color {
