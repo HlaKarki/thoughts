@@ -178,10 +178,10 @@ export const features: Features = {
   privacy: {
     heading: 'Thoughts asks for Accessibility, paste access and a folder only if needed',
     body: [
-      'Accessibility lets Thoughts read what you select and the window title. Paste access lets the offer for a copied image show a preview, and macOS asks for it the first time you keep one. Thoughts asks for your screenshot folder, the Desktop by default, only if macOS guards it. It goes online only to check for updates.',
+      'Accessibility, called Device Control and Data Access on macOS 27, lets Thoughts read what you select and the window title. Paste access lets the offer for a copied image show a preview, and macOS asks for it the first time you keep one. Thoughts asks for your screenshot folder, the Desktop by default, only if macOS guards it. It goes online only to check for updates.',
     ],
     tile: {
-      label: 'Thoughts turned on in the Accessibility, Paste from Other Apps and Files and Folders lists of System Settings.',
+      label: 'Thoughts turned on in the Accessibility list (Device Control and Data Access on macOS 27), the Paste from Other Apps list and the Files and Folders list of System Settings.',
       accessibility: 'Accessibility',
       paste: 'Paste from Other Apps',
       pasteValue: 'Always Allow',
