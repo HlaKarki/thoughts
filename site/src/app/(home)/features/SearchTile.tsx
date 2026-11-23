@@ -4,20 +4,22 @@ import { MiniBarsRow, MiniPanel, MiniRow, MiniThumbnail } from '@/components/Min
 import { MiniLine, MiniPage } from '@/components/MiniPage'
 import { MiniWindow } from '@/components/MiniWindow'
 import { Photo } from '@/components/Photo'
+import { TypedText } from '@/components/TypedText'
 import { features } from '@/content/features'
 import type { Rich } from '@/content/types'
 import { site } from '@/content/site'
 import { loop } from '@/styles/loop'
 import { color, font, leading, media, radius, size } from '@/styles/tokens.stylex'
+import { reveal } from '@/styles/sequence.stylex'
 import { Tile } from './Tile'
 
 const tile = features.search.tile
 
 const typing = stylex.keyframes({
-  '0%': { opacity: 1, maxWidth: 27 },
-  '4%': { opacity: 0, maxWidth: 27 },
-  '4.01%, 11%': { opacity: 1, maxWidth: 0, animationTimingFunction: 'steps(4, end)' },
-  '20%, 100%': { opacity: 1, maxWidth: 27 },
+  '0%': { opacity: 1, maxWidth: reveal.widthShown },
+  '4%': { opacity: 0, maxWidth: reveal.widthShown },
+  '4.01%, 11%': { opacity: 1, maxWidth: reveal.widthHidden },
+  '20%, 100%': { opacity: 1, maxWidth: reveal.widthShown },
 })
 
 const narrowed = stylex.keyframes({
@@ -69,7 +71,9 @@ export function SearchTile() {
         xstyle={styles.panel}
         search={
           <span {...stylex.props(styles.query)}>
-            <span {...stylex.props(styles.queryText, loop.short, styles.typing)}>{tile.query}</span>
+            <span {...stylex.props(styles.queryText)}>
+              <TypedText text={tile.query} charXstyle={[loop.short, styles.typing]} />
+            </span>
             <span {...stylex.props(styles.caret)} />
           </span>
         }
@@ -130,12 +134,11 @@ const styles = stylex.create({
     gap: 1,
   },
   queryText: {
-    overflow: 'clip',
     color: color.rowText,
     fontFamily: font.text,
     fontSize: size.s12,
     lineHeight: leading.l16,
-    whiteSpace: 'pre',
+    whiteSpace: 'nowrap',
   },
   typing: {
     animationName: { default: null, [media.motion]: typing },

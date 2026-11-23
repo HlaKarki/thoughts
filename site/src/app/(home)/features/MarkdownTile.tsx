@@ -2,19 +2,21 @@ import * as stylex from '@stylexjs/stylex'
 import { Collapse } from '@/components/Collapse'
 import { MiniBarsRow, MiniPanel, MiniRow, MiniThumbnail } from '@/components/MiniPanel'
 import { MiniWindow } from '@/components/MiniWindow'
+import { TypedText } from '@/components/TypedText'
 import { features } from '@/content/features'
 import { site } from '@/content/site'
 import { loop } from '@/styles/loop'
 import { color, font, leading, media, size } from '@/styles/tokens.stylex'
+import { reveal } from '@/styles/sequence.stylex'
 import { Tile } from './Tile'
 
 const tile = features.markdown.tile
 
 const typing = stylex.keyframes({
-  '0%': { opacity: 1, maxWidth: '12ch' },
-  '4%': { opacity: 0, maxWidth: '12ch' },
-  '4.01%, 11%': { opacity: 1, maxWidth: '0ch', animationTimingFunction: 'steps(12, end)' },
-  '26%, 100%': { opacity: 1, maxWidth: '12ch' },
+  '0%': { opacity: 1, maxWidth: reveal.widthShown },
+  '4%': { opacity: 0, maxWidth: reveal.widthShown },
+  '4.01%, 11%': { opacity: 1, maxWidth: reveal.widthHidden },
+  '26%, 100%': { opacity: 1, maxWidth: reveal.widthShown },
 })
 
 const grow = stylex.keyframes({
@@ -30,7 +32,9 @@ export function MarkdownTile() {
         <div {...stylex.props(styles.file)}>
           <span {...stylex.props(styles.text)}>{tile.frontMatter}</span>
           <span {...stylex.props(styles.edited)}>
-            <span {...stylex.props(styles.text, styles.typed, loop.short, styles.typing)}>{tile.typed}</span>
+            <span {...stylex.props(styles.text)}>
+              <TypedText text={tile.typed} charXstyle={[loop.short, styles.typing]} />
+            </span>
             <span {...stylex.props(styles.caret)} />
           </span>
         </div>
@@ -80,9 +84,6 @@ const styles = stylex.create({
     flexShrink: 0,
     gap: 1,
     height: 16,
-  },
-  typed: {
-    overflow: 'clip',
   },
   typing: {
     animationName: { default: null, [media.motion]: typing },

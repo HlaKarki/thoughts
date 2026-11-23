@@ -60,7 +60,6 @@ type Features = {
     readonly title: string
     readonly prompt: string
     readonly command: string
-    readonly commandNarrow: readonly [string, string]
     readonly output: string
     readonly row: string
     readonly time: string
@@ -175,7 +174,6 @@ export const features: Features = {
       title: 'Terminal',
       prompt: '$ ',
       command: 'thoughts add "Heat the oven at 4:30"',
-      commandNarrow: ['thoughts add "Heat', ' the oven at 4:30"'],
       output: 'k9w3a7rd',
       row: 'Heat the oven at 4:30',
       time: '10:32',
