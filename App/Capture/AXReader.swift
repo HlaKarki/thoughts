@@ -1,12 +1,15 @@
 import ApplicationServices
 import Foundation
 
-@MainActor
-final class AXReader {
+final class AXReader: Sendable {
   private static let messagingTimeout: Float = 0.25
   private static let searchBudget: TimeInterval = 0.4
   private static let searchDepth = 14
   private static let searchLimit = 1500
+
+  init() {
+    AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), Self.messagingTimeout)
+  }
 
   func focusedWindowTitle(pid: Int32) -> String? {
     guard AXIsProcessTrusted(), let window = focusedWindow(pid: pid) else { return nil }
@@ -25,7 +28,6 @@ final class AXReader {
 
   private func focusedWindow(pid: Int32) -> AXUIElement? {
     let app = AXUIElementCreateApplication(pid)
-    AXUIElementSetMessagingTimeout(app, Self.messagingTimeout)
     guard let value = attribute(kAXFocusedWindowAttribute, of: app),
       CFGetTypeID(value as CFTypeRef) == AXUIElementGetTypeID()
     else { return nil }
@@ -41,15 +43,23 @@ final class AXReader {
       for element in level {
         visited += 1
         if visited > Self.searchLimit || Date() > deadline { return nil }
-        if attribute(kAXRoleAttribute, of: element) as? String == "AXWebArea" { return element }
-        if let children = attribute(kAXChildrenAttribute, of: element) as? [AXUIElement] {
-          next.append(contentsOf: children)
-        }
+        let (role, children) = roleAndChildren(of: element)
+        if role == "AXWebArea" { return element }
+        if BrowserPages.canContainPage(role: role) { next.append(contentsOf: children) }
       }
       if next.isEmpty { return nil }
       level = next
     }
     return nil
+  }
+
+  private func roleAndChildren(of element: AXUIElement) -> (String?, [AXUIElement]) {
+    let attributes = [kAXRoleAttribute, kAXChildrenAttribute] as CFArray
+    var values: CFArray?
+    let status = AXUIElementCopyMultipleAttributeValues(
+      element, attributes, AXCopyMultipleAttributeOptions(rawValue: 0), &values)
+    guard status == .success, let list = values as? [Any], list.count == 2 else { return (nil, []) }
+    return (list[0] as? String, list[1] as? [AXUIElement] ?? [])
   }
 
   private func attribute(_ name: String, of element: AXUIElement) -> AnyObject? {

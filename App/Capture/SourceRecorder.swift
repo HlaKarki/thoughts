@@ -11,19 +11,22 @@ final class SourceRecorder {
     self.ax = ax
   }
 
-  func current() -> Source {
+  func current() async -> Source {
     guard
       let app = SourceRule.app(
         frontmost: tracker.frontmost, history: tracker.history, ownBundleID: tracker.ownBundleID)
     else { return Source() }
     var source = Source(app: app.name, bundleID: app.bundleID)
-    if let page = ax.page(pid: app.pid, bundleID: app.bundleID ?? "") {
-      source.url = page.url
-      source.title = page.title
-      source.window = page.title
-    } else {
-      source.window = ax.focusedWindowTitle(pid: app.pid)
-    }
+    let ax = ax
+    let read = await Task.detached {
+      if let page = ax.page(pid: app.pid, bundleID: app.bundleID ?? "") {
+        return (window: page.title, url: page.url, title: page.title)
+      }
+      return (window: ax.focusedWindowTitle(pid: app.pid), url: URL?.none, title: String?.none)
+    }.value
+    source.window = read.window
+    source.url = read.url
+    source.title = read.title
     return source
   }
 }

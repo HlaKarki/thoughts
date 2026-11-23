@@ -12,6 +12,80 @@ struct SourceRecordingTests {
     url: URL(
       string: "https://example.com/a"), title: "Example")
 
+  @MainActor
+  final class Gate {
+    var waiting: CheckedContinuation<Void, Never>?
+
+    func wait() async {
+      await withCheckedContinuation { waiting = $0 }
+    }
+
+    func reached() async -> Bool {
+      for _ in 0..<2000 where waiting == nil { await Task.yield() }
+      return waiting != nil
+    }
+
+    func open() {
+      waiting?.resume()
+      waiting = nil
+    }
+  }
+
+  @Test func returnClearsTheFieldBeforeTheSourceResolves() async throws {
+    let (fixture, _, board) = try InputModelTests.rig()
+    defer { board.releaseGlobally() }
+    let gate = Gate()
+    fixture.input.source = {
+      await gate.wait()
+      return Self.page
+    }
+    fixture.input.text = "Slow source"
+    let submit = Task { await fixture.input.submit() }
+    #expect(await gate.reached())
+    #expect(fixture.input.text.isEmpty)
+    #expect(try fixture.store.entries().isEmpty)
+    gate.open()
+    await submit.value
+    let stored = try fixture.store.entries().compactMap(\.thought)
+    #expect(stored.count == 1)
+    #expect(stored.first?.source == Self.page)
+  }
+
+  @Test func slowSourceKeepsTheDroppedFilePath() async throws {
+    let (fixture, _, board) = try InputModelTests.rig()
+    defer { board.releaseGlobally() }
+    let folder = TempFolder()
+    try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
+    let file = folder.url.appendingPathComponent("slow.txt")
+    try Data("hello".utf8).write(to: file)
+    let gate = Gate()
+    fixture.input.source = {
+      await gate.wait()
+      return Source(app: "Finder", bundleID: "com.apple.finder")
+    }
+    board.clearContents()
+    board.writeObjects([file as NSURL])
+    #expect(fixture.input.drop(board))
+    #expect(await gate.reached())
+    #expect(try fixture.store.entries().isEmpty)
+    gate.open()
+    await ListFixture.settle()
+    let source = try #require(try fixture.store.entries().compactMap(\.thought).first?.source)
+    #expect(source.app == "Finder")
+    #expect(source.file == file.path)
+  }
+
+  @Test func searchSkipsRolesThatCannotHoldAPage() {
+    for role in [
+      "AXTable", "AXOutline", "AXList", "AXRow", "AXTextArea", "AXBrowser", "AXScrollBar",
+    ] {
+      #expect(!BrowserPages.canContainPage(role: role))
+    }
+    for role in ["AXGroup", "AXScrollArea", "AXSplitGroup"] {
+      #expect(BrowserPages.canContainPage(role: role))
+    }
+  }
+
   @Test func typedThoughtRecordsTheProvidedSource() async throws {
     let (fixture, _, board) = try InputModelTests.rig()
     defer { board.releaseGlobally() }

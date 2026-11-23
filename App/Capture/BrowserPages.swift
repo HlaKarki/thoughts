@@ -1,6 +1,15 @@
 import Foundation
 
 enum BrowserPages {
+  private static let leafRoles: Set<String> = [
+    "AXTable", "AXOutline", "AXList", "AXRow", "AXTextArea", "AXBrowser", "AXScrollBar",
+  ]
+
+  static func canContainPage(role: String?) -> Bool {
+    guard let role else { return true }
+    return !leafRoles.contains(role)
+  }
+
   static func url(webArea: Any?, document: Any?) -> URL? {
     for candidate in [webArea, document] {
       if let url = pageURL(candidate) { return url }
