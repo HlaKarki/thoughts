@@ -96,4 +96,79 @@ struct CommentCheckTests {
     let hits = try CommentChecker.check(root: root)
     #expect(hits == [Hit(path: "a.swift", line: 1)])
   }
+
+  @Test func flagsScriptComments() {
+    let line = CommentChecker.hits(path: "a.ts", contents: "const a = 1\nconst b = 2 // x")
+    let block = CommentChecker.hits(path: "a.mjs", contents: "/* x */\nexport {}")
+    let doc = CommentChecker.hits(path: "a.js", contents: "/**\n * x\n */\nf()")
+    #expect(line == [Hit(path: "a.ts", line: 2)])
+    #expect(block == [Hit(path: "a.mjs", line: 1)])
+    #expect(doc == [Hit(path: "a.js", line: 1)])
+  }
+
+  @Test func ignoresSlashesInScriptStrings() {
+    let quoted = CommentChecker.hits(path: "a.ts", contents: "const u = 'http://a' + \"/* b */\"")
+    let escaped = CommentChecker.hits(path: "a.ts", contents: "const q = 'it\\'s // fine'")
+    #expect(quoted.isEmpty)
+    #expect(escaped.isEmpty)
+  }
+
+  @Test func ignoresSlashesInTemplateLiterals() {
+    let plain = CommentChecker.hits(path: "a.ts", contents: "const u = `http://a\n/* b */`")
+    let nested = CommentChecker.hits(
+      path: "a.ts", contents: "const u = `${b ? `//c` : '/*d*/'}//e`\nconst f = 1 // x")
+    #expect(plain.isEmpty)
+    #expect(nested == [Hit(path: "a.ts", line: 2)])
+  }
+
+  @Test func flagsCommentsInsideTemplateExpressions() {
+    let hits = CommentChecker.hits(path: "a.ts", contents: "const u = `${a /* x */}`")
+    #expect(hits == [Hit(path: "a.ts", line: 1)])
+  }
+
+  @Test func ignoresSlashesInRegexLiterals() {
+    let regex = CommentChecker.hits(path: "a.js", contents: "const r = /\\/\\/[/*]+/g.test(s)")
+    let division = CommentChecker.hits(path: "a.js", contents: "const h = a / b / c")
+    let returned = CommentChecker.hits(path: "a.js", contents: "function f() { return /\\/\\//.source }")
+    #expect(regex.isEmpty)
+    #expect(division.isEmpty)
+    #expect(returned.isEmpty)
+  }
+
+  @Test func flagsJSXComments() {
+    let child = CommentChecker.hits(path: "a.tsx", contents: "const a = (\n  <div>\n    {/* x */}\n  </div>\n)")
+    let attribute = CommentChecker.hits(path: "a.tsx", contents: "const a = <div\n  // x\n  id=\"b\" />")
+    #expect(child == [Hit(path: "a.tsx", line: 3)])
+    #expect(attribute == [Hit(path: "a.tsx", line: 2)])
+  }
+
+  @Test func ignoresSlashesInJSXText() {
+    let hits = CommentChecker.hits(
+      path: "a.tsx",
+      contents: "const a = <p>Go to https://a/b, it's /* fine */ <a href=\"//c\">{d}</a></p>\nconst e = <>{f}</>"
+    )
+    #expect(hits.isEmpty)
+  }
+
+  @Test func readsGenericsAsTypesInTSX() {
+    let hits = CommentChecker.hits(
+      path: "a.tsx", contents: "const [a, b] = useState<string>('//')\nconst c = d < e // x")
+    #expect(hits == [Hit(path: "a.tsx", line: 2)])
+  }
+
+  @Test func skipsIgnoredScriptFiles() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("comment-check-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try Git.run(["init", "-q"], in: root)
+    try "gen.ts\n".write(
+      to: root.appendingPathComponent(".gitignore"), atomically: true, encoding: .utf8)
+    try "// generated".write(
+      to: root.appendingPathComponent("gen.ts"), atomically: true, encoding: .utf8)
+    try "const a = 1 // x".write(
+      to: root.appendingPathComponent("a.ts"), atomically: true, encoding: .utf8)
+    let hits = try CommentChecker.check(root: root)
+    #expect(hits == [Hit(path: "a.ts", line: 1)])
+  }
 }

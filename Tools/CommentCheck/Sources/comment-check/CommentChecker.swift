@@ -35,6 +35,10 @@ enum CommentChecker {
       return SwiftComments.lines(in: contents).filter { !(toolsVersionExempt && $0 == 1) }
     case "yml", "yaml", "sh", "rb":
       return TextComments.hashLines(in: contents)
+    case "ts", "js", "mjs":
+      return ScriptComments.lines(in: contents, jsx: false)
+    case "tsx":
+      return ScriptComments.lines(in: contents, jsx: true)
     case "xcconfig", "jsonc":
       return TextComments.slashLines(in: contents)
     case "html", "md", "plist", "entitlements":
