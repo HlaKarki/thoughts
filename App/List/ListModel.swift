@@ -48,7 +48,9 @@ final class ListModel {
   @ObservationIgnored private let probe: StorageProbe
   @ObservationIgnored private let mounts: MountSignal
   @ObservationIgnored private var isRetryingStorage = false
-  @ObservationIgnored private var hintTask: Task<Void, Never>?
+  @ObservationIgnored private var keepsFeedback = false
+  @ObservationIgnored private var feedbackTask: Task<Void, Never>?
+  @ObservationIgnored private let feedbackDelay: @Sendable (Duration) async throws -> Void
   @ObservationIgnored private var birthDates: [String: Date] = [:]
   @ObservationIgnored private var searchTask: Task<Void, Never>?
   @ObservationIgnored private var queuedSelect: (name: String, extend: Bool)?
@@ -57,7 +59,7 @@ final class ListModel {
   @ObservationIgnored var onPreviewChange: ((Thought?) -> Void)?
 
   private(set) var entries: [ThoughtEntry] = []
-  private(set) var hint: String?
+  private(set) var feedback: Feedback?
   private(set) var storageProblem: String?
   @ObservationIgnored private var isPanelShown = false
   private(set) var addedCount = 0
@@ -91,6 +93,7 @@ final class ListModel {
   var focus: Focus = .input {
     didSet {
       guard focus != oldValue else { return }
+      if isPanelShown, !keepsFeedback { endFeedback() }
       if oldValue == .list, focus != .list { isPreviewing = false }
       if oldValue == .edit { commitEditOnLeave() }
     }
@@ -105,7 +108,10 @@ final class ListModel {
   init(
     index: SearchIndex, live: LiveIndex, location: StorageLocation,
     searchDelay: Duration = .milliseconds(80), probe: StorageProbe? = nil,
-    mounts: MountSignal = .live
+    mounts: MountSignal = .live,
+    feedbackDelay: @escaping @Sendable (Duration) async throws -> Void = {
+      try await Task.sleep(for: $0)
+    }
   ) {
     self.index = index
     self.live = live
@@ -113,6 +119,7 @@ final class ListModel {
     self.probe = probe ?? .live(location: location, live: live)
     self.mounts = mounts
     self.searchDelay = searchDelay
+    self.feedbackDelay = feedbackDelay
   }
 
   var editText: String {
@@ -211,7 +218,7 @@ final class ListModel {
     } catch let error as ThoughtsError {
       report(error)
     } catch {
-      showHint(error.localizedDescription)
+      tell(error.localizedDescription)
     }
   }
 
@@ -226,7 +233,7 @@ final class ListModel {
     } catch let error as ThoughtsError {
       report(error)
     } catch {
-      showHint(error.localizedDescription)
+      tell(error.localizedDescription)
     }
   }
 
@@ -330,7 +337,16 @@ final class ListModel {
       selection = []
       focus = .input
     case .preview:
-      isPreviewing = !isPreviewing && previewThought != nil
+      if isPreviewing {
+        isPreviewing = false
+      } else if previewThought != nil {
+        isPreviewing = true
+      } else {
+        tell(
+          selection.isEmpty
+            ? String(localized: "Select a thought first")
+            : String(localized: "Select one thought to preview"))
+      }
       return
     case .actionsMenu:
       isPreviewing = false
@@ -363,11 +379,25 @@ final class ListModel {
   private func commitEditOnLeave() {
     guard let session = editing, !session.isSaving else { return }
     perform(.saveEdit)
-    if editing != nil, editing?.isSaving != true { focus = .edit }
+    if editing != nil, editing?.isSaving != true {
+      keepsFeedback = true
+      focus = .edit
+      keepsFeedback = false
+    }
   }
 
   private func beginEdit() {
-    guard selection.count == 1, let thought = selectedEntries.first?.thought else { return }
+    guard selection.count == 1, let entry = selectedEntries.first else {
+      tell(
+        selection.isEmpty
+          ? String(localized: "Select a thought first")
+          : String(localized: "Select one thought to edit"))
+      return
+    }
+    guard let thought = entry.thought else {
+      tell(String(localized: "That file can't be read, so it can't be edited"))
+      return
+    }
     let name = thought.file.lastPathComponent
     if let session = editing {
       if session.name == name { focus = .edit }
@@ -412,7 +442,7 @@ final class ListModel {
       return
     }
     endEdit()
-    showHint(String(localized: "This thought was deleted."))
+    tell(String(localized: "This thought was deleted."))
   }
 
   func markEditSaving() {
@@ -431,24 +461,24 @@ final class ListModel {
       guard current, editing?.name == name else { return }
       guard let fresh else {
         endEdit()
-        showHint(String(localized: "That thought changed on disk"))
+        tell(String(localized: "That thought changed on disk"))
         return
       }
       replace(fresh)
       editing?.version = fresh.version
       queuedSelect = nil
       focus = .edit
-      showHint(String(localized: "Changed on disk. Press Enter again to save your text."))
+      tell(String(localized: "Changed on disk. Press Enter again to save your text."))
     case .deleted:
       load()
       if current, editing?.name == name { endEdit() }
-      showHint(String(localized: "This thought was deleted."))
+      tell(String(localized: "This thought was deleted."))
     case .failed(let message):
       if current {
         queuedSelect = nil
         focus = .edit
       }
-      showHint(message)
+      tell(message)
     }
   }
 
@@ -486,7 +516,10 @@ final class ListModel {
   }
 
   private func openMenu() {
-    guard !selection.isEmpty, !selectedEntries.isEmpty else { return }
+    guard !selection.isEmpty, !selectedEntries.isEmpty else {
+      tell(String(localized: "Select a thought first"))
+      return
+    }
     menuQuery = ""
     menuHighlight = 0
     isMenuOpen = true
@@ -508,33 +541,55 @@ final class ListModel {
       report(error)
       return
     } catch {
-      showHint(error.localizedDescription)
+      tell(error.localizedDescription)
       return
     }
     let store = ThoughtStore(folder: folder)
     Task {
       do {
-        _ = try await Task.detached { try store.clearDone() }.value
+        let cleared = try await Task.detached { try store.clearDone() }.value
+        if cleared.isEmpty {
+          tell(String(localized: "Nothing is marked done"))
+        } else {
+          confirm(String(localized: "Cleared the done thoughts"))
+        }
       } catch let error as ThoughtsError {
         report(error)
       } catch {
-        showHint(error.localizedDescription)
+        tell(error.localizedDescription)
       }
     }
   }
 
-  func showHint(_ text: String) {
-    hint = text
-    armHintDismissal()
+  func tell(_ text: String) {
+    present(Feedback(kind: .message, text: text))
+  }
+
+  func confirm(_ text: String) {
+    guard isPanelShown else { return }
+    present(Feedback(kind: .confirmation, text: text))
+  }
+
+  private func present(_ next: Feedback) {
+    feedback = next
+    armFeedbackEnd()
+  }
+
+  private func endFeedback() {
+    feedbackTask?.cancel()
+    feedbackTask = nil
+    feedback = nil
   }
 
   func panelDidShow() {
     isPanelShown = true
-    armHintDismissal()
+    armFeedbackEnd()
     if storageProblem != nil { Task { await retryStorage() } }
   }
 
-  var shownHint: String? { storageProblem ?? hint }
+  var shownFeedback: Feedback? {
+    feedback ?? storageProblem.map { Feedback(kind: .message, text: $0) }
+  }
 
   func storageRepointed() {
     storageProblem = nil
@@ -551,9 +606,9 @@ final class ListModel {
       storageProblem = nil
     } catch let error as ThoughtsError {
       if case .storageUnavailable = error { return }
-      showHint(Self.message(for: error))
+      tell(Self.message(for: error))
     } catch {
-      showHint(error.localizedDescription)
+      tell(error.localizedDescription)
     }
   }
 
@@ -561,7 +616,7 @@ final class ListModel {
     if case .storageUnavailable = error {
       storageProblem = Self.message(for: error)
     } else {
-      showHint(Self.message(for: error))
+      tell(Self.message(for: error))
     }
   }
 
@@ -570,16 +625,19 @@ final class ListModel {
     isPreviewing = false
     isMenuOpen = false
     menuQuery = ""
-    hintTask?.cancel()
+    feedbackTask?.cancel()
+    feedbackTask = nil
+    if feedback?.kind == .confirmation { feedback = nil }
   }
 
-  private func armHintDismissal() {
-    hintTask?.cancel()
-    guard isPanelShown, hint != nil else { return }
-    hintTask = Task { [weak self] in
-      try? await Task.sleep(for: .seconds(4))
-      guard !Task.isCancelled else { return }
-      self?.hint = nil
+  private func armFeedbackEnd() {
+    feedbackTask?.cancel()
+    feedbackTask = nil
+    guard isPanelShown, let current = feedback else { return }
+    feedbackTask = Task { [weak self, feedbackDelay] in
+      do { try await feedbackDelay(current.lifetime) } catch { return }
+      guard let self, self.feedback?.id == current.id else { return }
+      self.feedback = nil
     }
   }
 
@@ -610,7 +668,7 @@ final class ListModel {
     } catch {
       matches = []
       imageExcerpts = [:]
-      showHint(error.localizedDescription)
+      tell(error.localizedDescription)
     }
   }
 
@@ -627,9 +685,8 @@ final class ListModel {
 
   nonisolated static func message(for error: ThoughtsError) -> String {
     switch error {
-    case .storageUnavailable(let path):
-      String(
-        localized: "The thoughts folder isn't available: \(path). Choose where it is in Settings.")
+    case .storageUnavailable:
+      String(localized: "The thoughts folder isn't available. Choose it in Settings.")
     case .notFound:
       String(localized: "That thought isn't there anymore")
     case .ambiguous:

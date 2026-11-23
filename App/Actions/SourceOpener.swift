@@ -5,6 +5,7 @@ struct SourceOpener {
   var openURL: @MainActor (URL) -> Bool
   var launchApp: @MainActor (String) -> Bool
   var reveal: @MainActor ([URL]) -> Void
+  var exists: @MainActor (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
 
   static let live = SourceOpener(
     openURL: { NSWorkspace.shared.open($0) },

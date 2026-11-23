@@ -109,10 +109,6 @@ struct PanelRootView: View {
         .animation(.easeOut(duration: PanelController.duration), value: list.focus == .input)
     }
     .overlay(alignment: .bottom) {
-      HintLine(text: list.shownHint)
-        .padding(.bottom, previewInset)
-    }
-    .overlay(alignment: .bottom) {
       if case .image(_, let preview) = input.attachment {
         AttachmentPreview(image: preview, onRemove: { input.removeAttachment() })
           .padding(.horizontal, 12)
@@ -123,12 +119,6 @@ struct PanelRootView: View {
     .overlay {
       if input.isDropTargeted { DropTargetView().transition(.opacity) }
     }
-  }
-
-  private var previewInset: CGFloat {
-    guard case .image(_, let preview) = input.attachment else { return 0 }
-    return AttachmentPreview.height(for: preview, width: PanelController.width - 24)
-      + AttachmentPreview.verticalInset
   }
 
   private var composer: some View {

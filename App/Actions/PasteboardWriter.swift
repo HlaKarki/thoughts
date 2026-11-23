@@ -18,13 +18,14 @@ final class PasteboardWriter {
     noteOwn(pasteboard.changeCount)
   }
 
-  func write(imageAt url: URL) {
+  @discardableResult
+  func write(imageAt url: URL) -> Bool {
+    guard let png = Self.pngData(at: url) else { return false }
     pasteboard.clearContents()
-    if let png = Self.pngData(at: url) {
-      pasteboard.setData(png, forType: .png)
-    }
+    pasteboard.setData(png, forType: .png)
     pasteboard.setString(url.absoluteString, forType: .fileURL)
     noteOwn(pasteboard.changeCount)
+    return true
   }
 
   func noteOwn(_ changeCount: Int) {

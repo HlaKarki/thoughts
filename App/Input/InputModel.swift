@@ -61,7 +61,10 @@ final class InputModel {
     if case .image(let input, _) = attachment {
       content = .image(input, note: note)
     } else {
-      guard !note.isEmpty else { return }
+      guard !note.isEmpty else {
+        onFailure(String(localized: "Type a thought first"))
+        return
+      }
       content = .text(note)
     }
     let held = (text: text, attachment: attachment, changeCount: attachmentChangeCount)
@@ -101,7 +104,10 @@ final class InputModel {
 
   func drop(_ pasteboard: NSPasteboard, source: Source? = nil) -> Bool {
     let dropped = DropReader.thoughts(from: pasteboard, source: source, now: now())
-    guard !dropped.isEmpty else { return false }
+    guard !dropped.isEmpty else {
+      onFailure(String(localized: "Drop text, an image or a file"))
+      return false
+    }
     let needsSource = source == nil
     Task {
       let recorded = needsSource ? await self.source() : nil

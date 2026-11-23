@@ -47,7 +47,13 @@ struct ThoughtListView: View {
           terms: model.isSearching ? model.searchTerms : nil,
           imageExcerpt: model.imageExcerpts[thought.id.rawValue]
         )
-        .onDrag { DragOut.provider(for: thought) }
+        .onDrag {
+          guard let provider = DragOut.provider(for: thought) else {
+            model.tell(String(localized: "That image file isn't there anymore"))
+            return NSItemProvider()
+          }
+          return provider
+        }
       case .malformed(let file, let reason):
         WarningRow(fileName: file.lastPathComponent, reason: reason, time: time, selected: selected)
       }

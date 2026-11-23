@@ -223,19 +223,19 @@ struct StorageProblemTests {
   }
 
   static let message =
-    "The thoughts folder isn't available: /example/home/Thoughts. Choose where it is in Settings."
+    "The thoughts folder isn't available. Choose it in Settings."
 
   @Test func aStorageFailureStaysUntilItClears() throws {
     let rig = try Self.rig()
     let model = rig.fixture.model
     #expect(model.storageProblem == Self.message)
-    #expect(model.shownHint == Self.message)
-    #expect(model.hint == nil)
+    #expect(model.shownFeedback?.text == Self.message)
+    #expect(model.feedback == nil)
     model.panelDidShow()
     model.panelDidHide()
-    #expect(model.shownHint == Self.message)
+    #expect(model.shownFeedback?.text == Self.message)
     model.storageRepointed()
-    #expect(model.shownHint == nil)
+    #expect(model.shownFeedback == nil)
   }
 
   @Test func otherFailuresStayTransientHints() throws {
@@ -243,7 +243,7 @@ struct StorageProblemTests {
     rig.fixture.model.storageRepointed()
     rig.fixture.model.receive(.failure(.notFound("x")))
     #expect(rig.fixture.model.storageProblem == nil)
-    #expect(rig.fixture.model.hint != nil)
+    #expect(rig.fixture.model.feedback != nil)
   }
 
   @Test func aRetryWithTheFolderStillMissingNeverRestarts() async throws {

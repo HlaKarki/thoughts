@@ -64,7 +64,7 @@ struct EditInPlaceTests {
     #expect(rig.fixture.model.editing?.isSaving == false)
     #expect(rig.fixture.model.focus == .edit)
     #expect(
-      rig.fixture.model.hint == "Changed on disk. Press Enter again to save your text.")
+      rig.fixture.model.feedback?.text == "Changed on disk. Press Enter again to save your text.")
     #expect(
       try rig.fixture.store.entries().compactMap(\.thought).first?.content == .text("original"))
     rig.actions.perform(.saveEdit)
@@ -87,7 +87,7 @@ struct EditInPlaceTests {
     await rig.actions.pending?.value
     #expect(rig.fixture.model.editing == nil)
     #expect(rig.fixture.model.focus == .list)
-    #expect(rig.fixture.model.hint == "This thought was deleted.")
+    #expect(rig.fixture.model.feedback?.text == "This thought was deleted.")
   }
 
   @Test func escapeCancelsWithoutWritingAndAnUnchangedTextWritesNothing() async throws {
@@ -183,7 +183,7 @@ struct EditInPlaceTests {
     #expect(rig.fixture.model.editing?.text == "my version")
     #expect(rig.fixture.model.selection == [first.file.lastPathComponent])
     #expect(
-      rig.fixture.model.hint == "Changed on disk. Press Enter again to save your text.")
+      rig.fixture.model.feedback?.text == "Changed on disk. Press Enter again to save your text.")
   }
 
   @Test func hidingThePanelKeepsTheEditAndItsText() throws {
@@ -277,7 +277,7 @@ struct EditInPlaceTests {
     #expect(rig.fixture.model.focus == .edit)
     #expect(rig.fixture.model.selection == [first.file.lastPathComponent])
     #expect(
-      rig.fixture.model.hint == "Changed on disk. Press Enter again to save your text.")
+      rig.fixture.model.feedback?.text == "Changed on disk. Press Enter again to save your text.")
   }
 
   @Test func aBlankTextCannotBeLeftBehind() throws {

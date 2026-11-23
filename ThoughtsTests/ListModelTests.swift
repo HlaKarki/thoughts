@@ -55,13 +55,13 @@ struct ListModelTests {
 
   @Test func hintStaysWhileThePanelIsHidden() async throws {
     let fixture = try ListFixture()
-    fixture.model.showHint("The folder is unavailable")
+    fixture.model.tell("The folder is unavailable")
     try await Task.sleep(for: .milliseconds(150))
-    #expect(fixture.model.hint == "The folder is unavailable")
+    #expect(fixture.model.feedback?.text == "The folder is unavailable")
     fixture.model.panelDidShow()
-    #expect(fixture.model.hint == "The folder is unavailable")
+    #expect(fixture.model.feedback?.text == "The folder is unavailable")
     fixture.model.panelDidHide()
-    #expect(fixture.model.hint == "The folder is unavailable")
+    #expect(fixture.model.feedback?.text == "The folder is unavailable")
   }
 
   @Test func actionsMenuFiltersRunsAndHandsTheCommandOn() throws {

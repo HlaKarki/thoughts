@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ActionBar: View {
@@ -6,14 +7,33 @@ struct ActionBar: View {
   let inputIsEmpty: Bool
   let hasAttachment: Bool
   var isPreviewing = false
+  var feedback: Feedback?
 
   var body: some View {
-    ViewThatFits(in: .horizontal) {
-      ForEach(Array(hintSets.enumerated()), id: \.offset) { _, hints in
-        row(hints)
+    ZStack(alignment: .trailing) {
+      ViewThatFits(in: .horizontal) {
+        ForEach(Array(hintSets.enumerated()), id: \.offset) { _, hints in
+          row(hints)
+        }
+      }
+      .opacity(feedback == nil ? 1 : 0)
+      .accessibilityHidden(feedback != nil)
+      if let feedback {
+        FeedbackLine(feedback: feedback)
+          .transition(.opacity)
       }
     }
     .frame(maxWidth: .infinity, minHeight: 16, alignment: .trailing)
+    .animation(.easeOut(duration: 0.15), value: feedback?.id)
+    .onChange(of: feedback?.id) {
+      guard let text = feedback?.text else { return }
+      NSAccessibility.post(
+        element: NSApp as Any, notification: .announcementRequested,
+        userInfo: [
+          .announcement: text,
+          .priority: NSAccessibilityPriorityLevel.high.rawValue,
+        ])
+    }
   }
 
   private func row(_ hints: [Hint]) -> some View {
@@ -89,5 +109,34 @@ struct KeyHint: View {
     .font(.system(size: 11))
     .foregroundStyle(Color(nsColor: .secondaryLabelColor))
     .frame(height: 16)
+  }
+}
+
+struct FeedbackLine: View {
+  let feedback: Feedback
+
+  var body: some View {
+    HStack(spacing: 5) {
+      Image(systemName: symbol)
+        .font(.system(size: 11, weight: .semibold))
+        .foregroundStyle(tint)
+      Text(verbatim: feedback.text)
+        .lineLimit(1)
+        .truncationMode(.tail)
+    }
+    .font(.system(size: 11))
+    .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+    .padding(.horizontal, 4)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(feedback.text)
+  }
+
+  private var symbol: String {
+    feedback.kind == .confirmation ? "checkmark" : "exclamationmark.triangle"
+  }
+
+  private var tint: Color {
+    feedback.kind == .confirmation
+      ? Color(nsColor: .secondaryLabelColor) : Color(nsColor: .systemOrange)
   }
 }

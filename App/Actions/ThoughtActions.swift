@@ -40,25 +40,46 @@ final class ThoughtActions {
     }
   }
 
+  private func selectedThoughts() -> [Thought]? {
+    let entries = list.selectedEntries
+    guard !entries.isEmpty else {
+      list.tell(String(localized: "Select a thought first"))
+      return nil
+    }
+    let thoughts = entries.compactMap(\.thought)
+    guard !thoughts.isEmpty else {
+      list.tell(String(localized: "That file can't be read, so this doesn't work on it"))
+      return nil
+    }
+    return thoughts
+  }
+
   private func copy() {
-    let thoughts = list.selectedEntries.compactMap(\.thought)
-    guard !thoughts.isEmpty, let store = makeStore() else { return }
+    guard let thoughts = selectedThoughts(), let store = makeStore() else { return }
     guard thoughts.count == 1, let only = thoughts.first else {
       pasteboard.write(text: CopyFormat.markdownList(thoughts, store: store))
+      list.confirm(String(localized: "Copied"))
       return
     }
     switch only.content {
     case .text(let text):
       pasteboard.write(text: text)
     case .image:
-      guard let image = store.imageURL(of: only) else { return }
-      pasteboard.write(imageAt: image)
+      guard let image = store.imageURL(of: only), pasteboard.write(imageAt: image) else {
+        list.tell(String(localized: "That image file isn't there anymore"))
+        return
+      }
     }
+    list.confirm(String(localized: "Copied"))
   }
 
   private func copyPath() {
     let entries = list.selectedEntries
-    guard !entries.isEmpty, let store = makeStore() else { return }
+    guard !entries.isEmpty else {
+      list.tell(String(localized: "Select a thought first"))
+      return
+    }
+    guard let store = makeStore() else { return }
     let paths = entries.map { entry in
       switch entry {
       case .thought(let thought): CopyFormat.path(of: thought, store: store).path
@@ -66,11 +87,13 @@ final class ThoughtActions {
       }
     }
     pasteboard.write(text: paths.joined(separator: "\n"))
+    list.confirm(
+      paths.count == 1
+        ? String(localized: "Copied the path") : String(localized: "Copied the paths"))
   }
 
   private func toggleDone() {
-    let thoughts = list.selectedEntries.compactMap(\.thought)
-    guard !thoughts.isEmpty else { return }
+    guard let thoughts = selectedThoughts() else { return }
     let done = thoughts.contains { !list.isDone($0) }
     let changing = thoughts.filter { list.isDone($0) != done }
     let names = changing.map { $0.file.lastPathComponent }
@@ -85,8 +108,7 @@ final class ThoughtActions {
   }
 
   private func delete() {
-    let thoughts = list.selectedEntries.compactMap(\.thought)
-    guard !thoughts.isEmpty else { return }
+    guard let thoughts = selectedThoughts() else { return }
     let ids = thoughts.map(\.id)
     let names = Set(thoughts.map { $0.file.lastPathComponent })
     let neighbor = list.neighbor(excluding: names)
@@ -106,7 +128,7 @@ final class ThoughtActions {
       return
     }
     if text.isEmpty, !session.allowsBlank {
-      list.showHint(String(localized: "A thought can't be empty"))
+      list.tell(String(localized: "A thought can't be empty"))
       return
     }
     guard let store = makeStore() else { return }
@@ -133,34 +155,48 @@ final class ThoughtActions {
   }
 
   private func openSource() {
-    let thoughts = list.selectedEntries.compactMap(\.thought)
-    guard thoughts.count == 1, let source = thoughts.first?.source,
-      SourceOpener.canOpen(source)
-    else { return }
+    guard let thoughts = selectedThoughts() else { return }
+    guard thoughts.count == 1, let thought = thoughts.first else {
+      list.tell(String(localized: "Select one thought to open its original"))
+      return
+    }
+    guard let source = thought.source, SourceOpener.canOpen(source) else {
+      list.tell(String(localized: "This thought has no original to open"))
+      return
+    }
     if !opener.open(source) {
-      list.showHint(String(localized: "Couldn't open where this came from"))
+      list.tell(String(localized: "Couldn't open the original. It may have moved."))
     }
   }
 
   private func showInFinder() {
     let entries = list.selectedEntries
-    guard !entries.isEmpty, let store = makeStore() else { return }
+    guard !entries.isEmpty else {
+      list.tell(String(localized: "Select a thought first"))
+      return
+    }
+    guard let store = makeStore() else { return }
     let files = entries.map { entry in
       switch entry {
       case .thought(let thought): store.imageURL(of: thought) ?? thought.file
       case .malformed(let file, _): file
       }
     }
-    opener.reveal(files)
+    let present = files.filter { opener.exists($0) }
+    guard !present.isEmpty else {
+      list.tell(String(localized: "That file isn't there anymore"))
+      return
+    }
+    opener.reveal(present)
   }
 
   private func makeStore() -> ThoughtStore? {
     do {
       return ThoughtStore(folder: try location.resolve(), trash: trash)
     } catch let error as ThoughtsError {
-      list.showHint(ListModel.message(for: error))
+      list.tell(ListModel.message(for: error))
     } catch {
-      list.showHint(error.localizedDescription)
+      list.tell(error.localizedDescription)
     }
     return nil
   }
@@ -180,10 +216,10 @@ final class ThoughtActions {
         try await Task.detached { try work(store) }.value
       } catch let error as ThoughtsError {
         rollback()
-        list?.showHint(ListModel.message(for: error))
+        list?.tell(ListModel.message(for: error))
       } catch {
         rollback()
-        list?.showHint(error.localizedDescription)
+        list?.tell(error.localizedDescription)
       }
     }
   }

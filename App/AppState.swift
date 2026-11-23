@@ -52,7 +52,7 @@ final class AppState {
     tracker.start()
     let ax = AXReader()
     let recorder = SourceRecorder(tracker: tracker, ax: ax)
-    let input = InputModel(location: location) { [list] in list.showHint($0) }
+    let input = InputModel(location: location) { [list] in list.tell($0) }
     input.source = {
       let source = await recorder.current()
       return source == Source() ? nil : source

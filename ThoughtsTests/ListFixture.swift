@@ -45,7 +45,10 @@ final class ListFixture {
 
   init(
     searchDelay: Duration = .zero, recognizer: (any TextRecognizing)? = nil,
-    probe: StorageProbe? = nil, mounts: MountSignal = MountSignal { _ in }
+    probe: StorageProbe? = nil, mounts: MountSignal = MountSignal { _ in },
+    feedbackDelay: @escaping @Sendable (Duration) async throws -> Void = {
+      try await Task.sleep(for: $0)
+    }
   ) throws {
     cleanup = TempFolder()
     root = cleanup.url
@@ -62,8 +65,9 @@ final class ListFixture {
     sync = IndexSync(store: store, index: index, recognizer: recognizer)
     model = ListModel(
       index: index, live: live, location: location, searchDelay: searchDelay, probe: probe,
-      mounts: mounts)
-    input = InputModel(location: location, now: { Self.now }, onFailure: { _ in })
+      mounts: mounts, feedbackDelay: feedbackDelay)
+    input = InputModel(
+      location: location, now: { Self.now }, onFailure: { [model] in model.tell($0) })
   }
 
   deinit {
