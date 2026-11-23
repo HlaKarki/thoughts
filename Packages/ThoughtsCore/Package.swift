@@ -34,6 +34,13 @@ let package = Package(
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]
     ),
+    .testTarget(
+      name: "ThoughtsCommandsTests",
+      dependencies: [
+        "ThoughtsCommands", "ThoughtsCore",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+      ]
+    ),
     .executableTarget(name: "thoughts", dependencies: ["ThoughtsCommands"]),
   ]
 )
