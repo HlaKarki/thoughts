@@ -97,4 +97,11 @@ struct PanelEntryTests {
     #expect(outcome(.show, lost: true, keepOpen: false) == .none)
     #expect(outcome(.show, lost: true, keepOpen: true) == .none)
   }
+
+  @Test func aLostKeyFlagSurvivesTheMenuOpeningOnlyWhileThePanelIsShownAndNotKey() {
+    #expect(PanelController.lostKeyStillHolds(flag: true, isShown: true, isKey: false))
+    #expect(!PanelController.lostKeyStillHolds(flag: true, isShown: true, isKey: true))
+    #expect(!PanelController.lostKeyStillHolds(flag: true, isShown: false, isKey: false))
+    #expect(!PanelController.lostKeyStillHolds(flag: false, isShown: true, isKey: false))
+  }
 }

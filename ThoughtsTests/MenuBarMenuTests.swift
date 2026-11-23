@@ -9,6 +9,7 @@ struct MenuBarMenuTests {
   @MainActor
   final class Log {
     var events: [String] = []
+    var opens = 0
     var summon: [(name: KeyboardShortcuts.Name, enabled: Bool)] = []
   }
 
@@ -41,6 +42,7 @@ struct MenuBarMenuTests {
         shared: shared, summon: name, setSummonEnabled: { log.summon.append(($0, $1)) },
         afterTracking: { [queue] work in queue.work.append(work) })
       menuBar.onShow = { log.events.append("show") }
+      menuBar.onOpened = { log.opens += 1 }
       menuBar.onClosed = { log.events.append("closed:\($0)") }
     }
 
@@ -205,6 +207,12 @@ struct MenuBarMenuTests {
     #expect(rig.log.events.isEmpty)
     rig.runQueued()
     #expect(rig.log.events == ["closed:none"])
+  }
+
+  @Test func openingTheMenuTellsThePanelSoItCanDropAStaleKeyLoss() {
+    let rig = Rig()
+    rig.menuBar.menuWillOpen(rig.menuBar.menu)
+    #expect(rig.log.opens == 1)
   }
 
   @Test func theShowGateHoldsAPickUntilTheCloseAndThenResets() {

@@ -81,6 +81,10 @@ final class PanelController {
     }
   }
 
+  static func lostKeyStillHolds(flag: Bool, isShown: Bool, isKey: Bool) -> Bool {
+    flag && isShown && !isKey
+  }
+
   static func hidesOnKeyLoss(keepOpen: Bool, ownIconInUse: Bool) -> Bool {
     !keepOpen && !ownIconInUse
   }
@@ -103,6 +107,7 @@ final class PanelController {
   }
 
   private func present(makeKey: Bool, on screen: NSScreen?) {
+    lostKeyToOwnIcon = false
     if isShown {
       if makeKey { refocus(on: screen) }
       return
@@ -139,6 +144,11 @@ final class PanelController {
     restingFrame = target
     animate(frame: target, alpha: 1, completion: nil)
     onDidChangeShown?()
+  }
+
+  func ownMenuOpened() {
+    lostKeyToOwnIcon = Self.lostKeyStillHolds(
+      flag: lostKeyToOwnIcon, isShown: isShown, isKey: panel.isKeyWindow)
   }
 
   func ownMenuClosed(_ pick: MenuPick) {

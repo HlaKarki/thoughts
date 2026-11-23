@@ -82,6 +82,7 @@ final class AppState {
       surface: SystemStatusItem(menu: menuBarMenu.menu), menu: menuBarMenu,
       showPanel: { entry.fromMenu(on: $0) })
     self.menuBar = menuBar
+    menuBarMenu.onOpened = { [panel] in panel.ownMenuOpened() }
     menuBarMenu.onClosed = { [panel] in panel.ownMenuClosed($0) }
     panel.ownIconInUse = { [menuBar] in menuBar.ownIconInUse(event: NSApp.currentEvent) }
     menuBar.start()
