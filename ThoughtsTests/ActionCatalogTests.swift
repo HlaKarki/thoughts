@@ -71,10 +71,10 @@ struct ActionCatalogTests {
         "copy", "copyPath", "edit", "toggleDone", "preview", "openSource", "showInFinder",
         "delete",
       ])
-    #expect(items.first?.title == "Copy image")
+    #expect(items.first?.title == "Copy")
     #expect(items.last?.destructive == true)
     #expect(items.dropLast().allSatisfy { !$0.destructive })
-    #expect(ActionCatalog.items(for: [Self.thought()]).first?.title == "Copy text")
+    #expect(ActionCatalog.items(for: [Self.thought()]).first?.title == "Copy")
     #expect(ActionCatalog.items(for: [Self.thought(), screenshot]).first?.title == "Copy")
     #expect(ActionCatalog.items(for: []).isEmpty)
   }

@@ -16,7 +16,7 @@ enum ActionCatalog {
     let single = selection.count == 1
     let readable = thoughts.count == selection.count
     var items: [ActionItem] = []
-    if readable { items.append(copy(thoughts)) }
+    if readable { items.append(copy()) }
     items.append(item("copyPath", String(localized: "Copy path"), "⇧⌘C", .copyPath))
     guard readable else {
       items.append(showInFinder)
@@ -47,14 +47,8 @@ enum ActionCatalog {
     item("showInFinder", String(localized: "Show in Finder"), "⌘R", .showInFinder)
   }
 
-  private static func copy(_ thoughts: [Thought]) -> ActionItem {
-    guard thoughts.count == 1, let only = thoughts.first else {
-      return item("copy", String(localized: "Copy"), "⌘C", .copy)
-    }
-    switch only.content {
-    case .text: return item("copy", String(localized: "Copy text"), "⌘C", .copy)
-    case .image: return item("copy", String(localized: "Copy image"), "⌘C", .copy)
-    }
+  private static func copy() -> ActionItem {
+    item("copy", String(localized: "Copy"), "⌘C", .copy)
   }
 
   private static func item(
