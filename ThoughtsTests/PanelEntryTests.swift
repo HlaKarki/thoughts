@@ -65,4 +65,22 @@ struct PanelEntryTests {
     #expect(!PanelController.hidesOnKeyLoss(keepOpen: false, ownIconInUse: true))
     #expect(!PanelController.hidesOnKeyLoss(keepOpen: true, ownIconInUse: true))
   }
+
+  @Test func aShownPanelMovesToTheOtherDisplayAndRefocusesOnTheSameOne() {
+    let first = CGRect(x: 0, y: 0, width: 1440, height: 875)
+    let second = CGRect(x: 1440, y: 0, width: 1920, height: 1055)
+    let onFirst = PanelController.frame(in: first, edge: .right)
+    func plan(isShown: Bool = true, visible: CGRect?) -> PanelShowPlan {
+      PanelController.showPlan(
+        isShown: isShown, panelFrame: onFirst, requestedVisible: visible, edge: .right)
+    }
+    #expect(plan(isShown: false, visible: second) == .fresh)
+    #expect(plan(visible: nil) == .refocus)
+    #expect(plan(visible: first) == .refocus)
+    let moved = plan(visible: second)
+    #expect(moved == .moveAndRefocus(PanelController.frame(in: second, edge: .right)))
+    guard case .moveAndRefocus(let target) = moved else { return }
+    #expect(second.contains(target))
+    #expect(target.maxX == second.maxX - PanelController.edgeInset)
+  }
 }

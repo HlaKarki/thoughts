@@ -1,5 +1,11 @@
 import AppKit
 
+enum PanelShowPlan: Equatable {
+  case fresh
+  case refocus
+  case moveAndRefocus(CGRect)
+}
+
 @MainActor
 final class PanelController {
   static let width: CGFloat = 360
@@ -48,6 +54,16 @@ final class PanelController {
     return CGRect(x: x, y: visible.midY - height / 2, width: width, height: height)
   }
 
+  static func showPlan(
+    isShown: Bool, panelFrame: CGRect, requestedVisible: CGRect?, edge: PanelEdge
+  ) -> PanelShowPlan {
+    guard isShown else { return .fresh }
+    guard let visible = requestedVisible,
+      !visible.contains(CGPoint(x: panelFrame.midX, y: panelFrame.midY))
+    else { return .refocus }
+    return .moveAndRefocus(frame(in: visible, edge: edge))
+  }
+
   static func hidesOnKeyLoss(keepOpen: Bool, ownIconInUse: Bool) -> Bool {
     !keepOpen && !ownIconInUse
   }
@@ -70,8 +86,8 @@ final class PanelController {
   }
 
   private func present(makeKey: Bool, on screen: NSScreen?) {
-    guard !isShown else {
-      if makeKey { panel.makeKeyAndOrderFront(nil) }
+    if isShown {
+      if makeKey { refocus(on: screen) }
       return
     }
     onWillShow?()
@@ -92,6 +108,18 @@ final class PanelController {
     } else {
       panel.orderFrontRegardless()
     }
+    animate(frame: target, alpha: 1, completion: nil)
+    onDidChangeShown?()
+  }
+
+  private func refocus(on screen: NSScreen?) {
+    let plan = Self.showPlan(
+      isShown: true, panelFrame: panel.frame, requestedVisible: screen?.visibleFrame,
+      edge: preferences.edge)
+    onWillShow?()
+    panel.makeKeyAndOrderFront(nil)
+    guard case .moveAndRefocus(let target) = plan else { return }
+    restingFrame = target
     animate(frame: target, alpha: 1, completion: nil)
     onDidChangeShown?()
   }
