@@ -10,15 +10,14 @@ type Props = {
 }
 
 export function MiniPage({ photo, compactWhenNarrow = false, children }: Props) {
-  const compact = compactWhenNarrow
   return (
-    <div {...stylex.props(styles.page, compact && styles.pageCompact)}>
+    <div {...stylex.props(styles.page, compactWhenNarrow && styles.pageCompact)}>
       <span {...stylex.props(styles.eyebrow)} />
       <span {...stylex.props(styles.spacer, styles.titleSpacer)}>
-        <span {...stylex.props(styles.title, compact && styles.titleCompact)} />
+        <span {...stylex.props(styles.title, compactWhenNarrow && styles.titleCompact)} />
       </span>
       <span {...stylex.props(styles.spacer, styles.photoSpacer)}>
-        <Photo src={photo} xstyle={[styles.photo, compact && styles.photoCompact]} />
+        <Photo src={photo} xstyle={[styles.photo, compactWhenNarrow && styles.photoCompact]} />
       </span>
       <div {...stylex.props(styles.lines)}>
         <span {...stylex.props(styles.headingRow)}>
