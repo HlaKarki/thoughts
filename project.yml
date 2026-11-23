@@ -57,6 +57,7 @@ targets:
         SUPublicEDKey: 0hBOwDutzPP3kabws9Vn3HIfHAyG3dOsH0IQgzBSiGY=
         SUEnableAutomaticChecks: $(THOUGHTS_AUTOMATIC_UPDATE_CHECKS)
         SURequireSignedFeed: true
+        SUVerifyUpdateBeforeExtraction: true
         SUScheduledCheckInterval: 86400
     entitlements:
       path: Config/Thoughts.entitlements
