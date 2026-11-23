@@ -48,7 +48,8 @@ final class SharedMenuItems {
     case .updateAvailable:
       SharedMenuItem(
         id: id, title: String(localized: "Update available"),
-        isEnabled: onCheckForUpdates != nil, perform: { [onCheckForUpdates] in onCheckForUpdates?() }
+        isEnabled: onCheckForUpdates != nil,
+        perform: { [onCheckForUpdates] in onCheckForUpdates?() }
       )
     case .settings:
       SharedMenuItem(

@@ -4,6 +4,7 @@ import Testing
 
 @MainActor
 struct SharedMenuItemsTests {
+  @MainActor
   final class Calls {
     var settings = 0
     var updates = 0
@@ -13,10 +14,14 @@ struct SharedMenuItemsTests {
   static func make(
     calls: Calls = Calls(), updates: UpdateMenuItem = UpdateMenuItem(), wired: Bool = true
   ) -> SharedMenuItems {
-    SharedMenuItems(
-      updates: updates,
-      openSettings: wired ? { calls.settings += 1 } : nil,
-      checkForUpdates: wired ? { calls.updates += 1 } : nil,
+    var openSettings: (@MainActor () -> Void)?
+    var checkForUpdates: (@MainActor () -> Void)?
+    if wired {
+      openSettings = { calls.settings += 1 }
+      checkForUpdates = { calls.updates += 1 }
+    }
+    return SharedMenuItems(
+      updates: updates, openSettings: openSettings, checkForUpdates: checkForUpdates,
       quit: { calls.quits += 1 })
   }
 
