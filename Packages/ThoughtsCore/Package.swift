@@ -16,6 +16,7 @@ let package = Package(
     .package(url: "https://github.com/jpsim/Yams.git", .upToNextMinor(from: "6.2.2")),
     .package(
       url: "https://github.com/modelcontextprotocol/swift-sdk.git", .upToNextMinor(from: "0.12.1")),
+    .package(url: "https://github.com/apple/swift-log.git", .upToNextMinor(from: "1.17.2")),
   ],
   targets: [
     .target(
@@ -35,6 +36,7 @@ let package = Package(
         "ThoughtsCore",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
         .product(name: "MCP", package: "swift-sdk"),
+        .product(name: "Logging", package: "swift-log"),
       ]
     ),
     .testTarget(
@@ -43,6 +45,7 @@ let package = Package(
         "ThoughtsCommands", "ThoughtsCore",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
         .product(name: "MCP", package: "swift-sdk"),
+        .product(name: "Logging", package: "swift-log"),
       ]
     ),
     .executableTarget(name: "thoughts", dependencies: ["ThoughtsCommands"]),

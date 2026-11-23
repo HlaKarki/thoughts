@@ -103,7 +103,7 @@ public struct ThoughtsMCPServer: Sendable {
     }
   }
 
-  public func run() async throws {
+  public func run(transport: any Transport = StdioTransport()) async throws {
     let server = Server(
       name: "thoughts", version: "0.1.0", capabilities: .init(tools: .init(listChanged: false)))
     let client = ClientName()
@@ -113,7 +113,7 @@ public struct ThoughtsMCPServer: Sendable {
       await self.call(
         parameters.name, arguments: parameters.arguments ?? [:], clientName: client.value)
     }
-    try await server.start(transport: StdioTransport()) { info, _ in
+    try await server.start(transport: await DrainingTransport.wrapping(transport)) { info, _ in
       client.value = info.name
     }
     await server.waitUntilCompleted()

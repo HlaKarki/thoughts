@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 import MCP
 import Synchronization
 import Testing
@@ -168,4 +169,84 @@ private func records(_ result: CallTool.Result) throws -> [ThoughtRecord] {
   let empty = await scratch.call("add_thought", ["text": ""])
   #expect(empty.isError == true)
   #expect(scratch.out.all.isEmpty)
+}
+
+private actor ScriptedTransport: Transport {
+  nonisolated let logger = Logger(label: "scripted", factory: { _ in SwiftLogNoOpLogHandler() })
+  private let lines: [String]
+  private var written: [Data] = []
+
+  init(lines: [String]) {
+    self.lines = lines
+  }
+
+  var sent: [[String: Value]] {
+    written.compactMap { try? JSONDecoder().decode([String: Value].self, from: $0) }
+  }
+
+  func connect() async throws {}
+
+  func disconnect() async {}
+
+  func send(_ data: Data) async throws {
+    written.append(data)
+  }
+
+  func receive() -> AsyncThrowingStream<Data, any Error> {
+    let lines = lines
+    return AsyncThrowingStream { continuation in
+      for line in lines { continuation.yield(Data(line.utf8)) }
+      continuation.finish()
+    }
+  }
+}
+
+private let initializeLine =
+  #"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"Piped Client","version":"1"}}}"#
+private let initializedLine = #"{"jsonrpc":"2.0","method":"notifications/initialized"}"#
+
+@Test(.timeLimit(.minutes(1))) func runAnswersEveryRequestBeforeInputCloses() async throws {
+  let scratch = MCPScratch()
+  let transport = ScriptedTransport(lines: [
+    initializeLine, initializedLine,
+    #"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"add_thought","arguments":{"text":"written before exit"}}}"#,
+  ])
+  try await scratch.server.run(transport: transport)
+
+  let sent = await transport.sent
+  #expect(Set(sent.compactMap { $0["id"]?.intValue }) == [1, 2])
+  let second = try #require(sent.first { $0["id"]?.intValue == 2 })
+  #expect(second["error"] == nil)
+  let notes = try FileManager.default.contentsOfDirectory(
+    at: scratch.root.appendingPathComponent("Thoughts"), includingPropertiesForKeys: nil
+  ).filter { $0.pathExtension == "md" }
+  #expect(notes.count == 1)
+  let contents = try String(contentsOf: notes[0], encoding: .utf8)
+  #expect(contents.contains("written before exit"))
+  #expect(contents.contains("Piped Client"))
+}
+
+@Test(.timeLimit(.minutes(1))) func runReturnsOnceEveryLineIsAnswered() async throws {
+  let scratch = MCPScratch()
+  let transport = ScriptedTransport(lines: [
+    initializedLine,
+    "not json at all",
+    #"{"jsonrpc":"2.0","id":7,"method":"no/such/method"}"#,
+    #"{"jsonrpc":"2.0","id":8,"method":"tools/call"}"#,
+    #"{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"show_thought","arguments":{}}}"#,
+    #"{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":99}}"#,
+  ])
+  try await scratch.server.run(transport: transport)
+
+  let sent = await transport.sent
+  for id in [7, 8, 9] {
+    #expect(sent.contains { $0["id"]?.intValue == id })
+  }
+  #expect(sent.count == 4)
+}
+
+@Test(.timeLimit(.minutes(1))) func runReturnsWhenInputHasOnlyNotifications() async throws {
+  let transport = ScriptedTransport(lines: [initializedLine])
+  try await MCPScratch().server.run(transport: transport)
+  #expect(await transport.sent.isEmpty)
 }
