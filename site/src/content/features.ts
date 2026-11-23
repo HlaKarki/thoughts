@@ -13,8 +13,6 @@ type Features = {
   readonly body: string
   readonly selection: Card<{
     readonly label: string
-    readonly selectionWide: ReadonlyArray<string>
-    readonly selectionNarrow: ReadonlyArray<string>
     readonly key: string
     readonly saved: string
     readonly row: string
@@ -84,8 +82,6 @@ export const features: Features = {
     ],
     tile: {
       label: 'A selected sentence on a recipe page becomes the newest thought in the panel.',
-      selectionWide: ['Let the dough rest for 30 minutes', 'before you add the salt.'],
-      selectionNarrow: ['Let the dough rest for', '30 minutes before you', 'add the salt.'],
       key: '⇧',
       saved: 'Saved',
       row: 'Let the dough rest for 30 minutes before you add the salt.',

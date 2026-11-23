@@ -5,46 +5,21 @@ import { MiniLine, MiniPage, MiniSelection } from '@/components/MiniPage'
 import { MiniWindow } from '@/components/MiniWindow'
 import { features } from '@/content/features'
 import { site } from '@/content/site'
+import { wrapWords } from '@/lib/wrapWords'
 import { layout } from '@/styles/layout'
 import { loop } from '@/styles/loop'
+import { sequenceStyles } from '@/styles/sequence'
+import { reveal } from '@/styles/sequence.stylex'
 import { color, font, leading, media, radius, size } from '@/styles/tokens.stylex'
 import { Tile } from './Tile'
 
 const tile = features.selection.tile
 
-const sweepWide1 = stylex.keyframes({
-  '0%': { opacity: 1, clipPath: 'inset(0 0 0 0)' },
-  '4%': { opacity: 0, clipPath: 'inset(0 0 0 0)' },
-  '4.01%, 5%': { opacity: 1, clipPath: 'inset(0 100% 0 0)' },
-  '10%, 100%': { opacity: 1, clipPath: 'inset(0 0 0 0)' },
-})
-
-const sweepWide2 = stylex.keyframes({
-  '0%': { opacity: 1, clipPath: 'inset(0 0 0 0)' },
-  '4%': { opacity: 0, clipPath: 'inset(0 0 0 0)' },
-  '4.01%, 10%': { opacity: 1, clipPath: 'inset(0 100% 0 0)' },
-  '15%, 100%': { opacity: 1, clipPath: 'inset(0 0 0 0)' },
-})
-
-const sweepNarrow1 = stylex.keyframes({
-  '0%': { opacity: 1, clipPath: 'inset(0 0 0 0)' },
-  '4%': { opacity: 0, clipPath: 'inset(0 0 0 0)' },
-  '4.01%, 5%': { opacity: 1, clipPath: 'inset(0 100% 0 0)' },
-  '8.33%, 100%': { opacity: 1, clipPath: 'inset(0 0 0 0)' },
-})
-
-const sweepNarrow2 = stylex.keyframes({
-  '0%': { opacity: 1, clipPath: 'inset(0 0 0 0)' },
-  '4%': { opacity: 0, clipPath: 'inset(0 0 0 0)' },
-  '4.01%, 8.33%': { opacity: 1, clipPath: 'inset(0 100% 0 0)' },
-  '11.67%, 100%': { opacity: 1, clipPath: 'inset(0 0 0 0)' },
-})
-
-const sweepNarrow3 = stylex.keyframes({
-  '0%': { opacity: 1, clipPath: 'inset(0 0 0 0)' },
-  '4%': { opacity: 0, clipPath: 'inset(0 0 0 0)' },
-  '4.01%, 11.67%': { opacity: 1, clipPath: 'inset(0 100% 0 0)' },
-  '15%, 100%': { opacity: 1, clipPath: 'inset(0 0 0 0)' },
+const sweep = stylex.keyframes({
+  '0%': { opacity: 1, clipPath: reveal.clipShown },
+  '4%': { opacity: 0, clipPath: reveal.clipShown },
+  '4.01%, 5%': { opacity: 1, clipPath: reveal.clipHidden },
+  '15%, 100%': { opacity: 1, clipPath: reveal.clipShown },
 })
 
 const pressFirst = stylex.keyframes({
@@ -70,6 +45,19 @@ const panelIn = stylex.keyframes({
   '53%, 100%': { opacity: 1, translate: '0 0' },
 })
 
+const wideColumns = 33
+const narrowColumns = 22
+
+function Selection({ columns }: { readonly columns: number }) {
+  const lines = wrapWords(tile.row, columns)
+  return lines.map((line, index) => (
+    <MiniSelection
+      key={index}
+      text={line}
+      highlightXstyle={[loop.long, styles.sweeping, sequenceStyles.at(index, lines.length)]}
+    />
+  ))
+}
 
 export function SelectionTile() {
   return (
@@ -78,16 +66,12 @@ export function SelectionTile() {
         <MiniPage photo={site.photos.bread} compactWhenNarrow>
           <span {...stylex.props(layout.wideFlex, styles.lines)}>
             <MiniLine width={212} />
-            {tile.selectionWide.map((line, index) => (
-              <MiniSelection key={line} text={line} highlightXstyle={[loop.long, wideSweeps[index]]} />
-            ))}
+            <Selection columns={wideColumns} />
             <MiniLine width={150} />
           </span>
           <span {...stylex.props(layout.narrowFlex, styles.lines)}>
             <MiniLine width={120} />
-            {tile.selectionNarrow.map((line, index) => (
-              <MiniSelection key={line} text={line} highlightXstyle={[loop.long, narrowSweeps[index]]} />
-            ))}
+            <Selection columns={narrowColumns} />
             <MiniLine width={96} />
           </span>
         </MiniPage>
@@ -124,11 +108,9 @@ const styles = stylex.create({
   lines: {
     flexDirection: 'column',
   },
-  sweepWide1: { animationName: { default: null, [media.motion]: sweepWide1 } },
-  sweepWide2: { animationName: { default: null, [media.motion]: sweepWide2 } },
-  sweepNarrow1: { animationName: { default: null, [media.motion]: sweepNarrow1 } },
-  sweepNarrow2: { animationName: { default: null, [media.motion]: sweepNarrow2 } },
-  sweepNarrow3: { animationName: { default: null, [media.motion]: sweepNarrow3 } },
+  sweeping: {
+    animationName: { default: null, [media.motion]: sweep },
+  },
   keys: {
     position: 'absolute',
     top: { default: 307, [media.wide]: 268 },
@@ -178,6 +160,3 @@ const styles = stylex.create({
     animationTimingFunction: 'ease-out',
   },
 })
-
-const wideSweeps = [styles.sweepWide1, styles.sweepWide2]
-const narrowSweeps = [styles.sweepNarrow1, styles.sweepNarrow2, styles.sweepNarrow3]
