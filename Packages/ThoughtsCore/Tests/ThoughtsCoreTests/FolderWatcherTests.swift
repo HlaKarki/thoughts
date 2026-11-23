@@ -267,9 +267,7 @@ private final class SlowRecognizer: TextRecognizing, Sendable {
   var total: Int { seen.withLock { $0.values.reduce(0, +) } }
   var mostPerImage: Int { seen.withLock { $0.values.max() ?? 0 } }
 
-  func recognized(among names: Set<String>) -> Int {
-    seen.withLock { $0.keys.filter(names.contains).count }
-  }
+  var names: Set<String> { seen.withLock { Set($0.keys) } }
 
   func text(in image: URL) throws -> String {
     Thread.sleep(forTimeInterval: delay)
@@ -374,17 +372,13 @@ private func checkNewImagesArriveBeforeTheirRecognition(gap: Duration?) async th
   }
   let recognizer = SlowRecognizer(delay: 0.04)
   let fresh = Mutex<[String: String]>([:])
-  let early = Mutex(0)
-  let arrived = Mutex(Set<String>())
+  let recognizedAtArrival = Mutex<[String: Set<String>]>([:])
   let live = LiveIndex(
     location: scratch.location, index: try scratch.makeIndex(), recognizer: recognizer)
   try live.start { result in
     guard case .success(let changes) = result else { return }
-    for name in changes.added {
-      guard let image = fresh.withLock({ $0[name] }) else { continue }
-      if recognizer.recognized(among: [image]) > 0 { early.withLock { $0 += 1 } }
-      arrived.withLock { _ = $0.insert(name) }
-    }
+    let snapshot = recognizer.names
+    for name in changes.added { recognizedAtArrival.withLock { $0[name] = snapshot } }
   }
   defer { live.stop() }
   #expect(await eventually { recognizer.total >= 1 })
@@ -392,13 +386,19 @@ private func checkNewImagesArriveBeforeTheirRecognition(gap: Duration?) async th
   for _ in 0..<16 {
     let thought = try scratch.store.add(
       NewThought(content: .image(.data(png(side: 9), .png), note: "")))
-    if let gap { try await Task.sleep(for: gap) }
     let image = try #require(scratch.store.imageURL(of: thought)).lastPathComponent
     fresh.withLock { $0[thought.file.lastPathComponent] = image }
+    if let gap { try await Task.sleep(for: gap) }
   }
-  let expected = Set(fresh.withLock { $0.keys })
-  #expect(await eventually { expected.isSubset(of: arrived.withLock { $0 }) })
-  #expect(early.withLock { $0 } == 0)
+  let expected = fresh.withLock { $0 }
+  #expect(
+    await eventually {
+      Set(expected.keys).isSubset(of: Set(recognizedAtArrival.withLock { $0.keys }))
+    })
+  let early = recognizedAtArrival.withLock { arrivals in
+    expected.filter { arrivals[$0.key]?.contains($0.value) == true }.count
+  }
+  #expect(early == 0)
   #expect(await eventually(seconds: 10) { recognizer.total >= 46 })
   try await Task.sleep(for: .milliseconds(300))
   #expect(recognizer.total == 46)
@@ -448,4 +448,32 @@ private func checkNewImagesArriveBeforeTheirRecognition(gap: Duration?) async th
   #expect(Set(updated) == imageThoughts)
   let added = deliveries.changes.flatMap(\.added)
   #expect(added.filter { $0.hasPrefix("outside-") }.count == 20)
+}
+
+@Test func slowHandlerDoesNotStarveRecognition() async throws {
+  let scratch = Scratch()
+  let count = 200
+  for _ in 0..<count {
+    _ = try scratch.store.add(NewThought(content: .image(.data(png(side: 8), .png), note: "")))
+  }
+  let recognizer = SlowRecognizer(delay: 0.01)
+  let live = LiveIndex(
+    location: scratch.location, index: try scratch.makeIndex(), recognizer: recognizer)
+  try live.start { _ in Thread.sleep(forTimeInterval: 0.3) }
+  defer { live.stop() }
+  #expect(await eventually(seconds: 10) { recognizer.total >= 1 })
+
+  let before = recognizer.total
+  for number in 0..<60 {
+    try "outside \(number)".write(
+      to: scratch.folder.appendingPathComponent("outside-\(number).md"), atomically: true,
+      encoding: .utf8)
+    try await Task.sleep(for: .milliseconds(100))
+  }
+  #expect(recognizer.total - before >= 24)
+
+  #expect(await eventually(seconds: 30) { recognizer.total >= count })
+  try await Task.sleep(for: .milliseconds(500))
+  #expect(recognizer.total == count)
+  #expect(recognizer.mostPerImage == 1)
 }
