@@ -73,4 +73,38 @@ struct InputFocusTests {
     #expect(edit.registeredDraggedTypes.isEmpty)
     rig.panel.makeFirstResponder(nil)
   }
+
+  @Test func typingFromTheListAppendsToTheInputAtTheCaret() async throws {
+    let rig = try Self.rig()
+    let model = rig.fixture.model
+    let input = rig.fixture.input
+    model.onCommand = { command in
+      if case .type(let text) = command { input.text += text }
+    }
+    input.text = "ab"
+    #expect(rig.panel.makeFirstResponder(rig.field))
+    model.focus = .list
+    await Self.settle()
+    model.perform(.type("c"))
+    await Self.settle()
+    let editor = try #require(rig.field.currentEditor())
+    #expect(rig.panel.firstResponder === editor)
+    #expect(editor.string == "abc")
+    #expect(editor.selectedRange == NSRange(location: 3, length: 0))
+    rig.panel.makeFirstResponder(nil)
+  }
+
+  @Test func typingFromTheListAppendsToTheSearchAtTheCaret() async throws {
+    let rig = try Self.rig()
+    let model = rig.fixture.model
+    model.query = "stag"
+    model.focus = .list
+    await Self.settle()
+    model.perform(.type("i"))
+    await Self.settle()
+    let editor = try #require(rig.panel.firstResponder as? NSTextView)
+    #expect(editor.string == "stagi")
+    #expect(editor.selectedRange == NSRange(location: 5, length: 0))
+    rig.panel.makeFirstResponder(nil)
+  }
 }

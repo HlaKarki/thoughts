@@ -5,26 +5,44 @@ struct ActionBar: View {
   let hasEntries: Bool
   let inputIsEmpty: Bool
   let hasAttachment: Bool
+  var isPreviewing = false
 
   var body: some View {
+    ViewThatFits(in: .horizontal) {
+      ForEach(Array(hintSets.enumerated()), id: \.offset) { _, hints in
+        row(hints)
+      }
+    }
+    .frame(maxWidth: .infinity, minHeight: 16, alignment: .trailing)
+  }
+
+  private func row(_ hints: [Hint]) -> some View {
     HStack(spacing: 14) {
       ForEach(hints, id: \.key) { hint in
         KeyHint(label: hint.label, key: hint.key)
       }
     }
     .padding(.horizontal, 4)
-    .frame(maxWidth: .infinity, minHeight: 16, alignment: .trailing)
+  }
+
+  private var hintSets: [[Hint]] {
+    let base = hints
+    guard focus == .list else { return [base] }
+    let exit = isPreviewing ? Hint(label: "Close", key: "space") : Hint(label: "Back", key: "esc")
+    return [base + [exit], base]
   }
 
   private var hints: [Hint] {
     switch focus {
-    case .list, .menu:
+    case .list:
       return [
         Hint(label: "Copy", key: "⌘C"),
         Hint(label: "Edit", key: "↵"),
         Hint(label: "Done", key: "⌘↵"),
         Hint(label: "Actions", key: "⌘K"),
       ]
+    case .menu:
+      return [Hint(label: "Run", key: "↵"), Hint(label: "Close", key: "esc")]
     case .edit:
       return [
         Hint(label: "Save", key: "↵"),

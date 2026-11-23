@@ -29,6 +29,7 @@ enum KeyCommand: Equatable {
   case delete
   case actionsMenu
   case backToInput
+  case type(String)
   case menuMove(Int)
   case menuRun
   case menuClose
@@ -37,4 +38,5 @@ enum KeyCommand: Equatable {
 struct KeyStroke: Equatable {
   let key: KeyEquivalent
   let modifiers: EventModifiers
+  var characters = ""
 }

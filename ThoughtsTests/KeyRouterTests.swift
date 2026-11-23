@@ -11,6 +11,7 @@ struct KeyRouterCase: Sendable, CustomTestStringConvertible {
   var focus: Focus = .input
   var inputIsEmpty = true
   var hasAttachment = false
+  var characters = ""
   let expected: KeyCommand?
 
   var testDescription: String { name }
@@ -43,7 +44,8 @@ enum KeyRouterCases {
       name: "Command K needs a selection", key: KeyEquivalent("k"), modifiers: .command,
       expected: nil),
     KeyRouterCase(
-      name: "Typing a letter is left to the field", key: KeyEquivalent("a"), expected: nil),
+      name: "Typing a letter is left to the field", key: KeyEquivalent("a"), characters: "a",
+      expected: nil),
   ]
 
   static let search: [KeyRouterCase] = [
@@ -97,7 +99,44 @@ enum KeyRouterCases {
     KeyRouterCase(
       name: "Command F in the list jumps to search", key: KeyEquivalent("f"),
       modifiers: .command, focus: .list, expected: .focusSearch),
-    KeyRouterCase(name: "Delete alone does nothing", key: .delete, focus: .list, expected: nil),
+    KeyRouterCase(
+      name: "Delete alone does nothing", key: .delete, focus: .list, characters: "\u{7F}",
+      expected: nil),
+    KeyRouterCase(
+      name: "A letter types into the input", key: KeyEquivalent("a"), focus: .list,
+      characters: "a", expected: .type("a")),
+    KeyRouterCase(
+      name: "Shift keeps the case of a typed letter", key: KeyEquivalent("a"),
+      modifiers: .shift, focus: .list, characters: "A", expected: .type("A")),
+    KeyRouterCase(
+      name: "Option types the glyph it makes", key: KeyEquivalent("a"), modifiers: .option,
+      focus: .list, characters: "å", expected: .type("å")),
+    KeyRouterCase(
+      name: "A digit types", key: KeyEquivalent("1"), focus: .list, characters: "1",
+      expected: .type("1")),
+    KeyRouterCase(
+      name: "Shift and a symbol types the symbol", key: KeyEquivalent("1"), modifiers: .shift,
+      focus: .list, characters: "!", expected: .type("!")),
+    KeyRouterCase(
+      name: "Command with a free letter does not type", key: KeyEquivalent("j"),
+      modifiers: .command, focus: .list, characters: "j", expected: nil),
+    KeyRouterCase(
+      name: "Control with a letter does not type", key: KeyEquivalent("a"), modifiers: .control,
+      focus: .list, characters: "\u{1}", expected: nil),
+    KeyRouterCase(
+      name: "Tab does not type", key: .tab, focus: .list, characters: "\t", expected: nil),
+    KeyRouterCase(
+      name: "Forward delete does not type", key: KeyEquivalent("\u{F728}"), focus: .list,
+      characters: "\u{F728}", expected: nil),
+    KeyRouterCase(
+      name: "A function key does not type", key: KeyEquivalent("\u{F708}"), focus: .list,
+      characters: "\u{F708}", expected: nil),
+    KeyRouterCase(
+      name: "Shift Space does not type", key: .space, modifiers: .shift, focus: .list,
+      characters: " ", expected: nil),
+    KeyRouterCase(
+      name: "Shift Return does not type", key: .return, modifiers: .shift, focus: .list,
+      characters: "\r", expected: nil),
   ]
 
   static let edit: [KeyRouterCase] = [
@@ -143,7 +182,7 @@ enum KeyRouterCases {
       modifiers: .command, focus: .menu, expected: nil),
     KeyRouterCase(
       name: "Typing in the menu is left to the field", key: KeyEquivalent("m"), focus: .menu,
-      expected: nil),
+      characters: "m", expected: nil),
     KeyRouterCase(
       name: "Space in the menu is left to the field", key: .space, focus: .menu, expected: nil),
   ]
@@ -153,7 +192,7 @@ struct KeyRouterTests {
   @Test(arguments: KeyRouterCases.all)
   func mapsKey(_ c: KeyRouterCase) {
     let command = KeyRouter.command(
-      for: KeyStroke(key: c.key, modifiers: c.modifiers), focus: c.focus,
+      for: KeyStroke(key: c.key, modifiers: c.modifiers, characters: c.characters), focus: c.focus,
       inputIsEmpty: c.inputIsEmpty, hasAttachment: c.hasAttachment)
     #expect(command == c.expected)
   }
@@ -167,10 +206,12 @@ struct KeyRouterTests {
           isARepeat: false, keyCode: code))
     }
     let copyPath = try #require(KeyStroke(event: event(8, "C", [.command, .shift])))
-    #expect(copyPath == KeyStroke(key: KeyEquivalent("c"), modifiers: [.command, .shift]))
+    #expect(
+      copyPath
+        == KeyStroke(key: KeyEquivalent("c"), modifiers: [.command, .shift], characters: "C"))
     let up = try #require(KeyStroke(event: event(126, "\u{F700}", [.numericPad, .function])))
-    #expect(up == KeyStroke(key: .upArrow, modifiers: []))
+    #expect(up == KeyStroke(key: .upArrow, modifiers: [], characters: "\u{F700}"))
     let enter = try #require(KeyStroke(event: event(76, "\u{3}", [.numericPad])))
-    #expect(enter == KeyStroke(key: .return, modifiers: []))
+    #expect(enter == KeyStroke(key: .return, modifiers: [], characters: "\u{3}"))
   }
 }

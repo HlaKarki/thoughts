@@ -24,7 +24,7 @@ extension KeyStroke {
       }
       key = KeyEquivalent(character)
     }
-    self.init(key: key, modifiers: modifiers)
+    self.init(key: key, modifiers: modifiers, characters: event.characters ?? "")
   }
 }
 

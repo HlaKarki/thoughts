@@ -113,4 +113,118 @@ struct ListModelTests {
         first.file.lastPathComponent, second.file.lastPathComponent, nil,
       ])
   }
+
+  private static func seeded() throws -> (fixture: ListFixture, oldest: String, newest: String) {
+    let fixture = try ListFixture()
+    let first = try fixture.addText("one", daysAgo: 3)
+    try fixture.addText("two", daysAgo: 2)
+    let last = try fixture.addText("three", daysAgo: 1)
+    try fixture.reload()
+    return (fixture, first.file.lastPathComponent, last.file.lastPathComponent)
+  }
+
+  @Test func downOnTheNewestRowMovesToTheInputAndClearsTheSelection() throws {
+    let seed = try Self.seeded()
+    let model = seed.fixture.model
+    model.select(seed.newest, extend: false)
+    model.perform(.move(1))
+    #expect(model.focus == .input)
+    #expect(model.selection.isEmpty)
+  }
+
+  @Test func upOnTheOldestRowMovesToSearchAndClearsTheSelection() throws {
+    let seed = try Self.seeded()
+    let model = seed.fixture.model
+    model.select(seed.oldest, extend: false)
+    model.perform(.move(-1))
+    #expect(model.focus == .search)
+    #expect(model.selection.isEmpty)
+  }
+
+  @Test func arrowsInTheMiddleOfTheListStayInTheList() throws {
+    let seed = try Self.seeded()
+    let model = seed.fixture.model
+    model.select(seed.oldest, extend: false)
+    model.perform(.move(1))
+    #expect(model.focus == .list)
+    #expect(model.selection.count == 1)
+    model.perform(.move(-1))
+    #expect(model.focus == .list)
+    #expect(model.selection == [seed.oldest])
+  }
+
+  @Test func leavingTheListByArrowClosesThePreview() throws {
+    let seed = try Self.seeded()
+    let model = seed.fixture.model
+    model.select(seed.newest, extend: false)
+    model.perform(.preview)
+    #expect(model.isPreviewing)
+    model.perform(.move(1))
+    #expect(!model.isPreviewing)
+    model.select(seed.oldest, extend: false)
+    model.perform(.preview)
+    model.perform(.move(-1))
+    #expect(!model.isPreviewing)
+  }
+
+  @Test func shiftArrowsStayClampedAtTheEnds() throws {
+    let seed = try Self.seeded()
+    let model = seed.fixture.model
+    model.select(seed.newest, extend: false)
+    model.perform(.extend(1))
+    #expect(model.focus == .list)
+    #expect(model.selection == [seed.newest])
+    model.select(seed.oldest, extend: false)
+    model.perform(.extend(-1))
+    #expect(model.focus == .list)
+    #expect(model.selection == [seed.oldest])
+  }
+
+  @Test func downFromSearchWithTheNewestSelectedGoesToTheList() throws {
+    let seed = try Self.seeded()
+    let model = seed.fixture.model
+    model.select(seed.newest, extend: false)
+    model.perform(.focusSearch)
+    model.perform(.move(1))
+    #expect(model.focus == .list)
+    #expect(model.selection == [seed.newest])
+  }
+
+  @Test func typingInTheListGoesToTheInput() throws {
+    let seed = try Self.seeded()
+    let model = seed.fixture.model
+    var forwarded: [KeyCommand] = []
+    model.onCommand = { forwarded.append($0) }
+    model.select(seed.newest, extend: false)
+    model.perform(.preview)
+    model.perform(.type("x"))
+    #expect(model.focus == .input)
+    #expect(model.selection.isEmpty)
+    #expect(!model.isPreviewing)
+    #expect(forwarded == [.type("x")])
+    #expect(model.query.isEmpty)
+  }
+
+  @Test func typingInTheListWithAQueryGoesToTheSearch() throws {
+    let seed = try Self.seeded()
+    let model = seed.fixture.model
+    var forwarded: [KeyCommand] = []
+    model.onCommand = { forwarded.append($0) }
+    model.query = "t"
+    model.select(model.visible.map(\.fileName)[0], extend: false)
+    model.perform(.type("w"))
+    #expect(model.focus == .search)
+    #expect(model.selection.isEmpty)
+    #expect(model.query == "tw")
+    #expect(forwarded.isEmpty)
+  }
+
+  @Test func clickingOutOfTheListClosesThePreview() throws {
+    let seed = try Self.seeded()
+    let model = seed.fixture.model
+    model.select(seed.newest, extend: false)
+    model.perform(.preview)
+    model.focus = .input
+    #expect(!model.isPreviewing)
+  }
 }

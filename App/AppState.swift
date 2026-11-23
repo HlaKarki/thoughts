@@ -146,6 +146,7 @@ final class AppState {
       case .hidePanel: panel.hide()
       case .add: Task { await input.submit() }
       case .removeAttachment: input.removeAttachment()
+      case .type(let text): input.text += text
       default: break
       }
       actions.perform(command)

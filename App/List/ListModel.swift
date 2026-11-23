@@ -61,6 +61,7 @@ final class ListModel {
   private(set) var storageProblem: String?
   @ObservationIgnored private var isPanelShown = false
   private(set) var addedCount = 0
+  private(set) var searchCaretRequests = 0
   private(set) var matches: Set<String>?
   private(set) var imageExcerpts: [String: String] = [:]
   var now = Date()
@@ -89,7 +90,9 @@ final class ListModel {
   private(set) var editing: EditSession?
   var focus: Focus = .input {
     didSet {
-      if oldValue == .edit, focus != .edit { commitEditOnLeave() }
+      guard focus != oldValue else { return }
+      if oldValue == .list, focus != .list { isPreviewing = false }
+      if oldValue == .edit { commitEditOnLeave() }
     }
   }
   var query = "" {
@@ -258,6 +261,12 @@ final class ListModel {
     selection = extend ? Self.range(from: anchor, to: target, in: names) : [names[target]]
   }
 
+  private func leavesList(by delta: Int) -> Bool {
+    let names = visible.map(\.fileName)
+    guard let cursor = selection.last.flatMap(names.firstIndex(of:)) else { return false }
+    return delta < 0 ? cursor == 0 : cursor == names.count - 1
+  }
+
   func select(_ name: String, extend: Bool) {
     if editing?.name == name { return }
     if let session = editing {
@@ -284,8 +293,23 @@ final class ListModel {
   func perform(_ command: KeyCommand) {
     switch command {
     case .move(let delta):
+      if focus == .list, leavesList(by: delta) {
+        selection = []
+        focus = delta < 0 ? .search : .input
+        return
+      }
       focus = .list
       moveSelection(by: delta, extend: false)
+    case .type(let text):
+      selection = []
+      if query.isEmpty {
+        focus = .input
+      } else {
+        focus = .search
+        query += text
+        searchCaretRequests += 1
+        return
+      }
     case .extend(let delta):
       moveSelection(by: delta, extend: true)
     case .selectNewest:

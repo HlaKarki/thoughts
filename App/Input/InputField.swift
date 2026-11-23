@@ -21,7 +21,10 @@ final class InputTextField: NSTextField {
   private func applyFocus() {
     guard let window else { return }
     if wantsFocus {
-      if currentEditor() == nil { window.makeFirstResponder(self) }
+      if currentEditor() == nil {
+        window.makeFirstResponder(self)
+        currentEditor()?.selectedRange = NSRange(location: stringValue.utf16.count, length: 0)
+      }
     } else if currentEditor() != nil {
       window.makeFirstResponder(nil)
     }

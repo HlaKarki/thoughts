@@ -77,7 +77,21 @@ enum KeyRouter {
     case (KeyEquivalent("o"), .command): .openSource
     case (KeyEquivalent("r"), .command): .showInFinder
     case (KeyEquivalent("k"), .command): .actionsMenu
-    default: nil
+    default: typed(press).map(KeyCommand.type)
     }
+  }
+
+  private static func typed(_ press: KeyStroke) -> String? {
+    guard press.modifiers.isDisjoint(with: [.command, .control]) else { return nil }
+    let scalars = press.characters.unicodeScalars
+    guard !scalars.isEmpty, scalars.allSatisfy(isPrintable) else { return nil }
+    return press.characters
+  }
+
+  private static func isPrintable(_ scalar: Unicode.Scalar) -> Bool {
+    let functionKeys: ClosedRange<UInt32> = 0xF700...0xF8FF
+    return !CharacterSet.controlCharacters.contains(scalar)
+      && !CharacterSet.whitespacesAndNewlines.contains(scalar)
+      && !functionKeys.contains(scalar.value)
   }
 }

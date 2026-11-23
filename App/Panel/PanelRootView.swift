@@ -37,6 +37,13 @@ struct PanelRootView: View {
     .onChange(of: field) { _, focus in
       if let focus, list.focus != focus { list.focus = focus }
     }
+    .onChange(of: list.searchCaretRequests) {
+      for delay in [0.0, 0.05, 0.2] {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+          Self.placeCaretAtEnd(of: list.query)
+        }
+      }
+    }
     .animation(.easeOut(duration: PanelController.duration), value: list.isMenuOpen)
     .animation(.easeOut(duration: PanelController.duration), value: input.attachment != nil)
     .animation(.easeOut(duration: PanelController.duration), value: input.isDropTargeted)
@@ -59,6 +66,15 @@ struct PanelRootView: View {
   }
 
   static let menuBottomInset: CGFloat = 74
+
+  private static func placeCaretAtEnd(of text: String) {
+    for case let panel as ThoughtsPanel in NSApp.windows {
+      guard let editor = panel.firstResponder as? NSTextView, editor.string == text,
+        editor.selectedRange().length > 0
+      else { continue }
+      editor.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
+    }
+  }
 
   private static func fieldTarget(for focus: Focus) -> Focus? {
     focus == .search || focus == .menu ? focus : nil
