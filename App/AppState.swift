@@ -28,7 +28,14 @@ final class AppState {
     self.preferences = preferences
     let list = ListModel(index: index, live: live, location: location)
     self.list = list
+    let tracker = FrontmostTracker(ownBundleID: Bundle.main.bundleIdentifier ?? "")
+    tracker.start()
+    let recorder = SourceRecorder(tracker: tracker, ax: AXReader())
     let input = InputModel(location: location) { [list] in list.showHint($0) }
+    input.source = {
+      let source = recorder.current()
+      return source == Source() ? nil : source
+    }
     self.input = input
     let hosting = NSHostingView(
       rootView: PanelRootView(preferences: preferences, list: list, input: input))

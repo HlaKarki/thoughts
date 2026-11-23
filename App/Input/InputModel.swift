@@ -38,6 +38,7 @@ final class InputModel {
   var isDropTargeted = false
 
   @ObservationIgnored var onManualSave: (ManualSave) -> Void = { _ in }
+  @ObservationIgnored var source: () -> Source? = { nil }
   @ObservationIgnored private let location: StorageLocation
   @ObservationIgnored private let now: () -> Date
   @ObservationIgnored private let onFailure: (String) -> Void
@@ -62,12 +63,14 @@ final class InputModel {
       guard !note.isEmpty else { return }
       content = .text(note)
     }
+    let recorded = source()
     let held = (text: text, attachment: attachment, changeCount: attachmentChangeCount)
     text = ""
     attachment = nil
     attachmentChangeCount = nil
     let added = await add(
-      NewThought(content: content, created: now()), pasteboardChangeCount: held.changeCount)
+      NewThought(content: content, source: recorded, created: now()),
+      pasteboardChangeCount: held.changeCount)
     if !added, text.isEmpty, attachment == nil {
       text = held.text
       attachment = held.attachment
@@ -96,7 +99,8 @@ final class InputModel {
   }
 
   func drop(_ pasteboard: NSPasteboard, source: Source? = nil) -> Bool {
-    let dropped = DropReader.thoughts(from: pasteboard, source: source, now: now())
+    let dropped = DropReader.thoughts(
+      from: pasteboard, source: source ?? self.source(), now: now())
     guard !dropped.isEmpty else { return false }
     Task { await add(dropped) }
     return true
