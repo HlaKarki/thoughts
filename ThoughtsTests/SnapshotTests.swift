@@ -9,10 +9,12 @@ struct SnapshotTests {
   static let panelSize = CGSize(width: 360, height: 812)
 
   @Test(arguments: [NSAppearance.Name.aqua, .darkAqua])
-  func panelChrome(_ appearance: NSAppearance.Name) throws {
+  func panelChrome(_ appearance: NSAppearance.Name) async throws {
+    let fixture = try ListFixture()
+    defer { withExtendedLifetime(fixture) {} }
     let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
     let url = try SnapshotRenderer.render(
-      PanelRootView(preferences: Preferences(defaults: defaults)),
+      PanelRootView(preferences: Preferences(defaults: defaults), list: fixture.model),
       size: Self.panelSize,
       appearance: appearance,
       name: "panel-empty-\(appearance == .aqua ? "light" : "dark")")
@@ -20,6 +22,7 @@ struct SnapshotTests {
     #expect(image.pixelsWide == Int(Self.panelSize.width) * SnapshotRenderer.scale)
     #expect(image.pixelsHigh == Int(Self.panelSize.height) * SnapshotRenderer.scale)
     #expect(Self.colorCount(of: image) > 1)
+    await ListFixture.settle()
   }
 
   static func colorCount(of image: NSBitmapImageRep) -> Int {

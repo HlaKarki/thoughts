@@ -1,0 +1,60 @@
+import SwiftUI
+
+enum KeyRouter {
+  static func command(
+    for press: KeyStroke, focus: Focus, inputIsEmpty: Bool, hasAttachment: Bool
+  ) -> KeyCommand? {
+    let modifiers = press.modifiers
+    if press.key == .escape, modifiers.isEmpty {
+      return escape(focus: focus, hasAttachment: hasAttachment)
+    }
+    if press.key == KeyEquivalent("f"), modifiers == .command { return .focusSearch }
+    switch focus {
+    case .input: return input(press, inputIsEmpty: inputIsEmpty)
+    case .search: return search(press)
+    case .list: return list(press)
+    }
+  }
+
+  private static func escape(focus: Focus, hasAttachment: Bool) -> KeyCommand {
+    switch focus {
+    case .input: hasAttachment ? .removeAttachment : .hidePanel
+    case .search: .clearSearch
+    case .list: .backToInput
+    }
+  }
+
+  private static func input(_ press: KeyStroke, inputIsEmpty: Bool) -> KeyCommand? {
+    switch (press.key, press.modifiers) {
+    case (.return, []): .add
+    case (.upArrow, []) where inputIsEmpty: .selectNewest
+    default: nil
+    }
+  }
+
+  private static func search(_ press: KeyStroke) -> KeyCommand? {
+    switch (press.key, press.modifiers) {
+    case (.downArrow, []): .move(1)
+    default: nil
+    }
+  }
+
+  private static func list(_ press: KeyStroke) -> KeyCommand? {
+    switch (press.key, press.modifiers) {
+    case (.upArrow, []): .move(-1)
+    case (.downArrow, []): .move(1)
+    case (.upArrow, .shift): .extend(-1)
+    case (.downArrow, .shift): .extend(1)
+    case (.return, []): .edit
+    case (.return, .command): .toggleDone
+    case (.space, []): .preview
+    case (.delete, .command): .delete
+    case (KeyEquivalent("c"), .command): .copy
+    case (KeyEquivalent("c"), [.command, .shift]): .copyPath
+    case (KeyEquivalent("o"), .command): .openSource
+    case (KeyEquivalent("r"), .command): .showInFinder
+    case (KeyEquivalent("k"), .command): .actionsMenu
+    default: nil
+    }
+  }
+}

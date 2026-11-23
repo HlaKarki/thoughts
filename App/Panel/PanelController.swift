@@ -11,6 +11,7 @@ final class PanelController {
   private let preferences: Preferences
   private var hiding = false
   private var transition = 0
+  var onWillShow: (() -> Void)?
 
   init(content: NSView, preferences: Preferences) {
     self.panel = ThoughtsPanel(content: content)
@@ -45,6 +46,7 @@ final class PanelController {
       panel.makeKeyAndOrderFront(nil)
       return
     }
+    onWillShow?()
     transition += 1
     hiding = false
     let target = Self.frame(in: screenUnderPointer().visibleFrame, edge: preferences.edge)
