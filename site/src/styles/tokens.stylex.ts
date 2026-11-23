@@ -202,11 +202,7 @@ export const color = stylex.defineVars({
   },
   settingsGroup: { default: '#1D1D1F', [DARK]: '#E6E6E6' },
   settingsDivider: { default: '#0000000F', [DARK]: '#FFFFFF14' },
-  toggleOff: { default: '#E3E3E5', [DARK]: '#FFFFFF1F' },
   knob: '#FFFFFF',
-  knobOff: { default: '#FFFFFF', [DARK]: '#FFFFFF99' },
-  placeholderIcon: { default: '#0000001A', [DARK]: '#FFFFFF1F' },
-  placeholderBar: { default: '#00000026', [DARK]: '#FFFFFF26' },
 })
 
 export const scene = stylex.defineVars({

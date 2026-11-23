@@ -154,6 +154,15 @@ export function AccessibilityGlyph({ xstyle }: IconProps) {
   )
 }
 
+export function ClipboardGlyph({ xstyle }: IconProps) {
+  return (
+    <svg {...svgProps(12, 12, '0 0 12 12', xstyle)}>
+      <rect x="2.4" y="2.4" width="7.2" height="8.4" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      <rect x="4" y="1.2" width="4" height="2.4" rx="0.8" fill="currentColor" />
+    </svg>
+  )
+}
+
 export function FolderGlyph({ xstyle }: IconProps) {
   return (
     <svg {...svgProps(12, 12, '0 0 12 12', xstyle)}>

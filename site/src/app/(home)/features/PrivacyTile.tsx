@@ -1,7 +1,7 @@
 import * as stylex from '@stylexjs/stylex'
 import type { ReactNode } from 'react'
 import { AppIcon } from '@/components/AppIcon'
-import { AccessibilityGlyph, FolderGlyph } from '@/components/Icons'
+import { AccessibilityGlyph, ClipboardGlyph, FolderGlyph } from '@/components/Icons'
 import { features } from '@/content/features'
 import { color, font, leading, media, radius, size } from '@/styles/tokens.stylex'
 import { Tile } from './Tile'
@@ -16,15 +16,17 @@ export function PrivacyTile() {
           <div {...stylex.props(styles.row)}>
             <AppIcon size={20} decorative xstyle={styles.icon} />
             <span {...stylex.props(styles.label)}>{tile.app}</span>
-            <Toggle on />
+            <Toggle />
           </div>
-          <span {...stylex.props(styles.divider)} />
+        </Group>
+        <Group glyph={<ClipboardGlyph />} label={tile.paste}>
           <div {...stylex.props(styles.row)}>
-            <span {...stylex.props(styles.icon, styles.placeholderIcon)} />
-            <span {...stylex.props(styles.placeholder)}>
-              <span {...stylex.props(styles.placeholderBar)} />
+            <AppIcon size={20} decorative xstyle={styles.icon} />
+            <span {...stylex.props(styles.label)}>{tile.app}</span>
+            <span {...stylex.props(styles.popup)}>
+              {tile.pasteValue}
+              <Chevrons />
             </span>
-            <Toggle on={false} />
           </div>
         </Group>
         <Group glyph={<FolderGlyph />} label={tile.files}>
@@ -35,7 +37,7 @@ export function PrivacyTile() {
           <span {...stylex.props(styles.divider)} />
           <div {...stylex.props(styles.row, styles.nested)}>
             <span {...stylex.props(styles.label)}>{tile.folder}</span>
-            <Toggle on />
+            <Toggle />
           </div>
         </Group>
       </div>
@@ -61,10 +63,18 @@ function Group({ glyph, label, children }: GroupProps) {
   )
 }
 
-function Toggle({ on }: { readonly on: boolean }) {
+function Chevrons() {
   return (
-    <span {...stylex.props(styles.toggle, on ? styles.toggleOn : styles.toggleOff)}>
-      <span {...stylex.props(styles.knob, !on && styles.knobOff)} />
+    <svg width="7" height="10" viewBox="0 0 7 10" aria-hidden>
+      <path d="M1 3.6 3.5 1.2 6 3.6M1 6.4 3.5 8.8 6 6.4" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function Toggle() {
+  return (
+    <span {...stylex.props(styles.toggle)}>
+      <span {...stylex.props(styles.knob)} />
     </span>
   )
 }
@@ -72,11 +82,11 @@ function Toggle({ on }: { readonly on: boolean }) {
 const styles = stylex.create({
   settings: {
     position: 'absolute',
-    top: { default: 85, [media.wide]: 45 },
+    top: { default: 66, [media.wide]: 30 },
     left: { default: 16, [media.wide]: 70 },
     display: 'flex',
     flexDirection: 'column',
-    gap: 20,
+    gap: { default: 16, [media.wide]: 12 },
     width: { default: 326, [media.wide]: 360 },
     fontFamily: font.text,
     fontSize: size.s13,
@@ -136,26 +146,17 @@ const styles = stylex.create({
     overflow: 'clip',
     borderRadius: radius.r5,
   },
-  placeholderIcon: {
+  popup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
     flexShrink: 0,
-    backgroundColor: color.placeholderIcon,
+    color: color.textMuted,
   },
   label: {
     flexGrow: 1,
     flexBasis: 0,
     color: color.rowText,
-  },
-  placeholder: {
-    display: 'flex',
-    flexGrow: 1,
-    flexBasis: 0,
-  },
-  placeholderBar: {
-    flexShrink: 0,
-    width: 72,
-    height: 5,
-    borderRadius: radius.r3,
-    backgroundColor: color.placeholderBar,
   },
   divider: {
     display: 'block',
@@ -170,14 +171,9 @@ const styles = stylex.create({
     width: 28,
     height: 16,
     paddingInline: 2,
-    borderRadius: radius.r8,
-  },
-  toggleOn: {
     justifyContent: 'end',
+    borderRadius: radius.r8,
     backgroundColor: color.accent,
-  },
-  toggleOff: {
-    backgroundColor: color.toggleOff,
   },
   knob: {
     flexShrink: 0,
@@ -185,8 +181,5 @@ const styles = stylex.create({
     height: 12,
     borderRadius: radius.r6,
     backgroundColor: color.knob,
-  },
-  knobOff: {
-    backgroundColor: color.knobOff,
   },
 })
