@@ -56,23 +56,25 @@ function Selection() {
 export function SelectionTile() {
   return (
     <Tile label={tile.label}>
-      <MiniWindow address xstyle={styles.window} addressXstyle={styles.address}>
-        <MiniPage photo={site.photos.bread} compactWhenNarrow>
-          <span {...stylex.props(layout.wideFlex, styles.lines)}>
-            <MiniLine width={212} />
-            <Selection />
-            <MiniLine width={150} />
-          </span>
-          <span {...stylex.props(layout.narrowFlex, styles.lines)}>
-            <MiniLine width={120} />
-            <Selection />
-            <MiniLine width={96} />
-          </span>
-        </MiniPage>
-      </MiniWindow>
-      <div {...stylex.props(styles.keys)}>
-        <kbd {...stylex.props(styles.key, loop.long, styles.pressFirst)}>{tile.key}</kbd>
-        <kbd {...stylex.props(styles.key, loop.long, styles.pressSecond)}>{tile.key}</kbd>
+      <div {...stylex.props(styles.stack)}>
+        <MiniWindow address xstyle={styles.window} addressXstyle={styles.address}>
+          <MiniPage photo={site.photos.bread} compactWhenNarrow>
+            <span {...stylex.props(layout.wideFlex, styles.lines)}>
+              <MiniLine width={212} />
+              <Selection />
+              <MiniLine width={150} />
+            </span>
+            <span {...stylex.props(layout.narrowFlex, styles.lines)}>
+              <MiniLine width={120} />
+              <Selection />
+              <MiniLine width={96} />
+            </span>
+          </MiniPage>
+        </MiniWindow>
+        <div {...stylex.props(styles.keys)}>
+          <kbd {...stylex.props(styles.key, loop.long, styles.pressFirst)}>{tile.key}</kbd>
+          <kbd {...stylex.props(styles.key, loop.long, styles.pressSecond)}>{tile.key}</kbd>
+        </div>
       </div>
       <MiniPanel xstyle={[styles.panel, loop.long, styles.panelIn]}>
         <MiniBarsRow widths={[76]} xstyle={layout.narrowFlex} />
@@ -91,10 +93,18 @@ export function SelectionTile() {
 }
 
 const styles = stylex.create({
-  window: {
+  stack: {
+    position: 'absolute',
     top: { default: 65, [media.wide]: 24 },
     left: { default: 16, [media.wide]: 24 },
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'start',
     width: { default: 158, [media.wide]: 264 },
+  },
+  window: {
+    position: 'relative',
+    width: '100%',
   },
   address: {
     left: { default: 48, [media.wide]: 84 },
@@ -112,9 +122,8 @@ const styles = stylex.create({
     animationName: { default: null, [media.motion]: sweep },
   },
   keys: {
-    position: 'absolute',
-    top: { default: 307, [media.wide]: 268 },
-    left: { default: 16, [media.wide]: 24 },
+    position: 'relative',
+    marginTop: { default: -7, [media.wide]: 11 },
     display: 'flex',
     gap: 6,
   },
