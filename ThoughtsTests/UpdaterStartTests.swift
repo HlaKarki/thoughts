@@ -65,6 +65,7 @@ struct UpdaterStartTests {
     if !hadLaunched { defaults.removeObject(forKey: "SUHasLaunchedBefore") }
 
     #expect(!updater.sessionInProgress)
+    #expect(updater.feedURL?.scheme == "https")
     #expect(Bundle.main.object(forInfoDictionaryKey: "SURequireSignedFeed") as? Bool == true)
   }
 }
