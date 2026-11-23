@@ -65,7 +65,8 @@ struct PasteboardSnapshotTests {
       postCopy: {
         board.clearContents()
         board.setString("the selection", forType: .string)
-      })
+      },
+      secureInput: { false })
     let (probe, counts) = await reader.copySelection()
     #expect(probe == .text("the selection"))
     #expect(Self.contents(of: board) == before)
@@ -78,7 +79,7 @@ struct PasteboardSnapshotTests {
     defer { board.releaseGlobally() }
     Self.fill(board)
     let count = board.changeCount
-    let reader = SelectionReader(pasteboard: board, postCopy: {})
+    let reader = SelectionReader(pasteboard: board, postCopy: {}, secureInput: { false })
     let (probe, counts) = await reader.copySelection()
     #expect(probe == .copiedNothing)
     #expect(counts.isEmpty)
@@ -95,7 +96,8 @@ struct PasteboardSnapshotTests {
       postCopy: {
         board.clearContents()
         board.setData(Data([9]), forType: .png)
-      })
+      },
+      secureInput: { false })
     let (probe, counts) = await reader.copySelection()
     #expect(probe == .copiedNothing)
     #expect(Self.contents(of: board) == before)

@@ -71,6 +71,7 @@ final class AppState {
     self.chip = chip
     let capture = CaptureCoordinator(
       frontmost: { tracker.frontmost }, ownBundleID: tracker.ownBundleID,
+      ownWindowIsKey: { NSApp.keyWindow != nil },
       reader: SelectionReader(readSelection: { ax.selection(pid: $0) }),
       source: { await recorder.current() }, input: input,
       writer: pasteboard, sound: SavedSound(preferences: preferences))

@@ -8,15 +8,51 @@ protocol SelectionReading: AnyObject {
   func copySelection() async -> (SelectionProbe, ownChangeCounts: [Int])
 }
 
+enum CopyKeyCode {
+  static let fallback = CGKeyCode(kVK_ANSI_C)
+
+  static func find(translate: (CGKeyCode) -> String?) -> CGKeyCode {
+    if translate(fallback) == "c" { return fallback }
+    return (0..<128).map { CGKeyCode($0) }.first { translate($0) == "c" } ?? fallback
+  }
+
+  @MainActor
+  static func current() -> CGKeyCode {
+    guard let layout = commandLayout() else { return fallback }
+    return find { translate($0, layout: layout) }
+  }
+
+  static func commandLayout() -> CFData? {
+    guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
+      let property = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
+    else { return nil }
+    return Unmanaged<CFData>.fromOpaque(property).takeUnretainedValue()
+  }
+
+  static func translate(_ code: CGKeyCode, layout: CFData) -> String? {
+    guard let bytes = CFDataGetBytePtr(layout) else { return nil }
+    var dead: UInt32 = 0
+    var length = 0
+    var characters = [UniChar](repeating: 0, count: 4)
+    let status = bytes.withMemoryRebound(to: UCKeyboardLayout.self, capacity: 1) {
+      UCKeyTranslate(
+        $0, UInt16(code), UInt16(kUCKeyActionDown), UInt32((cmdKey >> 8) & 0xFF),
+        UInt32(LMGetKbdType()), OptionBits(kUCKeyTranslateNoDeadKeysBit), &dead,
+        characters.count, &length, &characters)
+    }
+    guard status == noErr, length > 0 else { return nil }
+    return String(utf16CodeUnits: characters, count: length)
+  }
+}
+
 enum CopyKeyPoster {
   @MainActor
   static func post() {
     guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return }
     let source = CGEventSource(stateID: .privateState)
+    let code = CopyKeyCode.current()
     for keyDown in [true, false] {
-      guard
-        let event = CGEvent(
-          keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_C), keyDown: keyDown)
+      guard let event = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: keyDown)
       else { continue }
       event.flags = .maskCommand
       event.postToPid(pid)
@@ -32,15 +68,18 @@ final class SelectionReader: SelectionReading {
   private let pasteboard: NSPasteboard
   private let readSelection: @Sendable (Int32) -> SelectionProbe
   private let postCopy: @MainActor () -> Void
+  private let secureInput: @MainActor () -> Bool
 
   init(
     pasteboard: NSPasteboard = .general,
     readSelection: @escaping @Sendable (Int32) -> SelectionProbe = { _ in .unavailable },
-    postCopy: @escaping @MainActor () -> Void = CopyKeyPoster.post
+    postCopy: @escaping @MainActor () -> Void = CopyKeyPoster.post,
+    secureInput: @escaping @MainActor () -> Bool = { IsSecureEventInputEnabled() }
   ) {
     self.pasteboard = pasteboard
     self.readSelection = readSelection
     self.postCopy = postCopy
+    self.secureInput = secureInput
   }
 
   func probe(pid: Int32) async -> SelectionProbe {
@@ -49,6 +88,7 @@ final class SelectionReader: SelectionReading {
   }
 
   func copySelection() async -> (SelectionProbe, ownChangeCounts: [Int]) {
+    if secureInput() { return (.secureField, []) }
     let snapshot = PasteboardSnapshot.take(pasteboard)
     let before = pasteboard.changeCount
     postCopy()

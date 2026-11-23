@@ -13,6 +13,7 @@ enum CaptureOutcome: Equatable {
 final class CaptureCoordinator {
   private let frontmost: @MainActor () -> AppSnapshot?
   private let ownBundleID: String
+  private let ownWindowIsKey: @MainActor () -> Bool
   private let reader: any SelectionReading
   private let source: @MainActor () async -> Source
   private let input: InputModel
@@ -28,6 +29,7 @@ final class CaptureCoordinator {
   init(
     frontmost: @escaping @MainActor () -> AppSnapshot?,
     ownBundleID: String,
+    ownWindowIsKey: @escaping @MainActor () -> Bool,
     reader: any SelectionReading,
     source: @escaping @MainActor () async -> Source,
     input: InputModel,
@@ -41,6 +43,7 @@ final class CaptureCoordinator {
   ) {
     self.frontmost = frontmost
     self.ownBundleID = ownBundleID
+    self.ownWindowIsKey = ownWindowIsKey
     self.reader = reader
     self.source = source
     self.input = input
@@ -60,9 +63,11 @@ final class CaptureCoordinator {
     async let recorded = source()
     let app = frontmost()
     let offer = currentOffer?()
-    let selection = offer == nil ? await probe(app) : .empty
-    let fallbackAllowed = CopyFallbackPolicy.allowed(
-      bundleID: app?.bundleID, ownBundleID: ownBundleID)
+    let ownWindow = ownWindowIsKey()
+    let selection = offer == nil && !ownWindow ? await probe(app) : .empty
+    let fallbackAllowed =
+      !ownWindow
+      && CopyFallbackPolicy.allowed(bundleID: app?.bundleID, ownBundleID: ownBundleID)
     var action = CaptureDecision.decide(
       context(offer: offer, selection: selection, fallbackAllowed: fallbackAllowed))
     if action == .copyFallback {

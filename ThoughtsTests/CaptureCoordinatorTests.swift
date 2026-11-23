@@ -48,6 +48,7 @@ struct CaptureCoordinatorTests {
 
   static func rig(
     front: AppSnapshot? = notes,
+    ownWindowIsKey: Bool = false,
     soundEnabled: Bool = true,
     image: (() -> ClipboardImage?)? = nil,
     offer: OfferID? = nil,
@@ -62,7 +63,8 @@ struct CaptureCoordinatorTests {
     let reader = FakeReader()
     let writer = PasteboardWriter(pasteboard: board)
     let coordinator = CaptureCoordinator(
-      frontmost: { front }, ownBundleID: own, reader: reader, source: { page },
+      frontmost: { front }, ownBundleID: own, ownWindowIsKey: { ownWindowIsKey }, reader: reader,
+      source: { page },
       input: fixture.input, writer: writer,
       sound: SavedSound(preferences: preferences, player: { plays.count += 1 }),
       pasteboard: board, now: { ListFixture.now },
@@ -127,10 +129,11 @@ struct CaptureCoordinatorTests {
     #expect(try rig.fixture.store.entries().isEmpty)
   }
 
-  @Test func ownPanelNeverProbesOrCopies() async throws {
-    let own = AppSnapshot(pid: 43, bundleID: Self.own, name: "Thoughts")
-    let rig = try Self.rig(front: own)
+  @Test func ownWindowBeingKeyNeverProbesOrCopiesFromTheAppBehindIt() async throws {
+    let rig = try Self.rig(front: Self.notes, ownWindowIsKey: true)
     defer { rig.board.releaseGlobally() }
+    rig.reader.probeResult = .text("text in the app behind")
+    rig.reader.copyResult = .text("copied from the app behind")
     let outcome = await rig.coordinator.capture()
     #expect(outcome == .nothingToSave)
     #expect(rig.reader.probed.isEmpty)
@@ -149,7 +152,8 @@ struct CaptureCoordinatorTests {
     reader.probeResult = .empty
     let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
     let coordinator = CaptureCoordinator(
-      frontmost: { Self.editor }, ownBundleID: Self.own, reader: reader, source: { Self.page },
+      frontmost: { Self.editor }, ownBundleID: Self.own, ownWindowIsKey: { false }, reader: reader,
+      source: { Self.page },
       input: fixture.input, writer: PasteboardWriter(pasteboard: board),
       sound: SavedSound(preferences: Preferences(defaults: defaults), player: {}),
       pasteboard: board, now: { ListFixture.now },
