@@ -68,6 +68,7 @@ targets:
         PRODUCT_NAME: Thoughts
         PRODUCT_MODULE_NAME: Thoughts
         PRODUCT_BUNDLE_IDENTIFIER: $(THOUGHTS_BUNDLE_ID)
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
       - package: ThoughtsCore
         product: ThoughtsCore
@@ -85,6 +86,7 @@ targets:
     platform: macOS
     sources:
       - ShareExtension
+      - App/AppIcon.icon
     info:
       path: ShareExtension/Info.plist
       properties:
@@ -115,6 +117,7 @@ targets:
       base:
         PRODUCT_NAME: ThoughtsShare
         PRODUCT_MODULE_NAME: ThoughtsShare
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_BUNDLE_IDENTIFIER: $(THOUGHTS_BUNDLE_ID).share
     dependencies:
       - package: ThoughtsCore
