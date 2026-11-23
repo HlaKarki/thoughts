@@ -70,22 +70,31 @@ final class ThoughtActions {
   private func toggleDone() {
     let thoughts = list.selectedEntries.compactMap(\.thought)
     guard !thoughts.isEmpty else { return }
-    let done = thoughts.contains { $0.done == nil }
-    let ids = thoughts.map(\.id)
+    let done = thoughts.contains { !list.isDone($0) }
+    let changing = thoughts.filter { list.isDone($0) != done }
+    let names = changing.map { $0.file.lastPathComponent }
+    let ids = changing.map(\.id)
     let date = now()
-    run { store in
-      for id in ids { _ = try store.setDone(done, for: id, at: date) }
-    }
+    list.holdDone(done, for: names)
+    run(
+      { store in
+        for id in ids { _ = try store.setDone(done, for: id, at: date) }
+      },
+      rollback: { [list] in list.releaseDone(for: names) })
   }
 
   private func delete() {
     let thoughts = list.selectedEntries.compactMap(\.thought)
     guard !thoughts.isEmpty else { return }
     let ids = thoughts.map(\.id)
-    let neighbor = list.neighbor(excluding: Set(thoughts.map { $0.file.lastPathComponent }))
+    let names = Set(thoughts.map { $0.file.lastPathComponent })
+    let neighbor = list.neighbor(excluding: names)
+    list.holdRemoval(of: names)
     list.selection = neighbor.map { [$0] } ?? []
     if neighbor == nil { list.focus = .input }
-    run { store in try store.delete(ids) }
+    run(
+      { store in try store.delete(ids) },
+      rollback: { [list] in list.releaseRemoval(of: names) })
   }
 
   private func openSource() {
@@ -121,16 +130,24 @@ final class ThoughtActions {
     return nil
   }
 
-  private func run(_ work: @escaping @Sendable (ThoughtStore) throws -> Void) {
-    guard let store = makeStore() else { return }
+  private func run(
+    _ work: @escaping @Sendable (ThoughtStore) throws -> Void,
+    rollback: @escaping @MainActor () -> Void
+  ) {
+    guard let store = makeStore() else {
+      rollback()
+      return
+    }
     let previous = pending
     pending = Task { [weak list] in
       await previous?.value
       do {
         try await Task.detached { try work(store) }.value
       } catch let error as ThoughtsError {
+        rollback()
         list?.showHint(ListModel.message(for: error))
       } catch {
+        rollback()
         list?.showHint(error.localizedDescription)
       }
     }

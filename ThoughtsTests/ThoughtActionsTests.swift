@@ -61,7 +61,10 @@ struct ThoughtActionsTests {
     let actions = ThoughtActions(
       list: fixture.model, location: fixture.location,
       pasteboard: PasteboardWriter(pasteboard: board), opener: log.opener,
-      trash: { trashed.add($0) }, now: { ListFixture.now })
+      trash: {
+        trashed.add($0)
+        try FileManager.default.removeItem(at: $0)
+      }, now: { ListFixture.now.addingTimeInterval(3600) })
     return Rig(fixture: fixture, actions: actions, log: log, board: board, trashed: trashed)
   }
 
@@ -82,6 +85,64 @@ struct ThoughtActionsTests {
     rig.actions.perform(.toggleDone)
     await rig.actions.pending?.value
     #expect(try doneStates() == [false, false])
+  }
+
+  @Test func doneLeavesAlreadyDoneThoughtsUntouched() async throws {
+    let rig = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    let finished = try rig.fixture.addText("one", daysAgo: 3, done: true)
+    let open = try rig.fixture.addText("two", daysAgo: 2)
+    try rig.fixture.reload()
+    rig.fixture.model.selection = rig.fixture.model.visible.map(\.fileName)
+    rig.actions.perform(.toggleDone)
+    await rig.actions.pending?.value
+    let stored = try rig.fixture.store.entries().compactMap(\.thought)
+    let byID = Dictionary(uniqueKeysWithValues: stored.map { ($0.id, $0) })
+    #expect(byID[finished.id]?.done == ListFixture.now)
+    #expect(byID[open.id]?.done == ListFixture.now.addingTimeInterval(3600))
+  }
+
+  @Test func doneDecidesFromPendingStateBeforeTheListRefreshes() async throws {
+    let rig = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    try rig.fixture.addText("one", daysAgo: 3, done: true)
+    try rig.fixture.addText("two", daysAgo: 2)
+    try rig.fixture.reload()
+    rig.fixture.model.selection = rig.fixture.model.visible.map(\.fileName)
+    rig.actions.perform(.toggleDone)
+    rig.actions.perform(.toggleDone)
+    await rig.actions.pending?.value
+    let states = try rig.fixture.store.entries().compactMap(\.thought).map { $0.done != nil }
+    #expect(states == [false, false])
+    try rig.fixture.reload()
+    #expect(rig.fixture.model.pendingDone.isEmpty)
+  }
+
+  @Test func repeatedDeletesWalkPastThePendingRows() async throws {
+    let rig = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    let oldest = try rig.fixture.addText("x", daysAgo: 4)
+    let middle = try rig.fixture.addText("y", daysAgo: 3)
+    let newest = try rig.fixture.addText("z", daysAgo: 2)
+    try rig.fixture.reload()
+    rig.fixture.model.select(newest.file.lastPathComponent, extend: false)
+    rig.actions.perform(.delete)
+    #expect(rig.fixture.model.selection == [middle.file.lastPathComponent])
+    rig.fixture.model.load()
+    #expect(
+      rig.fixture.model.visible.map(\.fileName) == [
+        oldest.file.lastPathComponent, middle.file.lastPathComponent,
+      ])
+    rig.actions.perform(.delete)
+    #expect(rig.fixture.model.selection == [oldest.file.lastPathComponent])
+    await rig.actions.pending?.value
+    #expect(
+      Set(rig.trashed.all.map(\.lastPathComponent))
+        == [newest.file.lastPathComponent, middle.file.lastPathComponent])
+    try rig.fixture.reload()
+    #expect(rig.fixture.model.pendingRemoval.isEmpty)
+    #expect(rig.fixture.model.visible.map(\.fileName) == [oldest.file.lastPathComponent])
+    #expect(rig.fixture.model.selection == [oldest.file.lastPathComponent])
   }
 
   @Test func deleteTrashesTheFilesAndSelectsTheNeighbor() async throws {

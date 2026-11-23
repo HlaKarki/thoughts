@@ -18,7 +18,7 @@ final class PreviewPanel: NSPanel {
     isMovable = false
     isReleasedWhenClosed = false
     animationBehavior = .none
-    ignoresMouseEvents = true
+    becomesKeyOnlyIfNeeded = true
     contentView = content
   }
 

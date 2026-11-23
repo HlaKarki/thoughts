@@ -46,6 +46,8 @@ final class ListModel {
       if isPreviewing { onPreviewChange?(previewThought) }
     }
   }
+  private(set) var pendingRemoval: Set<String> = []
+  private(set) var pendingDone: [String: Bool] = [:]
   private(set) var isMenuOpen = false
   private(set) var isPreviewing = false {
     didSet {
@@ -74,10 +76,49 @@ final class ListModel {
   }
 
   var visible: [ThoughtEntry] {
-    guard let matches else { return entries.filter { !$0.isCleared } }
-    return entries.filter { entry in
-      guard case .thought(let thought) = entry else { return false }
-      return matches.contains(thought.id.rawValue)
+    let shown: [ThoughtEntry]
+    if let matches {
+      shown = entries.filter { entry in
+        guard case .thought(let thought) = entry else { return false }
+        return matches.contains(thought.id.rawValue)
+      }
+    } else {
+      shown = entries.filter { !$0.isCleared }
+    }
+    guard !pendingRemoval.isEmpty else { return shown }
+    return shown.filter { !pendingRemoval.contains($0.fileName) }
+  }
+
+  func isDone(_ thought: Thought) -> Bool {
+    pendingDone[thought.file.lastPathComponent] ?? (thought.done != nil)
+  }
+
+  func holdRemoval(of names: Set<String>) {
+    pendingRemoval.formUnion(names)
+  }
+
+  func releaseRemoval(of names: Set<String>) {
+    pendingRemoval.subtract(names)
+  }
+
+  func holdDone(_ done: Bool, for names: [String]) {
+    for name in names { pendingDone[name] = done }
+  }
+
+  func releaseDone(for names: [String]) {
+    for name in names { pendingDone[name] = nil }
+  }
+
+  private func settlePending() {
+    guard !pendingRemoval.isEmpty || !pendingDone.isEmpty else { return }
+    var present: [String: Bool] = [:]
+    for case .thought(let thought) in entries {
+      present[thought.file.lastPathComponent] = thought.done != nil
+    }
+    pendingRemoval.formIntersection(entries.map(\.fileName))
+    pendingDone = pendingDone.filter { name, done in
+      guard let actual = present[name] else { return false }
+      return actual != done
     }
   }
 
@@ -124,6 +165,7 @@ final class ListModel {
   func load() {
     do {
       entries = try index.entries(includeCleared: true)
+      settlePending()
       now = Date()
       refreshMatches()
       pruneSelection()
