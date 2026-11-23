@@ -25,7 +25,7 @@ You can also download `Thoughts-<version>.zip` from the [releases page](https://
 sudo ln -s /Applications/Thoughts.app/Contents/Helpers/thoughts /usr/local/bin/thoughts
 ```
 
-Thoughts checks for updates once a day. When one is ready, "Update available" appears in the ⋯ menu and in the menu bar icon's menu, and the icon shows a dot. You can also choose "Check for updates…" in either menu. The update check is the only network request Thoughts makes.
+Thoughts checks for updates once a day. When one is ready, "Update available" appears in the ⋯ menu and in the menu bar icon's menu, and the icon's caret turns blue. You can also choose "Check for updates…" in either menu. The update check is the only network request Thoughts makes.
 
 ## First run
 
