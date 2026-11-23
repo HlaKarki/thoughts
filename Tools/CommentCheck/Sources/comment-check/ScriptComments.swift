@@ -268,8 +268,9 @@ private struct Scanner {
 
   private mutating func scanElement() -> Bool {
     index += 1
+    let name = scanTagName()
     switch scanTag() {
-    case .open: return scanChildren()
+    case .open: return scanChildren(of: name)
     case .selfClosing: return true
     case .unclosed: return false
     }
@@ -303,13 +304,30 @@ private struct Scanner {
     return .unclosed
   }
 
-  private mutating func scanChildren() -> Bool {
+  private mutating func scanTagName() -> ArraySlice<UInt8> {
+    let start = index
+    while let byte = peek(),
+      isWordByte(byte) || byte == ascii(".") || byte == ascii("-") || byte == ascii(":")
+    {
+      index += 1
+    }
+    return bytes[start..<index]
+  }
+
+  private mutating func skipSpaces() {
+    while let byte = peek(), byte == ascii(" ") || byte == ascii("\t") || byte == ascii("\n") {
+      index += 1
+    }
+  }
+
+  private mutating func scanChildren(of name: ArraySlice<UInt8>) -> Bool {
     while let byte = peek() {
       if byte == ascii("<") && peek(1) == ascii("/") {
-        while let closing = peek(), closing != ascii(">") {
-          index += 1
-        }
-        guard peek() != nil else { return false }
+        index += 2
+        skipSpaces()
+        guard scanTagName().elementsEqual(name) else { return false }
+        skipSpaces()
+        guard peek() == ascii(">") else { return false }
         index += 1
         return true
       } else if byte == ascii("<") {

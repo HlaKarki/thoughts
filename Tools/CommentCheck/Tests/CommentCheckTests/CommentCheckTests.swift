@@ -185,6 +185,22 @@ struct CommentCheckTests {
     #expect(annotation == [Hit(path: "a.tsx", line: 2)])
   }
 
+  @Test func readsTypeParametersBeforeAClosingTagInAString() {
+    let hits = CommentChecker.hits(
+      path: "a.tsx",
+      contents: "type F = <T>(x: T) => T\nconst a = 1 // x\nconst s = '</p>'\nconst b = 2 // x")
+    #expect(hits == [Hit(path: "a.tsx", line: 2), Hit(path: "a.tsx", line: 4)])
+  }
+
+  @Test func closesElementsOnlyOnTheirOwnTag() {
+    let string = CommentChecker.hits(
+      path: "a.tsx", contents: "const v = <p>{'</div>'}</p> // x\nconst w = <>{'</p>'}</> // x")
+    let nested = CommentChecker.hits(
+      path: "a.tsx", contents: "const v = <div><p>a</p>{/* x */}</div>\nconst b = 1 // x")
+    #expect(string == [Hit(path: "a.tsx", line: 1), Hit(path: "a.tsx", line: 2)])
+    #expect(nested == [Hit(path: "a.tsx", line: 1), Hit(path: "a.tsx", line: 2)])
+  }
+
   @Test func readsDivisionAfterPostfixOperators() {
     let increment = CommentChecker.hits(path: "a.ts", contents: "const c = a++ / b // x")
     let assertion = CommentChecker.hits(path: "a.ts", contents: "const d = a! / b // x")
