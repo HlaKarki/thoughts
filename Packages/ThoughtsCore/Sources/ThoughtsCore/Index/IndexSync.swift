@@ -9,7 +9,9 @@ final class CancellationFlag: Sendable {
     self.interrupted = interrupted
   }
 
-  var isCancelled: Bool { state.withLock { $0 } || interrupted() }
+  var isStopped: Bool { state.withLock { $0 } }
+
+  var isCancelled: Bool { isStopped || interrupted() }
 
   func cancel() {
     state.withLock { $0 = true }
@@ -154,6 +156,49 @@ public struct IndexSync: Sendable {
 
   private static let batchSize = 8
 
+  func recognizePending() throws -> IndexChanges {
+    var changes = IndexChanges()
+    guard let recognizer else { return changes }
+    let pending = try index.states()
+      .compactMap { name, state -> (name: String, state: IndexState)? in
+        guard state.recognized == nil, state.image?.version != nil else { return nil }
+        return (name.value, state)
+      }
+      .sorted { $0.name < $1.name }
+    for start in stride(from: 0, to: pending.count, by: Self.batchSize) {
+      let stop = start == 0 ? cancellation?.isStopped : cancellation?.isCancelled
+      if stop == true { break }
+      let items = pending[start..<min(start + Self.batchSize, pending.count)].compactMap {
+        entry -> RecognizedImage? in
+        guard let image = entry.state.image, unchanged(entry.name, entry.state) else { return nil }
+        let url = store.folder.appendingPathComponent(image.name)
+        return RecognizedImage(
+          name: entry.name, image: image, text: (try? recognizer.text(in: url)) ?? "")
+      }
+      record(try index.applyRecognized(items), into: &changes)
+    }
+    changes.updated.sort()
+    changes.removed.sort()
+    return changes
+  }
+
+  private func unchanged(_ name: String, _ state: IndexState) -> Bool {
+    guard let image = state.image,
+      let disk = try? AtomicFile.info(at: store.folder.appendingPathComponent(name))
+    else { return false }
+    return disk.version == state.version && imageVersion(named: image.name) == image.version
+  }
+
+  private func record(_ write: IndexWrite, into changes: inout IndexChanges) {
+    for name in write.updated where !changes.touches(name) { changes.updated.append(name) }
+    for name in write.removed {
+      changes.forget(name)
+      if !changes.removed.contains(where: { ExactName($0) == ExactName(name) }) {
+        changes.removed.append(name)
+      }
+    }
+  }
+
   private func recognizeBatches(of rows: [IndexRow], into changes: inout IndexChanges) throws {
     guard let recognizer else { return }
     let pending = rows.filter { $0.recognized == nil && $0.image?.version != nil }
@@ -166,14 +211,7 @@ public struct IndexSync: Sendable {
         return RecognizedImage(
           name: row.name, image: image, text: (try? recognizer.text(in: url)) ?? "")
       }
-      let write = try index.applyRecognized(items)
-      for name in write.updated where !changes.touches(name) { changes.updated.append(name) }
-      for name in write.removed {
-        changes.forget(name)
-        if !changes.removed.contains(where: { ExactName($0) == ExactName(name) }) {
-          changes.removed.append(name)
-        }
-      }
+      record(try index.applyRecognized(items), into: &changes)
     }
   }
 }

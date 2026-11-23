@@ -367,7 +367,7 @@ private final class SlowRecognizer: TextRecognizing, Sendable {
   #expect(recognizer.mostPerImage == 1)
 }
 
-@Test func newImagesArriveBeforeTheirRecognition() async throws {
+private func checkNewImagesArriveBeforeTheirRecognition(gap: Duration?) async throws {
   let scratch = Scratch()
   for _ in 0..<30 {
     _ = try scratch.store.add(NewThought(content: .image(.data(png(side: 8), .png), note: "")))
@@ -392,6 +392,7 @@ private final class SlowRecognizer: TextRecognizing, Sendable {
   for _ in 0..<16 {
     let thought = try scratch.store.add(
       NewThought(content: .image(.data(png(side: 9), .png), note: "")))
+    if let gap { try await Task.sleep(for: gap) }
     let image = try #require(scratch.store.imageURL(of: thought)).lastPathComponent
     fresh.withLock { $0[thought.file.lastPathComponent] = image }
   }
@@ -402,4 +403,49 @@ private final class SlowRecognizer: TextRecognizing, Sendable {
   try await Task.sleep(for: .milliseconds(300))
   #expect(recognizer.total == 46)
   #expect(recognizer.mostPerImage == 1)
+}
+
+@Test func newImagesArriveBeforeTheirRecognition() async throws {
+  try await checkNewImagesArriveBeforeTheirRecognition(gap: nil)
+}
+
+@Test func spacedNewImagesArriveBeforeTheirRecognition() async throws {
+  try await checkNewImagesArriveBeforeTheirRecognition(gap: .milliseconds(40))
+}
+
+@Test func steadyOutsideWritesDoNotStarveOrRewrite() async throws {
+  let scratch = Scratch()
+  let count = 120
+  var imageThoughts: Set<String> = []
+  for _ in 0..<count {
+    let thought = try scratch.store.add(
+      NewThought(content: .image(.data(png(side: 8), .png), note: "")))
+    imageThoughts.insert(thought.file.lastPathComponent)
+  }
+  let recognizer = SlowRecognizer(delay: 0.02)
+  let deliveries = Deliveries()
+  let live = LiveIndex(
+    location: scratch.location, index: try scratch.makeIndex(), recognizer: recognizer)
+  try live.start { deliveries.record($0) }
+  defer { live.stop() }
+  #expect(await eventually { recognizer.total >= 1 })
+
+  for number in 0..<20 {
+    try "outside \(number)".write(
+      to: scratch.folder.appendingPathComponent("outside-\(number).md"), atomically: true,
+      encoding: .utf8)
+    try await Task.sleep(for: .milliseconds(100))
+  }
+  #expect(recognizer.total >= 24)
+
+  #expect(await eventually(seconds: 20) { recognizer.total >= count })
+  try await Task.sleep(for: .milliseconds(400))
+  #expect(recognizer.total == count)
+  #expect(recognizer.mostPerImage == 1)
+
+  let updated = deliveries.changes.flatMap(\.updated)
+  #expect(Set(updated).count == updated.count)
+  #expect(Set(updated) == imageThoughts)
+  let added = deliveries.changes.flatMap(\.added)
+  #expect(added.filter { $0.hasPrefix("outside-") }.count == 20)
 }

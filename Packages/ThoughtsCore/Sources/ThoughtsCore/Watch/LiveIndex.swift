@@ -172,7 +172,7 @@ public final class LiveIndex: @unchecked Sendable {
   private func recognize(_ session: Session) {
     guard session.active, session.recognitionDue, !session.inbox.hasEvents else { return }
     session.recognitionDue = false
-    deliver(session) { try session.sync.reconcile(nil) }
+    deliver(session) { try session.sync.recognizePending() }
     if session.active, session.inbox.hasEvents { session.recognitionDue = true }
   }
 
