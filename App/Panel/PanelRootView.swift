@@ -4,9 +4,7 @@ struct PanelRootView: View {
   let preferences: Preferences
   @Bindable var list: ListModel
   @Bindable var input: InputModel
-  var onOpenSettings: (() -> Void)?
-  var updates: UpdateMenuItem?
-  var onCheckForUpdates: (() -> Void)?
+  var shared = SharedMenuItems(updates: UpdateMenuItem(), openSettings: nil, checkForUpdates: nil)
   @FocusState private var field: Focus?
 
   var body: some View {
@@ -67,9 +65,7 @@ struct PanelRootView: View {
   private var header: some View {
     HStack(spacing: 8) {
       SearchField(list: list)
-      MoreMenu(
-        preferences: preferences, onClearDone: { list.clearDone() }, onOpenSettings: onOpenSettings,
-        onCheckForUpdates: onCheckForUpdates, updateAvailable: updates?.isShown ?? false)
+      MoreMenu(preferences: preferences, shared: shared, onClearDone: { list.clearDone() })
     }
     .padding(.top, 12)
     .padding(.bottom, 10)

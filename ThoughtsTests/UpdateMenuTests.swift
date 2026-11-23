@@ -13,10 +13,11 @@ struct UpdateMenuTests {
     updateAvailable: Bool, appearance: NSAppearance.Name = .aqua, name: String
   ) throws -> URL {
     let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+    let updates = UpdateMenuItem()
+    if updateAvailable { updates.updateWillShow(handledBySparkle: false) }
+    let shared = SharedMenuItems(updates: updates, openSettings: {}, checkForUpdates: {})
     return try SnapshotRenderer.render(
-      MoreMenu(
-        preferences: Preferences(defaults: defaults), onCheckForUpdates: {},
-        updateAvailable: updateAvailable),
+      MoreMenu(preferences: Preferences(defaults: defaults), shared: shared),
       size: Self.size, appearance: appearance, name: name)
   }
 

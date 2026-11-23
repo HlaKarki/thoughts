@@ -27,6 +27,7 @@ final class AppState {
   let importer: InboxImporter?
   let urls: URLHandler
   let updater: Updater
+  let shared: SharedMenuItems
   static let savedChipLifetime: TimeInterval = 1.2
   static let hintChipLifetime: TimeInterval = 2.4
   private var summon: Task<Void, Never>?
@@ -61,11 +62,12 @@ final class AppState {
     let openSettings = Trigger()
     let updater = Updater()
     self.updater = updater
+    let shared = SharedMenuItems(
+      updates: updater.item, openSettings: { openSettings.fire() },
+      checkForUpdates: { updater.checkForUpdates() })
+    self.shared = shared
     let hosting = NSHostingView(
-      rootView: PanelRootView(
-        preferences: preferences, list: list, input: input,
-        onOpenSettings: { openSettings.fire() }, updates: updater.item,
-        onCheckForUpdates: { updater.checkForUpdates() }))
+      rootView: PanelRootView(preferences: preferences, list: list, input: input, shared: shared))
     hosting.sizingOptions = []
     let content = DropDestinationView(content: hosting)
     let panel = PanelController(content: content, preferences: preferences)

@@ -3,29 +3,27 @@ import SwiftUI
 
 struct MoreMenu: View {
   @Bindable var preferences: Preferences
+  let shared: SharedMenuItems
   var onClearDone: (() -> Void)?
-  var onOpenSettings: (() -> Void)?
-  var onCheckForUpdates: (() -> Void)?
-  var updateAvailable = false
+
+  private var updateAvailable: Bool { shared.isUpdateWaiting }
 
   static let dotSize: CGFloat = 6
 
   var body: some View {
     Menu {
-      if updateAvailable {
-        Button("Update available") { onCheckForUpdates?() }
+      if let update = shared.updateAvailable {
+        SharedMenuButton(item: update)
         Divider()
       }
       Toggle("Keep open", isOn: $preferences.keepOpen)
       Button("Clear done") { onClearDone?() }
         .disabled(onClearDone == nil)
       Divider()
-      Button("Settings…") { onOpenSettings?() }
-        .disabled(onOpenSettings == nil)
-      Button("Check for updates…") { onCheckForUpdates?() }
-        .disabled(onCheckForUpdates == nil)
+      SharedMenuButton(item: shared.settings)
+      SharedMenuButton(item: shared.checkForUpdates)
       Divider()
-      Button("Quit Thoughts") { NSApp.terminate(nil) }
+      SharedMenuButton(item: shared.quit)
     } label: {
       Image(systemName: "ellipsis")
         .font(.system(size: 14, weight: .semibold))
@@ -45,5 +43,14 @@ struct MoreMenu: View {
     .buttonStyle(.plain)
     .menuIndicator(.hidden)
     .fixedSize()
+  }
+}
+
+private struct SharedMenuButton: View {
+  let item: SharedMenuItem
+
+  var body: some View {
+    Button(item.title) { item.perform() }
+      .disabled(!item.isEnabled)
   }
 }
