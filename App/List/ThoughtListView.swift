@@ -40,6 +40,7 @@ struct ThoughtListView: View {
       switch entry {
       case .thought(let thought):
         ThoughtRow(thought: thought, time: time, selected: selected)
+          .onDrag { DragOut.provider(for: thought) }
       case .malformed(let file, let reason):
         WarningRow(fileName: file.lastPathComponent, reason: reason, time: time, selected: selected)
       }

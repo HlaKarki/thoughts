@@ -18,7 +18,7 @@ struct ActionBar: View {
 
   private var hints: [Hint] {
     switch focus {
-    case .list:
+    case .list, .menu:
       return [
         Hint(label: "Copy", key: "⌘C"),
         Hint(label: "Edit", key: "↵"),

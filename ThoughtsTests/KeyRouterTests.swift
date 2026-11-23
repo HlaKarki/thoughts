@@ -17,7 +17,7 @@ struct KeyRouterCase: Sendable, CustomTestStringConvertible {
 }
 
 enum KeyRouterCases {
-  static let all: [KeyRouterCase] = input + search + list
+  static let all: [KeyRouterCase] = input + search + list + menu
 
   static let input: [KeyRouterCase] = [
     KeyRouterCase(name: "Return in the input adds", key: .return, expected: .add),
@@ -98,6 +98,30 @@ enum KeyRouterCases {
       name: "Command F in the list jumps to search", key: KeyEquivalent("f"),
       modifiers: .command, focus: .list, expected: .focusSearch),
     KeyRouterCase(name: "Delete alone does nothing", key: .delete, focus: .list, expected: nil),
+  ]
+
+  static let menu: [KeyRouterCase] = [
+    KeyRouterCase(
+      name: "Down in the menu moves the highlight", key: .downArrow, focus: .menu,
+      expected: .menuMove(1)),
+    KeyRouterCase(
+      name: "Up in the menu moves the highlight", key: .upArrow, focus: .menu,
+      expected: .menuMove(-1)),
+    KeyRouterCase(
+      name: "Return in the menu runs the item", key: .return, focus: .menu, expected: .menuRun),
+    KeyRouterCase(
+      name: "Esc in the menu closes it", key: .escape, focus: .menu, expected: .menuClose),
+    KeyRouterCase(
+      name: "Command K in the menu closes it", key: KeyEquivalent("k"), modifiers: .command,
+      focus: .menu, expected: .menuClose),
+    KeyRouterCase(
+      name: "Command F in the menu is left to the field", key: KeyEquivalent("f"),
+      modifiers: .command, focus: .menu, expected: nil),
+    KeyRouterCase(
+      name: "Typing in the menu is left to the field", key: KeyEquivalent("m"), focus: .menu,
+      expected: nil),
+    KeyRouterCase(
+      name: "Space in the menu is left to the field", key: .space, focus: .menu, expected: nil),
   ]
 }
 

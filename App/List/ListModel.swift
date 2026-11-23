@@ -12,6 +12,10 @@ extension ThoughtEntry {
 
   var fileName: String { file.lastPathComponent }
 
+  var thought: Thought? {
+    if case .thought(let thought) = self { thought } else { nil }
+  }
+
   var isCleared: Bool {
     if case .thought(let thought) = self { thought.cleared } else { false }
   }
@@ -26,6 +30,7 @@ final class ListModel {
   @ObservationIgnored private var hintTask: Task<Void, Never>?
   @ObservationIgnored private var birthDates: [String: Date] = [:]
   @ObservationIgnored var onCommand: ((KeyCommand) -> Void)?
+  @ObservationIgnored var onPreviewChange: ((Thought?) -> Void)?
 
   private(set) var entries: [ThoughtEntry] = []
   private(set) var hint: String?
@@ -33,7 +38,26 @@ final class ListModel {
   private(set) var addedCount = 0
   private(set) var matches: Set<String>?
   var now = Date()
-  var selection: [String] = []
+  var selection: [String] = [] {
+    didSet {
+      guard selection != oldValue else { return }
+      if isMenuOpen, selection.isEmpty { closeMenu() }
+      if isPreviewing, previewThought == nil { isPreviewing = false }
+      if isPreviewing { onPreviewChange?(previewThought) }
+    }
+  }
+  private(set) var isMenuOpen = false
+  private(set) var isPreviewing = false {
+    didSet {
+      if isPreviewing != oldValue { onPreviewChange?(isPreviewing ? previewThought : nil) }
+    }
+  }
+  var menuQuery = "" {
+    didSet {
+      if menuQuery != oldValue { menuHighlight = 0 }
+    }
+  }
+  var menuHighlight = 0
   var focus: Focus = .input
   var query = "" {
     didSet {
@@ -64,6 +88,24 @@ final class ListModel {
   var selectedEntries: [ThoughtEntry] {
     let chosen = Set(selection)
     return visible.filter { chosen.contains($0.fileName) }
+  }
+
+  var menuItems: [ActionItem] {
+    ActionCatalog.filter(ActionCatalog.items(for: selectedEntries), by: menuQuery)
+  }
+
+  var previewThought: Thought? {
+    guard selection.count == 1 else { return nil }
+    return selectedEntries.first?.thought
+  }
+
+  func neighbor(excluding names: Set<String>) -> String? {
+    let all = visible.map(\.fileName)
+    guard let first = all.firstIndex(where: names.contains),
+      let last = all.lastIndex(where: names.contains)
+    else { return nil }
+    if let after = all[(last + 1)...].first(where: { !names.contains($0) }) { return after }
+    return all[..<first].last(where: { !names.contains($0) })
   }
 
   func start() {
@@ -146,17 +188,64 @@ final class ListModel {
       focus = .list
       selection = [newest.fileName]
     case .focusSearch:
+      isPreviewing = false
       focus = .search
     case .clearSearch:
       query = ""
       focus = .input
     case .backToInput:
+      if isPreviewing {
+        isPreviewing = false
+        return
+      }
       selection = []
       focus = .input
+    case .preview:
+      isPreviewing = !isPreviewing && previewThought != nil
+      return
+    case .actionsMenu:
+      isPreviewing = false
+      openMenu()
+      return
+    case .menuMove(let delta):
+      let last = menuItems.count - 1
+      guard last >= 0 else { return }
+      menuHighlight = min(max(menuHighlight + delta, 0), last)
+      return
+    case .menuClose:
+      closeMenu()
+      return
+    case .menuRun:
+      runMenuItem()
+      return
+    case .edit:
+      isPreviewing = false
     default:
       break
     }
     onCommand?(command)
+  }
+
+  func closeMenu() {
+    guard isMenuOpen else { return }
+    isMenuOpen = false
+    menuQuery = ""
+    focus = .list
+  }
+
+  private func openMenu() {
+    guard !selection.isEmpty, !selectedEntries.isEmpty else { return }
+    menuQuery = ""
+    menuHighlight = 0
+    isMenuOpen = true
+    focus = .menu
+  }
+
+  private func runMenuItem() {
+    let items = menuItems
+    let command = items.indices.contains(menuHighlight) ? items[menuHighlight].command : nil
+    closeMenu()
+    if let command { perform(command) }
   }
 
   func clearDone() {
@@ -194,6 +283,9 @@ final class ListModel {
 
   func panelDidHide() {
     isPanelShown = false
+    isPreviewing = false
+    isMenuOpen = false
+    menuQuery = ""
     hintTask?.cancel()
   }
 

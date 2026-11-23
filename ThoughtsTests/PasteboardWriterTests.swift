@@ -1,0 +1,63 @@
+import AppKit
+import Testing
+
+@testable import Thoughts
+
+@MainActor
+struct PasteboardWriterTests {
+  static func privateBoard() -> NSPasteboard {
+    NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+  }
+
+  @Test func copyImageWritesPNGAndFileURL() throws {
+    let board = Self.privateBoard()
+    defer { board.releaseGlobally() }
+    let folder = TempFolder()
+    try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
+    let file = folder.url.appendingPathComponent("shot.png")
+    let png = try ListFixture.png()
+    try png.write(to: file)
+    let writer = PasteboardWriter(pasteboard: board)
+    writer.write(imageAt: file)
+    #expect(board.data(forType: .png) == png)
+    #expect(board.string(forType: .fileURL) == file.absoluteString)
+    #expect(board.string(forType: .string) == nil)
+  }
+
+  @Test func copyImageConvertsOtherFormatsToPNG() throws {
+    let board = Self.privateBoard()
+    defer { board.releaseGlobally() }
+    let folder = TempFolder()
+    try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
+    let file = folder.url.appendingPathComponent("shot.tiff")
+    let tiff = try #require(NSBitmapImageRep(data: try ListFixture.png())?.tiffRepresentation)
+    try tiff.write(to: file)
+    PasteboardWriter(pasteboard: board).write(imageAt: file)
+    let written = try #require(board.data(forType: .png))
+    #expect(written.starts(with: [0x89, 0x50, 0x4E, 0x47]))
+  }
+
+  @Test func writesRecordOwnChangeCount() {
+    let board = Self.privateBoard()
+    defer { board.releaseGlobally() }
+    let writer = PasteboardWriter(pasteboard: board)
+    var reported: [Int] = []
+    writer.onOwnChange = { reported.append($0) }
+    writer.write(text: "first")
+    let first = board.changeCount
+    writer.write(text: "second")
+    let second = board.changeCount
+    #expect(board.string(forType: .string) == "second")
+    #expect(writer.ownChangeCounts == [first, second])
+    #expect(reported == [first, second])
+  }
+
+  @Test func noteOwnRecordsAndReports() {
+    let writer = PasteboardWriter(pasteboard: Self.privateBoard())
+    var reported: [Int] = []
+    writer.onOwnChange = { reported.append($0) }
+    writer.noteOwn(41)
+    #expect(writer.ownChangeCounts == [41])
+    #expect(reported == [41])
+  }
+}

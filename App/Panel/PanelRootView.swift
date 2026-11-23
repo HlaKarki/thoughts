@@ -16,6 +16,7 @@ struct PanelRootView: View {
     .frame(width: PanelController.width)
     .frame(maxHeight: .infinity)
     .background { PanelBackground() }
+    .overlay { menuLayer }
     .clipShape(RoundedRectangle(cornerRadius: PanelBackground.cornerRadius, style: .continuous))
     .background {
       KeyRoutingView { stroke in
@@ -33,8 +34,26 @@ struct PanelRootView: View {
     .onChange(of: field) { _, focus in
       if let focus, list.focus != focus { list.focus = focus }
     }
+    .animation(.easeOut(duration: PanelController.duration), value: list.isMenuOpen)
     .onAppear { field = list.focus == .list ? nil : list.focus }
   }
+
+  @ViewBuilder
+  private var menuLayer: some View {
+    if list.isMenuOpen {
+      ZStack(alignment: .bottomTrailing) {
+        Color.clear
+          .contentShape(Rectangle())
+          .onTapGesture { list.closeMenu() }
+        ActionsMenu(list: list, field: $field)
+          .padding(.trailing, 12)
+          .padding(.bottom, Self.menuBottomInset)
+      }
+      .transition(.opacity)
+    }
+  }
+
+  static let menuBottomInset: CGFloat = 74
 
   private var header: some View {
     HStack(spacing: 8) {

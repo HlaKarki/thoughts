@@ -22,6 +22,7 @@ final class TempFolder {
 final class ListFixture {
   let root: URL
   let folder: URL
+  let location: StorageLocation
   let model: ListModel
   let store: ThoughtStore
   let sync: IndexSync
@@ -36,6 +37,7 @@ final class ListFixture {
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     let location = StorageLocation(
       appName: "ThoughtsTests", environment: ["THOUGHTS_DIR": folder.path], home: root)
+    self.location = location
     let index = try SearchIndex(url: location.indexURL, folder: folder)
     store = ThoughtStore(folder: folder)
     sync = IndexSync(store: store, index: index, recognizer: nil)
@@ -55,18 +57,24 @@ final class ListFixture {
   }
 
   @discardableResult
-  func addText(_ text: String, daysAgo: Double, done: Bool = false) throws -> Thought {
+  func addText(
+    _ text: String, daysAgo: Double, done: Bool = false, source: Source? = nil
+  ) throws -> Thought {
     var thought = try store.add(
-      NewThought(content: .text(text), created: Self.now.addingTimeInterval(-daysAgo * 86400)))
+      NewThought(
+        content: .text(text), source: source,
+        created: Self.now.addingTimeInterval(-daysAgo * 86400)))
     if done { thought = try store.setDone(true, for: thought.id, at: Self.now) }
     return thought
   }
 
   @discardableResult
-  func addScreenshot(note: String, daysAgo: Double, done: Bool = false) throws -> Thought {
+  func addScreenshot(
+    note: String, daysAgo: Double, done: Bool = false, source: Source? = nil
+  ) throws -> Thought {
     var thought = try store.add(
       NewThought(
-        content: .image(.data(try Self.png(), .png), note: note),
+        content: .image(.data(try Self.png(), .png), note: note), source: source,
         created: Self.now.addingTimeInterval(-daysAgo * 86400)))
     if done { thought = try store.setDone(true, for: thought.id, at: Self.now) }
     return thought

@@ -25,6 +25,9 @@ final class PanelController {
     }
   }
 
+  var frame: CGRect { panel.frame }
+  var edge: PanelEdge { preferences.edge }
+
   var isShown: Bool { panel.isVisible && !hiding }
 
   static func frame(in visible: CGRect, edge: PanelEdge) -> CGRect {

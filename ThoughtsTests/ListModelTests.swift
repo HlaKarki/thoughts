@@ -63,4 +63,54 @@ struct ListModelTests {
     fixture.model.panelDidHide()
     #expect(fixture.model.hint == "The folder is unavailable")
   }
+
+  @Test func actionsMenuFiltersRunsAndHandsTheCommandOn() throws {
+    let fixture = try ListFixture()
+    let thought = try fixture.addText("one", daysAgo: 1)
+    try fixture.reload()
+    var forwarded: [KeyCommand] = []
+    fixture.model.onCommand = { forwarded.append($0) }
+    fixture.model.perform(.actionsMenu)
+    #expect(!fixture.model.isMenuOpen)
+    fixture.model.select(thought.file.lastPathComponent, extend: false)
+    fixture.model.perform(.actionsMenu)
+    #expect(fixture.model.isMenuOpen)
+    #expect(fixture.model.focus == .menu)
+    fixture.model.menuQuery = "mark"
+    #expect(fixture.model.menuItems.map(\.id) == ["toggleDone"])
+    fixture.model.perform(.menuMove(5))
+    #expect(fixture.model.menuHighlight == 0)
+    fixture.model.perform(.menuRun)
+    #expect(!fixture.model.isMenuOpen)
+    #expect(fixture.model.focus == .list)
+    #expect(fixture.model.menuQuery.isEmpty)
+    #expect(forwarded == [.toggleDone])
+    fixture.model.perform(.actionsMenu)
+    fixture.model.perform(.menuClose)
+    #expect(fixture.model.focus == .list)
+    #expect(forwarded == [.toggleDone])
+  }
+
+  @Test func previewFollowsTheSelectionAndClosesOnEsc() throws {
+    let fixture = try ListFixture()
+    let first = try fixture.addText("one", daysAgo: 2)
+    let second = try fixture.addText("two", daysAgo: 1)
+    try fixture.reload()
+    var shown: [String?] = []
+    fixture.model.onPreviewChange = { shown.append($0.map { $0.file.lastPathComponent }) }
+    fixture.model.perform(.preview)
+    #expect(!fixture.model.isPreviewing)
+    fixture.model.select(first.file.lastPathComponent, extend: false)
+    fixture.model.perform(.preview)
+    #expect(fixture.model.isPreviewing)
+    fixture.model.perform(.move(1))
+    #expect(fixture.model.previewThought?.id == second.id)
+    fixture.model.perform(.backToInput)
+    #expect(!fixture.model.isPreviewing)
+    #expect(fixture.model.selection == [second.file.lastPathComponent])
+    #expect(
+      shown == [
+        first.file.lastPathComponent, second.file.lastPathComponent, nil,
+      ])
+  }
 }

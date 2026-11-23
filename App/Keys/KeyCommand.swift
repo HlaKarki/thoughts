@@ -4,6 +4,7 @@ enum Focus: Equatable, Hashable {
   case input
   case search
   case list
+  case menu
 }
 
 enum KeyCommand: Equatable {
@@ -25,6 +26,9 @@ enum KeyCommand: Equatable {
   case delete
   case actionsMenu
   case backToInput
+  case menuMove(Int)
+  case menuRun
+  case menuClose
 }
 
 struct KeyStroke: Equatable {
