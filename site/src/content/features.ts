@@ -114,7 +114,7 @@ export const features: Features = {
       'Press ⌘F in the panel and start typing. The list narrows to the thoughts that match, including the text inside screenshots. Esc clears the search.',
     ],
     tile: {
-      label: 'A search for oven finds a recipe screenshot and a note.',
+      label: `A search for ${searchQuery} finds a recipe screenshot and a note.`,
       query: searchQuery,
       page: {
         source: 'Safari: Sourdough, step by step',
