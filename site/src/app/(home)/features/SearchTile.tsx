@@ -84,7 +84,7 @@ export function SearchTile() {
         <MiniRow time={tile.page.time}>
           <span {...stylex.props(styles.page)}>
             <span {...stylex.props(styles.pageTitle)} />
-            <Photo src={site.photos.bread} alt="" xstyle={styles.pagePhoto} />
+            <Photo src={site.photos.bread} xstyle={styles.pagePhoto} />
             <span {...stylex.props(styles.pageLine, styles.pageLineLong)} />
             <span {...stylex.props(styles.pageLine, styles.pageLineShort)} />
           </span>

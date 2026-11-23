@@ -12,7 +12,9 @@ export function Tile({ label, children }: Props) {
   return (
     <div role="img" aria-label={label} {...stylex.props(styles.tile)}>
       <Grain />
-      <div {...stylex.props(styles.stage)}>{children}</div>
+      <div aria-hidden {...stylex.props(styles.stage)}>
+        {children}
+      </div>
     </div>
   )
 }

@@ -12,7 +12,6 @@ export type PanelRow =
   | {
       readonly kind: 'image'
       readonly image: string
-      readonly alt: string
       readonly note: string
       readonly time: string
     }
@@ -35,7 +34,6 @@ type Hero = {
     readonly title: string
     readonly intro: string
     readonly photo: string
-    readonly photoAlt: string
     readonly heading: string
     readonly paragraph: {
       readonly before: string
@@ -45,7 +43,6 @@ type Hero = {
   }
   readonly panel: {
     readonly search: string
-    readonly menuLabel: string
     readonly rows: ReadonlyArray<PanelRow>
     readonly composer: string
     readonly hints: ReadonlyArray<KeyHint>
@@ -53,7 +50,7 @@ type Hero = {
 }
 
 export const hero: Hero = {
-  label: 'Thoughts open beside a recipe page in Safari',
+  label: 'The Thoughts panel sits beside a sourdough recipe in Safari, and the sentence you selected on the page is now the newest thought.',
   menuBar: {
     app: 'Safari',
     menus: ['File', 'Edit', 'View', 'History', 'Bookmarks', 'Window', 'Help'],
@@ -65,7 +62,6 @@ export const hero: Hero = {
     title: 'Sourdough, step by step',
     intro: 'Two days from start to finish, and the dough does most of the work.',
     photo: site.photos.bread,
-    photoAlt: 'A round sourdough loaf on a board.',
     heading: 'Mix and rest',
     paragraph: {
       before: 'Mix the flour and water until no dry bits remain. ',
@@ -75,7 +71,6 @@ export const hero: Hero = {
   },
   panel: {
     search: 'Search thoughts',
-    menuLabel: 'More',
     rows: [
       {
         kind: 'text',
@@ -109,7 +104,6 @@ export const hero: Hero = {
       {
         kind: 'image',
         image: site.photos.cat,
-        alt: 'A screenshot of an orange cat sitting like a loaf, with a red box around it.',
         note: thoughts.oven.text,
         time: thoughts.oven.time,
       },

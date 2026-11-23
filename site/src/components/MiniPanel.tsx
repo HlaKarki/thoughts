@@ -51,7 +51,7 @@ export function MiniRow({ time, children, element: Element = 'li', xstyle }: Row
 }
 
 export function MiniThumbnail({ src }: { readonly src: string }) {
-  return <Photo src={src} alt="" xstyle={styles.thumbnail} />
+  return <Photo src={src} xstyle={styles.thumbnail} />
 }
 
 type BarsProps = {

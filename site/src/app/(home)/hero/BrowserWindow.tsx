@@ -28,7 +28,7 @@ export function BrowserWindow() {
         <p {...stylex.props(styles.eyebrow)}>{page.eyebrow}</p>
         <p {...stylex.props(styles.title)}>{page.title}</p>
         <p {...stylex.props(styles.body)}>{page.intro}</p>
-        <Photo src={page.photo} alt={page.photoAlt} xstyle={styles.photo} />
+        <Photo src={page.photo} xstyle={styles.photo} />
         <div {...stylex.props(styles.section)}>
           <p {...stylex.props(styles.heading)}>{page.heading}</p>
           <p {...stylex.props(styles.paragraph)}>

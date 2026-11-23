@@ -13,9 +13,7 @@ export function Intro() {
       <div {...stylex.props(styles.install)}>
         <div {...stylex.props(styles.actions)}>
           <ButtonLink link={intro.download} />
-          <code aria-label={intro.brewLabel} {...stylex.props(styles.brew)}>
-            {intro.brew}
-          </code>
+          <code {...stylex.props(styles.brew)}>{intro.brew}</code>
         </div>
         <p {...stylex.props(styles.requirements)}>{intro.requirements}</p>
       </div>

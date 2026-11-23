@@ -22,7 +22,7 @@ export function HeroPanel() {
           <Search xstyle={styles.icon} />
           <span {...stylex.props(styles.placeholder)}>{panel.search}</span>
         </div>
-        <span aria-label={panel.menuLabel} role="img" {...stylex.props(styles.menu)}>
+        <span {...stylex.props(styles.menu)}>
           <MoreDots xstyle={styles.icon} />
         </span>
       </div>
@@ -39,7 +39,7 @@ export function HeroPanel() {
             </ThoughtRow>
           ) : (
             <ThoughtRow key={row.note} time={row.time}>
-              <Photo src={row.image} alt={row.alt} xstyle={styles.thumbnail}>
+              <Photo src={row.image} xstyle={styles.thumbnail}>
                 <span {...stylex.props(styles.marker)} />
               </Photo>
               <span>{row.note}</span>

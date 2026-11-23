@@ -3,19 +3,13 @@ import type { ReactNode } from 'react'
 
 type Props = {
   readonly src: string
-  readonly alt: string
   readonly xstyle: stylex.StyleXStyles
   readonly children?: ReactNode
 }
 
-export function Photo({ src, alt, xstyle, children }: Props) {
+export function Photo({ src, xstyle, children }: Props) {
   return (
-    <div
-      role={alt ? 'img' : undefined}
-      aria-label={alt || undefined}
-      aria-hidden={alt ? undefined : true}
-      {...stylex.props(styles.photo, xstyle, styles.source(`url("${src}")`))}
-    >
+    <div aria-hidden {...stylex.props(styles.photo, xstyle, styles.source(`url("${src}")`))}>
       {children}
     </div>
   )

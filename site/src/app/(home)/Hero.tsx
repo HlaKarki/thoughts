@@ -13,9 +13,9 @@ const settle = stylex.keyframes({
 
 export function Hero() {
   return (
-    <section aria-label={hero.label} {...stylex.props(styles.hero)}>
-      <div {...stylex.props(styles.crop)}>
-        <div {...stylex.props(styles.scene)}>
+    <section {...stylex.props(styles.hero)}>
+      <div role="img" aria-label={hero.label} {...stylex.props(styles.crop)}>
+        <div aria-hidden {...stylex.props(styles.scene)}>
           <Grain />
           <MenuBar />
           <BrowserWindow />

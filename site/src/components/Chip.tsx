@@ -41,7 +41,7 @@ type OfferProps = {
 export function OfferChip({ title, subtitle, keys, image, xstyle }: OfferProps) {
   return (
     <Chip xstyle={[styles.offer, xstyle]}>
-      <Photo src={image} alt="" xstyle={styles.offerSlot} />
+      <Photo src={image} xstyle={styles.offerSlot} />
       <span {...stylex.props(styles.offerText)}>
         <span {...stylex.props(styles.title)}>{title}</span>
         <span {...stylex.props(styles.subtitle)}>{subtitle}</span>

@@ -18,7 +18,7 @@ export function MiniPage({ photo, compactWhenNarrow = false, children }: Props) 
         <span {...stylex.props(styles.title, compact && styles.titleCompact)} />
       </span>
       <span {...stylex.props(styles.spacer, styles.photoSpacer)}>
-        <Photo src={photo} alt="" xstyle={[styles.photo, compact && styles.photoCompact]} />
+        <Photo src={photo} xstyle={[styles.photo, compact && styles.photoCompact]} />
       </span>
       <div {...stylex.props(styles.lines)}>
         <span {...stylex.props(styles.headingRow)}>

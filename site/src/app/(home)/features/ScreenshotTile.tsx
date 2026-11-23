@@ -44,7 +44,7 @@ export function ScreenshotTile() {
   return (
     <Tile label={tile.label}>
       <MiniWindow title={tile.windowTitle} strongTitle xstyle={styles.window} titleXstyle={styles.title}>
-        <Photo src={tile.photo} alt="" xstyle={styles.photo}>
+        <Photo src={tile.photo} xstyle={styles.photo}>
           <span {...stylex.props(styles.flash, loop.long, styles.flashing)} />
         </Photo>
       </MiniWindow>
