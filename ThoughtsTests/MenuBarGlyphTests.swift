@@ -5,9 +5,7 @@ import Testing
 
 @MainActor
 struct MenuBarGlyphTests {
-  static func cell(updateWaiting: Bool) -> CGSize {
-    CGSize(width: MenuBarGlyph.buttonLength(updateWaiting: updateWaiting), height: 24)
-  }
+  static let cell = CGSize(width: MenuBarGlyph.buttonLength, height: 24)
 
   static let scales = [1, 2]
 
@@ -37,14 +35,18 @@ struct MenuBarGlyphTests {
   final class Backdrop: NSView {
     var tint = NSColor.black
     var fill = NSColor.white
-    var updateWaiting = false
+    var selection: NSColor?
 
     override func draw(_ dirtyRect: NSRect) {
       fill.setFill()
       bounds.fill()
+      if let selection {
+        selection.setFill()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 0, dy: 1), xRadius: 5, yRadius: 5).fill()
+      }
       NSGraphicsContext.saveGraphicsState()
       let transform = NSAffineTransform()
-      let size = MenuBarGlyph.size(updateWaiting: updateWaiting)
+      let size = MenuBarGlyph.canvas
       transform.translateX(
         by: (bounds.width - size.width) / 2, yBy: (bounds.height - size.height) / 2)
       transform.concat()
@@ -66,18 +68,11 @@ struct MenuBarGlyphTests {
   }
 
   static func render(
-    updateWaiting: Bool, appearance: NSAppearance.Name, scale: Int, name: String
+    updateWaiting: Bool, appearance: NSAppearance.Name, scale: Int, name: String,
+    selected: Bool = false
   ) throws -> URL {
-    let dark = appearance == .darkAqua
-    let cell = Self.cell(updateWaiting: updateWaiting)
-    let backdrop = Backdrop(frame: CGRect(origin: .zero, size: cell))
-    backdrop.appearance = NSAppearance(named: appearance)
-    backdrop.fill = dark ? NSColor(white: 0.16, alpha: 1) : NSColor(white: 0.93, alpha: 1)
-    backdrop.tint = dark ? .white : .black
-    backdrop.updateWaiting = updateWaiting
-    if updateWaiting { MenuBarGlyph.install(dot: UpdateDotView(), in: backdrop) }
-    let rep = try bitmap(for: cell, scale: scale)
-    backdrop.cacheDisplay(in: backdrop.bounds, to: rep)
+    let rep = try renderedBitmap(
+      updateWaiting: updateWaiting, appearance: appearance, scale: scale, selected: selected)
     let png = try #require(rep.representation(using: .png, properties: [:]))
     let folder = FileManager.default.temporaryDirectory
       .appendingPathComponent("ThoughtsSnapshots", isDirectory: true)
@@ -87,9 +82,26 @@ struct MenuBarGlyphTests {
     return url
   }
 
+  static func renderedBitmap(
+    updateWaiting: Bool, appearance: NSAppearance.Name, scale: Int, selected: Bool = false
+  ) throws -> NSBitmapImageRep {
+    let dark = appearance == .darkAqua
+    let backdrop = Backdrop(frame: CGRect(origin: .zero, size: cell))
+    backdrop.appearance = NSAppearance(named: appearance)
+    backdrop.fill = dark ? NSColor(white: 0.16, alpha: 1) : NSColor(white: 0.93, alpha: 1)
+    backdrop.tint = dark ? .white : .black
+    if selected {
+      backdrop.selection = dark ? NSColor(white: 1, alpha: 0.22) : NSColor(white: 0, alpha: 0.2)
+    }
+    if updateWaiting { MenuBarGlyph.install(dot: UpdateDotView(), in: backdrop) }
+    let rep = try bitmap(for: cell, scale: scale)
+    backdrop.cacheDisplay(in: backdrop.bounds, to: rep)
+    return rep
+  }
+
   @Test(arguments: [1, 2])
   func theCaretAndBarEdgesLandOnWholePixelsSoTheyAreCrisp(scale: Int) throws {
-    let glyph = MenuBarGlyph.image(updateWaiting: false)
+    let glyph = MenuBarGlyph.image()
     let caretHeightRow = scale * 9
     let row = try Self.alphaRow(of: glyph, scale: scale, row: caretHeightRow)
     #expect(Set(row) == [0, 255])
@@ -100,33 +112,59 @@ struct MenuBarGlyphTests {
   }
 
   @Test func theGlyphIsATemplateSoMacOSTintsIt() {
-    #expect(MenuBarGlyph.image(updateWaiting: false).isTemplate)
-    #expect(MenuBarGlyph.image(updateWaiting: true).isTemplate)
-    #expect(MenuBarGlyph.image(updateWaiting: false).size == MenuBarGlyph.glyphSize)
+    #expect(MenuBarGlyph.image().isTemplate)
+    #expect(MenuBarGlyph.image().size == MenuBarGlyph.canvas)
   }
 
   @Test(arguments: [1, 2])
-  func theUpdateImageKeepsTheGlyphWholeAndLeavesTheDotAreaEmpty(scale: Int) throws {
-    let plain = MenuBarGlyph.image(updateWaiting: false)
-    let waiting = MenuBarGlyph.image(updateWaiting: true)
-    #expect(waiting.size.height == plain.size.height)
-    #expect(waiting.size.width > plain.size.width)
+  func theDotAreaOfTheImageIsEmptyAndTheGlyphStaysWhole(scale: Int) throws {
+    let image = MenuBarGlyph.image()
     let glyphColumns = Int(MenuBarGlyph.glyphSize.width) * scale
-    let dot = MenuBarGlyph.dotRect
-    for point in stride(from: 0, to: Int(plain.size.height) * scale, by: 1) {
-      let a = try Self.alphaRow(of: plain, scale: scale, row: point)
-      let b = try Self.alphaRow(of: waiting, scale: scale, row: point)
-      #expect(Array(b[0..<glyphColumns]) == a)
-      #expect(b[glyphColumns...].allSatisfy { $0 == 0 })
+    var inkInGlyphColumns = 0
+    for row in 0..<(Int(image.size.height) * scale) {
+      let alpha = try Self.alphaRow(of: image, scale: scale, row: row)
+      #expect(alpha[glyphColumns...].allSatisfy { $0 == 0 })
+      inkInGlyphColumns += alpha[0..<glyphColumns].filter { $0 > 0 }.count
     }
-    #expect(dot.minX - MenuBarGlyph.caret.maxX == MenuBarGlyph.dotGap)
+    #expect(inkInGlyphColumns > 0)
+    #expect(
+      MenuBarGlyph.dotRect.minX - MenuBarGlyph.caret.maxX == MenuBarGlyph.dotGap)
+  }
+
+  @Test(arguments: [NSAppearance.Name.aqua, .darkAqua], [false, true])
+  func anUpdateChangesOnlyThePixelsOfTheDotAndNeverTheItemWidth(
+    appearance: NSAppearance.Name, selected: Bool
+  ) throws {
+    let scale = 2
+    let plain = try Self.renderedBitmap(
+      updateWaiting: false, appearance: appearance, scale: scale, selected: selected)
+    let dotted = try Self.renderedBitmap(
+      updateWaiting: true, appearance: appearance, scale: scale, selected: selected)
+    #expect(plain.pixelsWide == dotted.pixelsWide)
+    #expect(plain.pixelsWide == Int(MenuBarGlyph.buttonLength) * scale)
+    let dot = MenuBarGlyph.dotFrame(
+      in: CGRect(origin: .zero, size: Self.cell), flipped: false)
+    let area = CGRect(
+      x: dot.minX * CGFloat(scale), y: (Self.cell.height - dot.maxY) * CGFloat(scale),
+      width: dot.width * CGFloat(scale), height: dot.height * CGFloat(scale)
+    ).insetBy(dx: -CGFloat(scale), dy: -CGFloat(scale))
+    var changed = 0
+    for y in 0..<plain.pixelsHigh {
+      for x in 0..<plain.pixelsWide {
+        let a = try #require(plain.colorAt(x: x, y: y)).usingColorSpace(.deviceRGB)
+        let b = try #require(dotted.colorAt(x: x, y: y)).usingColorSpace(.deviceRGB)
+        guard a != b else { continue }
+        changed += 1
+        #expect(area.contains(CGPoint(x: x, y: y)))
+      }
+    }
+    #expect(changed > 0)
   }
 
   @Test(arguments: [false, true])
   func theDotNeverTouchesTheBarOrTheCaretInTheButton(flipped: Bool) {
-    let bounds = CGRect(
-      x: 0, y: 0, width: MenuBarGlyph.buttonLength(updateWaiting: true), height: 24)
-    let canvas = MenuBarGlyph.size(updateWaiting: true)
+    let bounds = CGRect(origin: .zero, size: Self.cell)
+    let canvas = MenuBarGlyph.canvas
     let origin = CGPoint(x: bounds.midX - canvas.width / 2, y: bounds.midY - canvas.height / 2)
     func inButton(_ rect: CGRect) -> CGRect {
       let y = flipped ? origin.y + canvas.height - rect.maxY : origin.y + rect.minY
@@ -139,12 +177,8 @@ struct MenuBarGlyphTests {
     #expect(dot.size == CGSize(width: MenuBarGlyph.dotDiameter, height: MenuBarGlyph.dotDiameter))
   }
 
-  @Test func theButtonIsWideEnoughForTheGlyphAndTheDot() {
-    for waiting in [false, true] {
-      #expect(
-        MenuBarGlyph.buttonLength(updateWaiting: waiting)
-          >= MenuBarGlyph.size(updateWaiting: waiting).width)
-    }
+  @Test func theItemIsWideEnoughForTheGlyphAndTheDot() {
+    #expect(MenuBarGlyph.buttonLength >= MenuBarGlyph.canvas.width)
   }
 
   @Test(arguments: [NSAppearance.Name.aqua, .darkAqua], [false, true])
@@ -157,10 +191,25 @@ struct MenuBarGlyphTests {
       let url = try Self.render(
         updateWaiting: updateWaiting, appearance: appearance, scale: scale, name: name)
       let image = try #require(NSBitmapImageRep(data: Data(contentsOf: url)))
-      let cell = Self.cell(updateWaiting: updateWaiting)
-      #expect(image.pixelsWide == Int(cell.width) * scale)
-      #expect(image.pixelsHigh == Int(cell.height) * scale)
+      #expect(image.pixelsWide == Int(Self.cell.width) * scale)
+      #expect(image.pixelsHigh == Int(Self.cell.height) * scale)
       #expect(SnapshotTests.colorCount(of: image) > 1)
+    }
+  }
+
+  @Test(arguments: [NSAppearance.Name.aqua, .darkAqua], [false, true])
+  func theIconRendersInsideTheSelectedItemShape(
+    appearance: NSAppearance.Name, updateWaiting: Bool
+  ) throws {
+    for scale in Self.scales {
+      let name =
+        "menubar-selected-\(appearance == .aqua ? "light" : "dark")-\(updateWaiting ? "dot" : "plain")-\(scale)x"
+      let url = try Self.render(
+        updateWaiting: updateWaiting, appearance: appearance, scale: scale, name: name,
+        selected: true)
+      let image = try #require(NSBitmapImageRep(data: Data(contentsOf: url)))
+      #expect(image.pixelsWide == Int(Self.cell.width) * scale)
+      #expect(SnapshotTests.colorCount(of: image) > 2)
     }
   }
 

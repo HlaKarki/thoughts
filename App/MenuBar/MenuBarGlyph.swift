@@ -8,15 +8,9 @@ enum MenuBarGlyph {
   static let bar = CGRect(x: 0, y: 2, width: 13, height: 4)
   static let caret = CGRect(x: 15, y: 2, width: 3, height: 14)
 
-  static func size(updateWaiting: Bool) -> CGSize {
-    updateWaiting
-      ? CGSize(width: glyphSize.width + dotGap + dotDiameter, height: glyphSize.height)
-      : glyphSize
-  }
-
-  static func buttonLength(updateWaiting: Bool) -> CGFloat {
-    updateWaiting ? 30 : 24
-  }
+  static let canvas = CGSize(
+    width: glyphSize.width + dotGap + dotDiameter, height: glyphSize.height)
+  static let buttonLength: CGFloat = 28
 
   static var dotRect: CGRect {
     CGRect(
@@ -29,8 +23,8 @@ enum MenuBarGlyph {
     NSBezierPath(roundedRect: caret, xRadius: caret.width / 2, yRadius: caret.width / 2).fill()
   }
 
-  static func image(updateWaiting: Bool) -> NSImage {
-    let image = NSImage(size: size(updateWaiting: updateWaiting), flipped: false) { _ in
+  static func image() -> NSImage {
+    let image = NSImage(size: canvas, flipped: false) { _ in
       NSColor.black.setFill()
       draw()
       return true
@@ -40,7 +34,6 @@ enum MenuBarGlyph {
   }
 
   static func dotFrame(in bounds: CGRect, flipped: Bool) -> CGRect {
-    let canvas = size(updateWaiting: true)
     let originX = bounds.midX - canvas.width / 2
     let y =
       flipped
