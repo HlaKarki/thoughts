@@ -26,6 +26,7 @@ final class AppState {
   let firstRun: FirstRunWindowController
   let importer: InboxImporter?
   let urls: URLHandler
+  let updater: Updater
   static let savedChipLifetime: TimeInterval = 1.2
   static let hintChipLifetime: TimeInterval = 2.4
   private var summon: Task<Void, Never>?
@@ -58,10 +59,13 @@ final class AppState {
     }
     self.input = input
     let openSettings = Trigger()
+    let updater = Updater()
+    self.updater = updater
     let hosting = NSHostingView(
       rootView: PanelRootView(
         preferences: preferences, list: list, input: input,
-        onOpenSettings: { openSettings.fire() }))
+        onOpenSettings: { openSettings.fire() }, updates: updater.item,
+        onCheckForUpdates: { updater.checkForUpdates() }))
     hosting.sizingOptions = []
     let content = DropDestinationView(content: hosting)
     let panel = PanelController(content: content, preferences: preferences)

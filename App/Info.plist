@@ -35,6 +35,14 @@
 	<string>15.4</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/HlaKarki/thoughts/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>0hBOwDutzPP3kabws9Vn3HIfHAyG3dOsH0IQgzBSiGY=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 	<key>ThoughtsAppGroup</key>
 	<string>$(THOUGHTS_APP_GROUP)</string>
 </dict>

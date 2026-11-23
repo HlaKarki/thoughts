@@ -6,9 +6,16 @@ struct MoreMenu: View {
   var onClearDone: (() -> Void)?
   var onOpenSettings: (() -> Void)?
   var onCheckForUpdates: (() -> Void)?
+  var updateAvailable = false
+
+  static let dotSize: CGFloat = 6
 
   var body: some View {
     Menu {
+      if updateAvailable {
+        Button("Update available") { onCheckForUpdates?() }
+        Divider()
+      }
       Toggle("Keep open", isOn: $preferences.keepOpen)
       Button("Clear done") { onClearDone?() }
         .disabled(onClearDone == nil)
@@ -24,6 +31,14 @@ struct MoreMenu: View {
         .font(.system(size: 14, weight: .semibold))
         .foregroundStyle(Color(nsColor: .systemGray))
         .frame(width: 32, height: 32)
+        .overlay(alignment: .topTrailing) {
+          if updateAvailable {
+            Circle()
+              .fill(Color(nsColor: .controlAccentColor))
+              .frame(width: Self.dotSize, height: Self.dotSize)
+              .padding(6)
+          }
+        }
         .contentShape(Rectangle())
     }
     .menuStyle(.button)

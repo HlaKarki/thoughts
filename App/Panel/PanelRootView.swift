@@ -5,6 +5,8 @@ struct PanelRootView: View {
   @Bindable var list: ListModel
   @Bindable var input: InputModel
   var onOpenSettings: (() -> Void)?
+  var updates: UpdateMenuItem?
+  var onCheckForUpdates: (() -> Void)?
   @FocusState private var field: Focus?
 
   var body: some View {
@@ -66,7 +68,8 @@ struct PanelRootView: View {
     HStack(spacing: 8) {
       SearchField(list: list, field: $field)
       MoreMenu(
-        preferences: preferences, onClearDone: { list.clearDone() }, onOpenSettings: onOpenSettings)
+        preferences: preferences, onClearDone: { list.clearDone() }, onOpenSettings: onOpenSettings,
+        onCheckForUpdates: onCheckForUpdates, updateAvailable: updates?.isShown ?? false)
     }
     .padding(.top, 12)
     .padding(.bottom, 10)
