@@ -7,12 +7,21 @@ final class MenuBarController {
   private let updates: UpdateMenuItem
   private let surface: StatusItemSurface
   private let menu: MenuBarMenu
+  private let differentiate: @MainActor () -> Bool
+  private let accessibilityCenter: NotificationCenter
+  private var accessibilityObserver: NSObjectProtocol?
   private var running = false
 
   init(
     preferences: Preferences, updates: UpdateMenuItem, surface: StatusItemSurface,
-    menu: MenuBarMenu, showPanel: @escaping @MainActor (_ screen: NSScreen?) -> Void
+    menu: MenuBarMenu, showPanel: @escaping @MainActor (_ screen: NSScreen?) -> Void,
+    differentiate: @escaping @MainActor () -> Bool = {
+      NSWorkspace.shared.accessibilityDisplayShouldDifferentiateWithoutColor
+    },
+    accessibilityCenter: NotificationCenter = NSWorkspace.shared.notificationCenter
   ) {
+    self.differentiate = differentiate
+    self.accessibilityCenter = accessibilityCenter
     self.preferences = preferences
     self.updates = updates
     self.surface = surface
@@ -24,6 +33,12 @@ final class MenuBarController {
     guard !running else { return }
     running = true
     surface.onRemoved = { [weak self] in self?.preferences.showsMenuBarIcon = false }
+    accessibilityObserver = accessibilityCenter.addObserver(
+      forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      MainActor.assumeIsolated { self?.apply() }
+    }
     apply()
     follow()
   }
@@ -31,6 +46,8 @@ final class MenuBarController {
   func stop() {
     running = false
     surface.onRemoved = nil
+    if let accessibilityObserver { accessibilityCenter.removeObserver(accessibilityObserver) }
+    accessibilityObserver = nil
   }
 
   func ownIconInUse(event: NSEvent?) -> Bool {
@@ -42,7 +59,9 @@ final class MenuBarController {
       surface.isVisible = preferences.showsMenuBarIcon
     }
     let waiting = updates.isShown
-    surface.present(updateWaiting: waiting, label: MenuBarGlyph.label(updateWaiting: waiting))
+    surface.present(
+      updateWaiting: waiting, differentiate: differentiate(),
+      label: MenuBarGlyph.label(updateWaiting: waiting))
   }
 
   private func follow() {

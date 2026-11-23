@@ -10,12 +10,12 @@ struct MenuBarControllerTests {
     var onRemoved: (@MainActor () -> Void)?
     var screen: NSScreen? = NSScreen.screens.first
     var clickIsOwn = false
-    private(set) var presented: [(updateWaiting: Bool, label: String)] = []
+    private(set) var presented: [(updateWaiting: Bool, differentiate: Bool, label: String)] = []
 
     func isOwnClick(_ event: NSEvent?) -> Bool { clickIsOwn }
 
-    func present(updateWaiting: Bool, label: String) {
-      presented.append((updateWaiting, label))
+    func present(updateWaiting: Bool, differentiate: Bool, label: String) {
+      presented.append((updateWaiting, differentiate, label))
     }
 
     func removeByDrag() {
@@ -31,6 +31,8 @@ struct MenuBarControllerTests {
     let updates = UpdateMenuItem()
     let surface = FakeSurface()
     let controller: MenuBarController
+    let differentiate = Flag()
+    let accessibility = NotificationCenter()
 
     init() throws {
       let name = "thoughts.tests.\(UUID().uuidString)"
@@ -45,11 +47,17 @@ struct MenuBarControllerTests {
       menu = bar
       controller = MenuBarController(
         preferences: preferences, updates: updates, surface: surface, menu: bar,
-        showPanel: { box.values.append($0) })
+        showPanel: { box.values.append($0) },
+        differentiate: { [flag = differentiate] in flag.on },
+        accessibilityCenter: accessibility)
     }
 
     let menu: MenuBarMenu
     let screens: ScreenBox
+  }
+
+  final class Flag {
+    var on = false
   }
 
   final class ScreenBox {
@@ -107,6 +115,24 @@ struct MenuBarControllerTests {
     await MenuBarMenuTests.waitUntil { rig.surface.presented.last?.updateWaiting == false }
     #expect(rig.surface.presented.last?.updateWaiting == false)
     #expect(rig.surface.presented.last?.label == "Thoughts")
+  }
+
+  @Test func theDifferentiateSettingFollowsTheSystemWhileRunning() async throws {
+    let rig = try Rig()
+    rig.controller.start()
+    #expect(rig.surface.presented.last?.differentiate == false)
+    rig.differentiate.on = true
+    rig.accessibility.post(
+      name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil)
+    await MenuBarMenuTests.waitUntil { rig.surface.presented.last?.differentiate == true }
+    #expect(rig.surface.presented.last?.differentiate == true)
+    rig.controller.stop()
+    let count = rig.surface.presented.count
+    rig.differentiate.on = false
+    rig.accessibility.post(
+      name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil)
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(rig.surface.presented.count == count)
   }
 
   @Test func showThoughtsPassesTheScreenOfTheClickedMenuBar() throws {

@@ -6,7 +6,7 @@ protocol StatusItemSurface: AnyObject {
   var onRemoved: (@MainActor () -> Void)? { get set }
   var screen: NSScreen? { get }
   func isOwnClick(_ event: NSEvent?) -> Bool
-  func present(updateWaiting: Bool, label: String)
+  func present(updateWaiting: Bool, differentiate: Bool, label: String)
 }
 
 @MainActor
@@ -15,6 +15,7 @@ final class SystemStatusItem: StatusItemSurface {
 
   var onRemoved: (@MainActor () -> Void)?
   private let item: NSStatusItem
+  private let caret = UpdateCaretView()
   private let dot = UpdateDotView()
   private var observation: NSKeyValueObservation?
   private var changing = false
@@ -27,8 +28,9 @@ final class SystemStatusItem: StatusItemSurface {
     if let button = item.button {
       button.imagePosition = .imageOnly
       button.imageScaling = .scaleNone
-      MenuBarGlyph.install(dot: dot, in: button)
+      MenuBarGlyph.install(caret: caret, dot: dot, in: button)
     }
+    caret.isHidden = true
     dot.isHidden = true
     observation = item.observe(\.isVisible, options: [.new]) { [weak self] _, change in
       MainActor.assumeIsolated {
@@ -56,11 +58,12 @@ final class SystemStatusItem: StatusItemSurface {
     return event.type == .leftMouseDown || event.type == .rightMouseDown
   }
 
-  func present(updateWaiting: Bool, label: String) {
+  func present(updateWaiting: Bool, differentiate: Bool, label: String) {
     guard let button = item.button else { return }
-    button.image = MenuBarGlyph.image()
+    button.image = MenuBarGlyph.image(updateWaiting: updateWaiting)
     button.setAccessibilityLabel(label)
-    dot.isHidden = !updateWaiting
-    MenuBarGlyph.place(dot: dot, in: button)
+    caret.isHidden = !updateWaiting
+    dot.isHidden = !(updateWaiting && differentiate)
+    MenuBarGlyph.place(caret: caret, dot: dot, in: button)
   }
 }
