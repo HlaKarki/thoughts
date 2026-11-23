@@ -10,4 +10,8 @@ public struct IndexChanges: Sendable, Equatable {
   }
 
   public var isEmpty: Bool { added.isEmpty && updated.isEmpty && removed.isEmpty }
+
+  func touches(_ name: String) -> Bool {
+    added.contains(name) || updated.contains(name) || removed.contains(name)
+  }
 }

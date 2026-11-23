@@ -67,6 +67,7 @@ public final class SearchIndex: Sendable {
 
   public func search(_ query: String) throws -> [ThoughtID] {
     let words = query.split(whereSeparator: \.isWhitespace)
+      .filter { $0.contains { $0.isLetter || $0.isNumber } }
     guard !words.isEmpty else { return [] }
     let pattern =
       words
@@ -138,25 +139,124 @@ extension SearchIndex {
     return states
   }
 
-  func apply(_ rows: [IndexRow], removing names: [String]) throws -> [String] {
-    try Self.wrapped {
+  func apply(_ rows: [IndexRow], removing names: [String]) throws -> IndexWrite {
+    let folder = folder.withLock { $0 }
+    return try Self.wrapped {
       try pool.writeWithoutTransaction { db in
-        var changed: [String] = []
+        var write = IndexWrite()
         try db.inTransaction(.immediate) {
-          for name in names {
-            try db.execute(sql: "DELETE FROM thoughts WHERE file = ?", arguments: [name])
+          for name in names where !Self.isRestored(name, in: folder) {
+            if try Self.delete(name, in: db) { write.removed.append(name) }
           }
-          for row in rows { try Self.upsert(row, in: db) }
-          changed = try Self.refreshDemotions(in: db)
+          for row in rows {
+            switch Self.disk(of: row.name, in: folder) {
+            case .missing:
+              if try Self.delete(row.name, in: db) { write.removed.append(row.name) }
+              continue
+            case .version(let version) where row.version.size >= 0 && version != row.version:
+              continue
+            default:
+              break
+            }
+            let existed =
+              try Bool.fetchOne(
+                db, sql: "SELECT EXISTS (SELECT 1 FROM thoughts WHERE file = ?)",
+                arguments: [row.name]) ?? false
+            try Self.upsert(row, in: db)
+            if existed {
+              write.updated.append(row.name)
+            } else {
+              write.added.append(row.name)
+            }
+          }
+          write.demoted = try Self.refreshDemotions(in: db)
           return .commit
         }
-        return changed
+        return write
+      }
+    }
+  }
+
+  func applyRecognized(_ items: [RecognizedImage]) throws -> IndexWrite {
+    let folder = folder.withLock { $0 }
+    return try Self.wrapped {
+      try pool.writeWithoutTransaction { db in
+        var write = IndexWrite()
+        try db.inTransaction(.immediate) {
+          for item in items {
+            switch Self.disk(of: item.name, in: folder) {
+            case .missing:
+              if try Self.delete(item.name, in: db) { write.removed.append(item.name) }
+              continue
+            case .unreadable:
+              continue
+            case .version:
+              break
+            }
+            guard let version = item.image.version,
+              case .version(let current) = Self.disk(of: item.image.name, in: folder),
+              current == version
+            else { continue }
+            try db.execute(
+              sql: """
+                UPDATE thoughts SET recognized = ?
+                WHERE file = ? AND image_name = ? AND image_modified IS ? AND image_size IS ?
+                """,
+              arguments: [
+                item.text, item.name, item.image.name,
+                version.modified.timeIntervalSinceReferenceDate, version.size,
+              ])
+            if db.changesCount > 0 { write.updated.append(item.name) }
+          }
+          return .commit
+        }
+        return write
       }
     }
   }
 }
 
+struct IndexWrite {
+  var added: [String] = []
+  var updated: [String] = []
+  var removed: [String] = []
+  var demoted: [String] = []
+}
+
+struct RecognizedImage {
+  var name: String
+  var image: IndexedImage
+  var text: String
+}
+
 extension SearchIndex {
+  private enum Disk {
+    case missing
+    case version(FileVersion)
+    case unreadable
+  }
+
+  private static func disk(of name: String, in folder: URL) -> Disk {
+    do {
+      return .version(try AtomicFile.info(at: folder.appendingPathComponent(name)).version)
+    } catch AtomicFileError.missing {
+      return .missing
+    } catch {
+      return .unreadable
+    }
+  }
+
+  private static func isRestored(_ name: String, in folder: URL) -> Bool {
+    guard IndexSync.isMarkdownName(name) else { return false }
+    if case .missing = disk(of: name, in: folder) { return false }
+    return true
+  }
+
+  private static func delete(_ name: String, in db: Database) throws -> Bool {
+    try db.execute(sql: "DELETE FROM thoughts WHERE file = ?", arguments: [name])
+    return db.changesCount > 0
+  }
+
   private static func wrapped<T>(_ body: () throws -> T) throws -> T {
     do {
       return try body()

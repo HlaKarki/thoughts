@@ -11,9 +11,11 @@ private final class FakeRecognizer: TextRecognizing, Sendable {
   private let counter = Mutex(0)
   private let output: String
   private let failing = Mutex(Set<String>())
+  private let onCall: (@Sendable (URL) -> Void)?
 
-  init(_ output: String = "screenshot of an invoice") {
+  init(_ output: String = "screenshot of an invoice", onCall: (@Sendable (URL) -> Void)? = nil) {
     self.output = output
+    self.onCall = onCall
   }
 
   var calls: Int { counter.withLock { $0 } }
@@ -24,6 +26,7 @@ private final class FakeRecognizer: TextRecognizing, Sendable {
 
   func text(in image: URL) throws -> String {
     counter.withLock { $0 += 1 }
+    onCall?(image)
     if failing.withLock({ $0.contains(image.lastPathComponent) }) {
       throw ThoughtsError.io("unreadable image")
     }
@@ -338,12 +341,110 @@ private func tinyPNG() -> Data {
   let fx = Fixture()
   let hit = fx.addText("fix: \"crash\" OR -x (NEAR")
   _ = fx.addText("something else")
+  let milk = fx.addText("buy milk")
+  let rust = fx.addText("notes about rust and swift")
   _ = try fx.sync.reconcile(nil)
   #expect(try fx.index.search("fix: \"crash\" OR -x (NEAR") == [hit.id])
+  #expect(try fx.index.search("buy - milk") == [milk.id])
+  #expect(try fx.index.search("buy & milk") == [milk.id])
+  #expect(try fx.index.search("milk :") == [milk.id])
+  #expect(try fx.index.search("rust / swift") == [rust.id])
+  #expect(try fx.index.search("rust + swift") == [rust.id])
+  #expect(try fx.index.search("- & /").isEmpty)
   for query in ["\"", "(", "*", "a AND", "NOT", "col:val", "\"\"", "-", "NEAR(", "'"] {
     _ = try fx.index.search(query)
   }
   #expect(try fx.index.search("crash") == [hit.id])
+}
+
+@Test func staleReconcileKeepsIndexMatchingFiles() throws {
+  for edit in [false, true] {
+    let fx = Fixture()
+    let image = fx.addImage(note: "first")
+    let other = try SearchIndex(url: fx.indexURL, folder: fx.folder)
+    let entered = DispatchSemaphore(value: 0)
+    let release = DispatchSemaphore(value: 0)
+    let blocking = FakeRecognizer(onCall: { _ in
+      entered.signal()
+      release.wait()
+    })
+    let finished = DispatchSemaphore(value: 0)
+    let failure = Mutex<(any Error)?>(nil)
+    let slow = IndexSync(store: fx.store, index: fx.index, recognizer: blocking)
+    DispatchQueue.global().async {
+      do { _ = try slow.reconcile(nil) } catch { failure.withLock { $0 = error } }
+      finished.signal()
+    }
+    entered.wait()
+
+    let quick = IndexSync(store: fx.store, index: other, recognizer: nil)
+    if edit {
+      _ = try fx.store.setText("second", of: image.id, expected: image.version)
+    } else {
+      try FileManager.default.removeItem(at: image.file)
+    }
+    _ = try quick.reconcile([image.file])
+    release.signal()
+    finished.wait()
+
+    #expect(failure.withLock { $0 } == nil)
+    #expect(try fx.index.entries(includeCleared: true) == (try fx.store.entries()))
+    #expect(try other.entries(includeCleared: true) == (try fx.store.entries()))
+    if edit { #expect(try fx.index.search("second") == [image.id]) }
+  }
+}
+
+@Test func staleRowIsNotWrittenOverNewerFile() throws {
+  let fx = Fixture()
+  let old = fx.addText("first")
+  _ = try fx.sync.reconcile(nil)
+  let staleRow = IndexRow(
+    name: old.file.lastPathComponent, entry: .thought(old), version: old.version,
+    created: old.created, birth: old.created, image: nil, recognized: nil)
+  _ = try fx.store.setText("second", of: old.id, expected: old.version)
+  _ = try fx.index.apply([staleRow], removing: [])
+  _ = try fx.sync.reconcile(nil)
+  #expect(fx.entries() == (try fx.store.entries()))
+  _ = try fx.index.apply([staleRow], removing: [])
+  #expect(try fx.index.search("second") == [old.id])
+  try FileManager.default.removeItem(at: old.file)
+  _ = try fx.index.apply([staleRow], removing: [])
+  #expect(fx.entries().isEmpty)
+}
+
+@Test func rowsAreVisibleBeforeRecognitionFinishes() throws {
+  let fx = Fixture()
+  _ = fx.addText("buy milk")
+  _ = fx.addImage(note: "one")
+  _ = fx.addImage(note: "two")
+  let seen = Mutex<[Int]>([])
+  let url = fx.indexURL
+  let folder = fx.folder
+  let recognizer = FakeRecognizer(onCall: { _ in
+    let other = try? SearchIndex(url: url, folder: folder)
+    let count = (try? other?.entries(includeCleared: true).count) ?? -1
+    seen.withLock { $0.append(count) }
+  })
+  _ = try IndexSync(store: fx.store, index: fx.index, recognizer: recognizer).reconcile(nil)
+  #expect(seen.withLock { $0 }.first == 3)
+  #expect(recognizer.calls == 2)
+}
+
+@Test func recognizingPassAfterPlainPassReportsUpdated() throws {
+  let fx = Fixture()
+  _ = fx.addText("buy milk")
+  let first = fx.addImage(note: "one")
+  let second = fx.addImage(note: "two")
+  let plain = try IndexSync(store: fx.store, index: fx.index, recognizer: nil).reconcile(nil)
+  #expect(plain.added.count == 3)
+  #expect(fx.recognizer.calls == 0)
+  let changes = try fx.sync.reconcile(nil)
+  #expect(changes.added.isEmpty)
+  #expect(changes.updated == [first, second].map(\.file.lastPathComponent).sorted())
+  #expect(fx.recognizer.calls == 2)
+  #expect(try fx.index.search("invoice").count == 2)
+  #expect(try fx.sync.reconcile(nil).isEmpty)
+  #expect(fx.recognizer.calls == 2)
 }
 
 @Test func schemaMismatchRecreatesIndex() throws {

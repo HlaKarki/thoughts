@@ -30,47 +30,40 @@ public struct IndexSync: Sendable {
       removed = Set(known.keys).subtracting(names).sorted()
     }
 
-    var loaded: [IndexRow] = []
+    var rows: [IndexRow] = []
     for name in names {
       let url = store.folder.appendingPathComponent(name)
       let disk: DiskInfo?
       do {
         disk = try AtomicFile.info(at: url)
       } catch AtomicFileError.missing {
-        if known[name] != nil { removed.append(name) }
+        removed.append(name)
         continue
       } catch {
         disk = nil
       }
       if !rereadAll, let disk, let state = known[name], !needsWork(state, disk: disk) { continue }
       if let row = try load(name, url: url, disk: disk, state: known[name], rereadAll: rereadAll) {
-        loaded.append(row)
-      } else if known[name] != nil {
+        rows.append(row)
+      } else {
         removed.append(name)
       }
     }
 
-    let rows = recognize(loaded)
-    let demoted = rows.isEmpty && removed.isEmpty ? [] : try index.apply(rows, removing: removed)
-
-    var changes = IndexChanges(removed: removed.sorted())
-    for row in rows {
-      if known[row.name] == nil {
-        changes.added.append(row.name)
-      } else {
-        changes.updated.append(row.name)
-      }
-    }
-    let touched = Set(rows.map(\.name))
-    changes.updated.append(contentsOf: demoted.filter { !touched.contains($0) })
+    let write =
+      rows.isEmpty && removed.isEmpty ? IndexWrite() : try index.apply(rows, removing: removed)
+    var changes = IndexChanges(added: write.added, updated: write.updated, removed: write.removed)
+    for name in write.demoted where !changes.touches(name) { changes.updated.append(name) }
+    try recognizeBatches(of: rows, into: &changes)
     changes.added.sort()
     changes.updated.sort()
+    changes.removed.sort()
     return changes
   }
 
   private static let unknownVersion = FileVersion(modified: .distantPast, size: -1)
 
-  private static func isMarkdownName(_ name: String) -> Bool {
+  static func isMarkdownName(_ name: String) -> Bool {
     !name.hasPrefix(".") && (name as NSString).pathExtension.lowercased() == "md"
   }
 
@@ -124,14 +117,26 @@ public struct IndexSync: Sendable {
     return row
   }
 
-  private func recognize(_ rows: [IndexRow]) -> [IndexRow] {
-    guard let recognizer else { return rows }
-    return rows.map { row in
-      guard let image = row.image, image.version != nil, row.recognized == nil else { return row }
-      var row = row
-      row.recognized =
-        (try? recognizer.text(in: store.folder.appendingPathComponent(image.name))) ?? ""
-      return row
+  private static let batchSize = 8
+
+  private func recognizeBatches(of rows: [IndexRow], into changes: inout IndexChanges) throws {
+    guard let recognizer else { return }
+    let pending = rows.filter { $0.recognized == nil && $0.image?.version != nil }
+    for start in stride(from: 0, to: pending.count, by: Self.batchSize) {
+      let items = pending[start..<min(start + Self.batchSize, pending.count)].compactMap {
+        row -> RecognizedImage? in
+        guard let image = row.image else { return nil }
+        let url = store.folder.appendingPathComponent(image.name)
+        return RecognizedImage(
+          name: row.name, image: image, text: (try? recognizer.text(in: url)) ?? "")
+      }
+      let write = try index.applyRecognized(items)
+      for name in write.updated where !changes.touches(name) { changes.updated.append(name) }
+      for name in write.removed {
+        changes.added.removeAll { $0 == name }
+        changes.updated.removeAll { $0 == name }
+        if !changes.removed.contains(name) { changes.removed.append(name) }
+      }
     }
   }
 }
