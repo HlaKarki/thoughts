@@ -35,7 +35,7 @@ struct MenuBarControllerTests {
       defaults.removePersistentDomain(forName: name)
       preferences = Preferences(defaults: defaults)
       let shared = SharedMenuItems(updates: updates, openSettings: {}, checkForUpdates: {})
-      let bar = MenuBarMenu(shared: shared, setSummonEnabled: { _ in })
+      let bar = MenuBarMenu(shared: shared, setSummonEnabled: { _, _ in })
       let box = ScreenBox()
       screens = box
       menu = bar

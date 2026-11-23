@@ -8,22 +8,25 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
   let menu = NSMenu()
   var onShow: @MainActor () -> Void = {}
   private let shared: SharedMenuItems
-  private let setSummonEnabled: @MainActor (Bool) -> Void
+  private let summon: KeyboardShortcuts.Name
+  private let setSummonEnabled: @MainActor (KeyboardShortcuts.Name, Bool) -> Void
   private let showItem = NSMenuItem()
   private var sharedItems: [SharedMenuItem.ID: NSMenuItem] = [:]
 
   init(
     shared: SharedMenuItems,
     summon: KeyboardShortcuts.Name = .summon,
-    setSummonEnabled: @escaping @MainActor (Bool) -> Void = { enabled in
+    setSummonEnabled: @escaping @MainActor (KeyboardShortcuts.Name, Bool) -> Void = {
+      name, enabled in
       if enabled {
-        KeyboardShortcuts.enable(.summon)
+        KeyboardShortcuts.enable(name)
       } else {
-        KeyboardShortcuts.disable(.summon)
+        KeyboardShortcuts.disable(name)
       }
     }
   ) {
     self.shared = shared
+    self.summon = summon
     self.setSummonEnabled = setSummonEnabled
     super.init()
     menu.autoenablesItems = false
@@ -77,10 +80,10 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
   }
 
   func menuWillOpen(_ menu: NSMenu) {
-    setSummonEnabled(false)
+    setSummonEnabled(summon, false)
   }
 
   func menuDidClose(_ menu: NSMenu) {
-    setSummonEnabled(true)
+    setSummonEnabled(summon, true)
   }
 }

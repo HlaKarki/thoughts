@@ -9,7 +9,7 @@ struct MenuBarMenuTests {
   @MainActor
   final class Log {
     var events: [String] = []
-    var summon: [Bool] = []
+    var summon: [(name: KeyboardShortcuts.Name, enabled: Bool)] = []
   }
 
   @MainActor
@@ -32,7 +32,7 @@ struct MenuBarMenuTests {
         updates: updates, openSettings: openSettings, checkForUpdates: checkForUpdates,
         quit: { log.events.append("quit") })
       menuBar = MenuBarMenu(
-        shared: shared, summon: name, setSummonEnabled: { log.summon.append($0) })
+        shared: shared, summon: name, setSummonEnabled: { log.summon.append(($0, $1)) })
       menuBar.onShow = { log.events.append("show") }
     }
 
@@ -129,6 +129,7 @@ struct MenuBarMenuTests {
     let rig = Rig()
     rig.menuBar.menuWillOpen(rig.menuBar.menu)
     rig.menuBar.menuDidClose(rig.menuBar.menu)
-    #expect(rig.log.summon == [false, true])
+    #expect(rig.log.summon.map(\.enabled) == [false, true])
+    #expect(rig.log.summon.allSatisfy { $0.name == rig.name })
   }
 }
