@@ -21,31 +21,14 @@ public struct IndexSync: Sendable {
 
   private func run(_ files: [URL]?, rereadAll: Bool) throws -> IndexChanges {
     let known = try index.states()
-    var removed: [String] = []
-    let names: [String]
-    if let files {
-      let listed = try store.markdownNames()
-      let byName = Dictionary(listed.map { ($0, $0) }, uniquingKeysWith: { first, _ in first })
-      let byBytes = Dictionary(
-        listed.map { (ExactName($0), $0) }, uniquingKeysWith: { first, _ in first })
-      var seen = Set<ExactName>()
-      var present: [String] = []
-      for caller in files.map(\.lastPathComponent) where Self.isMarkdownName(caller) {
-        if let match = byBytes[ExactName(caller)] ?? byName[caller] {
-          if seen.insert(ExactName(match)).inserted { present.append(match) }
-        } else {
-          removed.append(contentsOf: known.keys.map(\.value).filter { $0 == caller })
-        }
-      }
-      names = present.sorted()
-    } else {
-      names = try store.markdownNames()
-      let listed = Set(names.map(ExactName.init))
-      removed = known.keys.filter { !listed.contains($0) }.map(\.value).sorted()
-    }
+    let plan = ReconcilePlan(
+      listed: try store.markdownNames(),
+      stored: known.keys.map(\.value),
+      scope: files?.map(\.lastPathComponent).filter(Self.isMarkdownName))
+    var removed = plan.remove
 
     var rows: [IndexRow] = []
-    for name in names {
+    for name in plan.load {
       let url = store.folder.appendingPathComponent(name)
       let disk: DiskInfo?
       do {
@@ -77,6 +60,23 @@ public struct IndexSync: Sendable {
     changes.updated.sort()
     changes.removed.sort()
     return changes
+  }
+
+  struct ReconcilePlan {
+    let load: [String]
+    let remove: [String]
+
+    init(listed: [String], stored: [String], scope: [String]?) {
+      let keys = scope.map { Set($0.map(Self.folded)) }
+      let inScope = { (name: String) in keys?.contains(Self.folded(name)) ?? true }
+      let live = Set(listed.map(ExactName.init))
+      load = listed.filter(inScope).sorted()
+      remove = stored.filter { !live.contains(ExactName($0)) && inScope($0) }.sorted()
+    }
+
+    static func folded(_ name: String) -> String {
+      name.precomposedStringWithCanonicalMapping.lowercased()
+    }
   }
 
   private static let unknownVersion = FileVersion(modified: .distantPast, size: -1)

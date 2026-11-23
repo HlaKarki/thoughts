@@ -484,6 +484,51 @@ private func makeNFCFile(_ fx: Fixture) throws -> String {
   if case .malformed = entries.first { Issue.record("malformed entry") }
 }
 
+@Test func reconcileFilesWithEitherNameAfterCaseRenameLeavesOneEntry() throws {
+  let old = "20261122-101010-caseid01.md"
+  let new = "20261122-101010-CASEID01.md"
+  for caller in [old, new] {
+    let fx = Fixture()
+    fx.writeFile(old, id: "caseid01", body: "renamed")
+    _ = try fx.sync.reconcile(nil)
+    try #require(rename(in: fx.folder, old, to: new))
+    let changes = try fx.sync.reconcile([fx.folder.appendingPathComponent(caller)])
+    #expect(changes.removed == [old])
+    #expect(changes.added == [new])
+    #expect(fx.entries() == (try fx.store.entries()))
+  }
+}
+
+private func onlyName(in fx: Fixture) throws -> String? {
+  let listed = try FileManager.default.contentsOfDirectory(atPath: fx.folder.path)
+  return listed.count == 1 ? listed[0] : nil
+}
+
+@Test func reconcileFilesAfterNormalizationRenameLeavesOneEntry() throws {
+  let composed = "caf\u{E9}-norm0001.md"
+  let decomposed = "cafe\u{301}-norm0001.md"
+  for (old, new) in [(decomposed, composed), (composed, decomposed)] {
+    let fx = Fixture()
+    fx.writeFile(decomposed, id: "norm0001")
+    if !old.utf8.elementsEqual(decomposed.utf8) {
+      try #require(rename(in: fx.folder, decomposed, to: old))
+    }
+    try #require(try onlyName(in: fx)?.utf8.elementsEqual(old.utf8) == true)
+    _ = try fx.sync.reconcile(nil)
+    try #require(rename(in: fx.folder, old, to: new))
+    try #require(try onlyName(in: fx)?.utf8.elementsEqual(new.utf8) == true)
+    let changes = try fx.sync.reconcile([old, new].map { fx.folder.appendingPathComponent($0) })
+    #expect(changes.removed.count == 1)
+    #expect(changes.removed.first?.utf8.elementsEqual(old.utf8) == true)
+    #expect(changes.added.count == 1)
+    #expect(changes.added.first?.utf8.elementsEqual(new.utf8) == true)
+    let entries = fx.entries()
+    #expect(entries == (try fx.store.entries()))
+    #expect(entries.count == 1)
+    #expect(!entries.contains { if case .malformed = $0 { true } else { false } })
+  }
+}
+
 @Test func reconcileFilesUpdatesNFCNamedFile() throws {
   let fx = Fixture()
   let name = try makeNFCFile(fx)
