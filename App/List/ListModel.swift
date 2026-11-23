@@ -60,10 +60,15 @@ final class ListModel {
 
   private(set) var entries: [ThoughtEntry] = []
   private(set) var feedback: Feedback?
-  private(set) var storageProblem: String?
+  private(set) var storageProblem: String? {
+    didSet {
+      guard storageProblem != oldValue else { return }
+      storageFeedback = storageProblem.map { Feedback(kind: .message, text: $0) }
+    }
+  }
+  private var storageFeedback: Feedback?
   @ObservationIgnored private var isPanelShown = false
   private(set) var addedCount = 0
-  private(set) var searchCaretRequests = 0
   private(set) var matches: Set<String>?
   private(set) var imageExcerpts: [String: String] = [:]
   var now = Date()
@@ -314,7 +319,6 @@ final class ListModel {
       } else {
         focus = .search
         query += text
-        searchCaretRequests += 1
         return
       }
     case .extend(let delta):
@@ -588,7 +592,7 @@ final class ListModel {
   }
 
   var shownFeedback: Feedback? {
-    feedback ?? storageProblem.map { Feedback(kind: .message, text: $0) }
+    feedback ?? storageFeedback
   }
 
   func storageRepointed() {

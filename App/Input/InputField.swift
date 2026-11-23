@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-final class InputTextField: NSTextField {
+class FocusableTextField: NSTextField {
   var onFocus: (() -> Void)?
   private var wantsFocus = false
 
@@ -9,6 +9,7 @@ final class InputTextField: NSTextField {
     let changed = focused != wantsFocus
     wantsFocus = focused
     guard focused || changed else { return }
+    applyFocus()
     scheduleFocus()
   }
 
@@ -42,6 +43,8 @@ final class InputTextField: NSTextField {
     return accepted
   }
 }
+
+final class InputTextField: FocusableTextField {}
 
 struct InputField: NSViewRepresentable {
   @Binding var text: String

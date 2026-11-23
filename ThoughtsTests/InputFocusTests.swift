@@ -27,6 +27,10 @@ struct InputFocusTests {
     return Rig(fixture: fixture, panel: panel, hosting: hosting, field: field)
   }
 
+  static func pump() {
+    RunLoop.main.run(mode: .default, before: Date())
+  }
+
   static func settle() async {
     try? await Task.sleep(for: .milliseconds(400))
   }
@@ -105,6 +109,23 @@ struct InputFocusTests {
     let editor = try #require(rig.panel.firstResponder as? NSTextView)
     #expect(editor.string == "stagi")
     #expect(editor.selectedRange == NSRange(location: 5, length: 0))
+    rig.panel.makeFirstResponder(nil)
+  }
+
+  @Test func twoKeysTypedFromTheListBackToBackBothLandInTheSearch() async throws {
+    let rig = try Self.rig()
+    let model = rig.fixture.model
+    model.query = "stag"
+    model.focus = .list
+    await Self.settle()
+    model.perform(.type("i"))
+    Self.pump()
+    rig.hosting.layoutSubtreeIfNeeded()
+    let editor = try #require(rig.panel.firstResponder as? NSTextView)
+    #expect(editor.selectedRange == NSRange(location: 5, length: 0))
+    editor.insertText("n", replacementRange: editor.selectedRange)
+    #expect(model.query == "stagin")
+    #expect(editor.selectedRange == NSRange(location: 6, length: 0))
     rig.panel.makeFirstResponder(nil)
   }
 }

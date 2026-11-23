@@ -238,6 +238,20 @@ struct StorageProblemTests {
     #expect(model.shownFeedback == nil)
   }
 
+  @Test func theStorageProblemKeepsOneIdentityUntilItChanges() throws {
+    let rig = try Self.rig()
+    let model = rig.fixture.model
+    let first = try #require(model.shownFeedback)
+    #expect(model.shownFeedback?.id == first.id)
+    #expect(model.shownFeedback?.id == first.id)
+    model.receive(.failure(.storageUnavailable("/example/home/Elsewhere")))
+    #expect(model.shownFeedback?.id == first.id)
+    model.storageRepointed()
+    #expect(model.shownFeedback == nil)
+    model.receive(.failure(.storageUnavailable("/example/home/Thoughts")))
+    #expect(model.shownFeedback?.id != first.id)
+  }
+
   @Test func otherFailuresStayTransientHints() throws {
     let rig = try Self.rig()
     rig.fixture.model.storageRepointed()
