@@ -7,7 +7,7 @@ import Testing
 
 @MainActor
 struct RecorderFocusTests {
-  @Test func focusKeepsTheShortcutWithinTheFieldAndUnselected() async throws {
+  @Test func focusKeepsTheShortcutWithinTheFieldAndUnselected() throws {
     let host = NSHostingView(rootView: ShortcutRecorder(for: .summon).padding(20))
     let window = NSWindow(
       contentRect: CGRect(x: 0, y: 0, width: 200, height: 70), styleMask: [.titled],
@@ -17,14 +17,14 @@ struct RecorderFocusTests {
     let recorder = try #require(Self.recorder(in: host))
     window.makeFirstResponder(recorder)
     window.update()
-    try await Task.sleep(for: .milliseconds(100))
+    RunLoop.main.run(mode: .default, before: Date())
+    host.layoutSubtreeIfNeeded()
     window.update()
     let editor = try #require(recorder.currentEditor() as? NSTextView)
     let clip = try #require(editor.superview)
     #expect(editor.selectedRange().length == 0)
-    if clip !== recorder {
-      #expect(editor.frame == CGRect(origin: .zero, size: clip.bounds.size))
-    }
+    #expect(clip !== recorder)
+    #expect(editor.frame == CGRect(origin: .zero, size: clip.bounds.size))
     window.makeFirstResponder(nil)
   }
 
