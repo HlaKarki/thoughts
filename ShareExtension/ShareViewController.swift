@@ -32,30 +32,44 @@ final class ShareViewController: NSObject, NSExtensionRequestHandling {
   private static func share(source: Source?, request: Request) async {
     let items = request.context.inputItems.compactMap { $0 as? NSExtensionItem }
     guard let inbox = inbox() else {
-      request.context.completeRequest(returningItems: nil)
+      request.context.cancelRequest(
+        withError: failure(String(localized: "Thoughts can't receive shared items on this Mac")))
       return
     }
     let scratch = FileManager.default.temporaryDirectory
       .appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: scratch) }
     let shared = await collect(items, source: source, scratch: scratch)
+    guard !shared.isEmpty else {
+      request.context.cancelRequest(
+        withError: failure(String(localized: "There was nothing here Thoughts could save")))
+      return
+    }
     var written = 0
-    var failure: Error?
+    var problem: String?
     for entry in shared {
       do {
         _ = try inbox.write(entry.item, attachment: entry.attachment)
         written += 1
+      } catch ThoughtsError.io(let detail) {
+        problem = detail
+        break
       } catch {
-        failure = error
+        problem = error.localizedDescription
         break
       }
     }
     if written > 0 { await openImport() }
-    if let failure {
-      request.context.cancelRequest(withError: failure)
+    if let problem {
+      request.context.cancelRequest(withError: failure(problem))
     } else {
       request.context.completeRequest(returningItems: nil)
     }
+  }
+
+  private static func failure(_ message: String) -> NSError {
+    NSError(
+      domain: "dev.hla.thoughts.share", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
   }
 
   private static func inbox() -> Inbox? {
