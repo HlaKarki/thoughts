@@ -158,6 +158,9 @@ run_logged xcodegen xcodegen generate
 [[ -z $(git status --porcelain) ]] || fail "xcodegen changed tracked files, so regenerate and commit them first"
 mkdir -p Thoughts.xcodeproj/project.xcworkspace/xcshareddata/swiftpm
 cp Config/Package.resolved Thoughts.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+run_logged updater-test xcodebuild test -project Thoughts.xcodeproj -scheme Thoughts -configuration Debug \
+  -destination 'platform=macOS' -derivedDataPath build/DerivedData -clonedSourcePackagesDirPath build/SourcePackages \
+  -onlyUsePackageVersionsFromResolvedFile -only-testing:ThoughtsTests/UpdaterStartTests
 run_logged archive xcodebuild -project Thoughts.xcodeproj -scheme Thoughts -configuration Release \
   -archivePath $archive -derivedDataPath build/DerivedData -clonedSourcePackagesDirPath build/SourcePackages \
   -onlyUsePackageVersionsFromResolvedFile \
@@ -165,6 +168,8 @@ run_logged archive xcodebuild -project Thoughts.xcodeproj -scheme Thoughts -conf
 archived_plist=$archive/Products/Applications/Thoughts.app/Contents/Info.plist
 [[ $(plutil -extract CFBundleShortVersionString raw -o - $archived_plist) == $version ]] || fail "the archived app is not version $version"
 [[ $(plutil -extract CFBundleVersion raw -o - $archived_plist) == $build_number ]] || fail "the archived app is not build $build_number"
+[[ $(plutil -extract SURequireSignedFeed raw -o - $archived_plist) == true ]] || fail "the archived app does not require a signed feed"
+[[ $(plutil -extract SUVerifyUpdateBeforeExtraction raw -o - $archived_plist) == true ]] || fail "the archived app requires a signed feed without SUVerifyUpdateBeforeExtraction, so Sparkle would refuse to start"
 [[ -x $generate_appcast ]] || fail "Sparkle's generate_appcast is not at ${generate_appcast#$repo/}"
 print "Archived to ${archive#$repo/}"
 
