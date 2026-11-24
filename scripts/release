@@ -113,7 +113,10 @@ version=$1
 tag=v$version
 
 step 1 "Checking the tree, the version and the tag"
-[[ $version =~ '^[0-9]{4}\.[0-9]{1,2}\.[0-9]+$' ]] || fail "$version is not a version like 2026.12.1"
+[[ $version =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || fail "$version is not a version like 1.0.0"
+notes_args=($version)
+$dry_run || notes_args=(--dated $version)
+notes=$(scripts/release-notes $notes_args 2>&1) || fail "$notes"
 [[ -z $(git status --porcelain) ]] || fail "the tree has uncommitted or untracked changes"
 branch=$(git branch --show-current)
 if $dry_run; then
@@ -146,6 +149,7 @@ build_number=$(git rev-list --count HEAD)
 print "Version $version, build $build_number, tag $tag"
 rm -rf $release
 mkdir -p $logs $updates
+print -r -- $notes >$release/notes.md
 
 step 2 "Running the comment check, the format check and the core tests"
 run_logged comment-check swift run --package-path Tools/CommentCheck --only-use-versions-from-resolved-file comment-check .
@@ -206,10 +210,12 @@ print -r -- $assessment
 [[ $assessment == *"source=Notarized Developer ID"* ]] || fail "spctl does not report source=Notarized Developer ID"
 
 step 7 "Writing the appcast and the cask"
-run_logged appcast $generate_appcast --download-url-prefix "https://github.com/$github_repo/releases/download/$tag/" \
+cp $release/notes.md $updates/Thoughts-$version.md
+run_logged appcast $generate_appcast --embed-release-notes --download-url-prefix "https://github.com/$github_repo/releases/download/$tag/" \
   -o $updates/appcast.xml $updates
 [[ -f $updates/appcast.xml ]] || fail "generate_appcast wrote no appcast.xml"
 grep -q -F '<!-- sparkle-signatures:' $updates/appcast.xml || fail "appcast.xml is not signed, so check that the app sets SURequireSignedFeed"
+grep -q -F 'sparkle:format="markdown"' $updates/appcast.xml || fail "appcast.xml has no embedded Markdown release notes"
 sha256=$(shasum -a 256 $zip | cut -d ' ' -f 1)
 write_cask >$release/thoughts.rb
 print "Wrote ${updates#$repo/}/appcast.xml and build/release/thoughts.rb (sha256 $sha256)"
@@ -225,7 +231,7 @@ step 9 "Tagging and publishing the GitHub release"
 git tag $tag
 git push origin refs/tags/$tag
 gh release create $tag $zip $updates/appcast.xml --repo $github_repo --verify-tag \
-  --title "Thoughts $version" --generate-notes
+  --title "Thoughts $version" --notes-file $release/notes.md
 
 step 10 "Updating the cask in $tap_name"
 git -C $tap pull --ff-only

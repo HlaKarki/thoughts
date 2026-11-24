@@ -1,0 +1,59 @@
+#!/bin/zsh
+setopt err_exit pipe_fail no_unset extended_glob
+
+repo=${0:A:h:h}
+
+fail() {
+  print -u2 "release-notes: $*"
+  exit 1
+}
+
+dated=false
+if [[ ${1-} == --dated ]]; then
+  dated=true
+  shift
+fi
+(( $# == 1 )) || { print -u2 "usage: scripts/release-notes [--dated] <version>"; exit 2 }
+version=$1
+
+changelog=$repo/CHANGELOG.md
+[[ -f $changelog ]] || fail "CHANGELOG.md is missing"
+
+lines=("${(@f)$(<$changelog)}")
+matches=0
+inside=false
+has_date=false
+body=()
+for line in "${lines[@]}"; do
+  if [[ $line == '## '* ]]; then
+    inside=false
+    if [[ $line == "## $version" ]]; then
+      inside=true
+      has_date=false
+    elif [[ $line == "## $version ("<->-<->-<->")" ]]; then
+      inside=true
+      has_date=true
+    fi
+    if $inside; then
+      (( matches += 1 ))
+    fi
+  elif $inside; then
+    body+=("$line")
+  fi
+done
+
+(( matches > 0 )) || fail "CHANGELOG.md has no section for $version"
+(( matches == 1 )) || fail "CHANGELOG.md has $matches sections for $version"
+if $dated && ! $has_date; then
+  fail "The CHANGELOG.md heading for $version has no release date, like ## $version (2026-12-01)"
+fi
+
+while (( $#body )) && [[ $body[1] == [[:space:]]# ]]; do
+  shift body
+done
+while (( $#body )) && [[ $body[-1] == [[:space:]]# ]]; do
+  body[-1]=()
+done
+(( $#body )) || fail "CHANGELOG.md has an empty section for $version"
+
+print -rl -- "${body[@]}"
