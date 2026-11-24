@@ -25,6 +25,7 @@ private final class MCPScratch {
   let root: URL
   let out = Sink()
   let err = Sink()
+  var version = "dev"
 
   init() {
     root = FileManager.default.temporaryDirectory
@@ -47,7 +48,8 @@ private final class MCPScratch {
         recognizer: QuietRecognizer(),
         stdin: { "unread stdin" },
         out: { [out] in out.add($0) },
-        err: { [err] in err.add($0) }
+        err: { [err] in err.add($0) },
+        version: version
       ))
   }
 
@@ -224,6 +226,18 @@ private let initializedLine = #"{"jsonrpc":"2.0","method":"notifications/initial
   let contents = try String(contentsOf: notes[0], encoding: .utf8)
   #expect(contents.contains("written before exit"))
   #expect(contents.contains("Piped Client"))
+}
+
+@Test(.timeLimit(.minutes(1))) func initializeReportsTheAppVersion() async throws {
+  let scratch = MCPScratch()
+  scratch.version = "1.2.3"
+  let transport = ScriptedTransport(lines: [initializeLine, initializedLine])
+  try await scratch.server.run(transport: transport)
+
+  let answer = try #require(await transport.sent.first { $0["id"]?.intValue == 1 })
+  let info = answer["result"]?.objectValue?["serverInfo"]?.objectValue
+  #expect(info?["name"]?.stringValue == "thoughts")
+  #expect(info?["version"]?.stringValue == "1.2.3")
 }
 
 @Test(.timeLimit(.minutes(1))) func runReturnsOnceEveryLineIsAnswered() async throws {

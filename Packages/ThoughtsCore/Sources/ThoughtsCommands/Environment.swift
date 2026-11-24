@@ -10,6 +10,7 @@ public struct CommandEnvironment: Sendable {
   public var stdin: @Sendable () -> String?
   public var out: @Sendable (String) -> Void
   public var err: @Sendable (String) -> Void
+  public var version: String
 
   public init(
     location: StorageLocation,
@@ -17,7 +18,8 @@ public struct CommandEnvironment: Sendable {
     recognizer: (any TextRecognizing)?,
     stdin: @escaping @Sendable () -> String?,
     out: @escaping @Sendable (String) -> Void,
-    err: @escaping @Sendable (String) -> Void
+    err: @escaping @Sendable (String) -> Void,
+    version: String = "dev"
   ) {
     self.location = location
     self.indexURL = indexURL
@@ -25,10 +27,10 @@ public struct CommandEnvironment: Sendable {
     self.stdin = stdin
     self.out = out
     self.err = err
+    self.version = version
   }
 
   public static func live() throws -> CommandEnvironment {
-    let executable = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
     let location = StorageLocation(appName: appName(forExecutable: executable))
     return CommandEnvironment(
       location: location,
@@ -40,23 +42,39 @@ public struct CommandEnvironment: Sendable {
         return String(decoding: data, as: UTF8.self)
       },
       out: { print($0) },
-      err: { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
+      err: { FileHandle.standardError.write(Data(($0 + "\n").utf8)) },
+      version: appVersion(forExecutable: executable)
     )
   }
 
+  static var executable: URL {
+    Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
+  }
+
   static func appName(forExecutable executable: URL) -> String {
+    guard let name = appInfo(forExecutable: executable)?["CFBundleName"] as? String, !name.isEmpty
+    else { return "Thoughts" }
+    return name
+  }
+
+  static func appVersion(forExecutable executable: URL) -> String {
+    guard
+      let version = appInfo(forExecutable: executable)?["CFBundleShortVersionString"] as? String,
+      !version.isEmpty
+    else { return "dev" }
+    return version
+  }
+
+  private static func appInfo(forExecutable executable: URL) -> [String: Any]? {
     let resolved = executable.resolvingSymlinksInPath()
     let helpers = resolved.deletingLastPathComponent()
     let contents = helpers.deletingLastPathComponent()
     let bundle = contents.deletingLastPathComponent()
     guard helpers.lastPathComponent == "Helpers", contents.lastPathComponent == "Contents",
       bundle.pathExtension == "app",
-      let data = try? Data(contentsOf: contents.appendingPathComponent("Info.plist")),
-      let plist = try? PropertyListSerialization.propertyList(from: data, format: nil)
-        as? [String: Any],
-      let name = plist["CFBundleName"] as? String, !name.isEmpty
-    else { return "Thoughts" }
-    return name
+      let data = try? Data(contentsOf: contents.appendingPathComponent("Info.plist"))
+    else { return nil }
+    return try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
   }
 }
 

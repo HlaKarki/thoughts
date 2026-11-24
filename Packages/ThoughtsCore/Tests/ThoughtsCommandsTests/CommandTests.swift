@@ -281,6 +281,26 @@ private func decodeRecords(_ text: String) throws -> [ThoughtRecord] {
   #expect(errorMessage(for: ThoughtsError.io("one\ntwo")) == "one two")
 }
 
+@Test func versionComesFromTheEnclosingAppBundle() throws {
+  let scratch = Scratch()
+  let helpers = scratch.root.appendingPathComponent("Thoughts.app/Contents/Helpers")
+  try FileManager.default.createDirectory(at: helpers, withIntermediateDirectories: true)
+  let plist = ["CFBundleName": "Thoughts", "CFBundleShortVersionString": "1.2.3"]
+  try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+    .write(to: helpers.deletingLastPathComponent().appendingPathComponent("Info.plist"))
+  let tool = helpers.appendingPathComponent("thoughts")
+  try Data().write(to: tool)
+  let link = scratch.root.appendingPathComponent("linked-thoughts")
+  try FileManager.default.createSymbolicLink(at: link, withDestinationURL: tool)
+
+  #expect(CommandEnvironment.appVersion(forExecutable: tool) == "1.2.3")
+  #expect(CommandEnvironment.appVersion(forExecutable: link) == "1.2.3")
+  let loose = scratch.root.appendingPathComponent("loose")
+  try Data().write(to: loose)
+  #expect(CommandEnvironment.appVersion(forExecutable: loose) == "dev")
+  #expect(ThoughtsCommand.configuration.version == "dev")
+}
+
 @Test func bundleNameFollowsSymlinkedExecutable() throws {
   let scratch = Scratch()
   let helpers = scratch.root.appendingPathComponent("Dev.app/Contents/Helpers")

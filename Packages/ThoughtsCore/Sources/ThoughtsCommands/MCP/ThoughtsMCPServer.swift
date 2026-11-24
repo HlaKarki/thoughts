@@ -105,7 +105,8 @@ public struct ThoughtsMCPServer: Sendable {
 
   public func run(transport: any Transport = StdioTransport()) async throws {
     let server = Server(
-      name: "thoughts", version: "0.1.0", capabilities: .init(tools: .init(listChanged: false)))
+      name: "thoughts", version: environment.version,
+      capabilities: .init(tools: .init(listChanged: false)))
     let client = ClientName()
     let tools = tools()
     await server.withMethodHandler(ListTools.self) { _ in ListTools.Result(tools: tools) }
