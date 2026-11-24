@@ -23,6 +23,10 @@ Code carries no comments of any kind: no file headers, no doc comments, no MARK 
 
 One line, in the form `type: area; what changed`, for example `fix: index; rebuild after a folder move`. No body.
 
+## Changelog
+
+A change people can notice adds one line under `## Unreleased` in `CHANGELOG.md`, in the Added, Changed or Fixed list, written for someone using the app. Create the section or the list if it isn't there. A release renames `## Unreleased` to the version and the date it ships, like `## 1.1.0 (2027-01-12)`. Versions follow semantic versioning: a minor version adds features, and a patch version only fixes bugs.
+
 ## Tests
 
 Tests are few and deliberate, written with Swift Testing. Each one checks a rule the product depends on. Tests never touch the real pasteboard, the real thoughts folder or the real Application Support folder. Use temporary folders and private named pasteboards.
