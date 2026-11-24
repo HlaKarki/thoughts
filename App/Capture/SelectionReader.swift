@@ -89,6 +89,9 @@ final class SelectionReader: SelectionReading {
 
   func copySelection() async -> (SelectionProbe, ownChangeCounts: [Int]) {
     if secureInput() { return (.secureField, []) }
+    if ClipboardTypes.isConcealedOrTransient((pasteboard.types ?? []).map(\.rawValue)) {
+      return (.copiedNothing, [])
+    }
     let snapshot = PasteboardSnapshot.take(pasteboard)
     let before = pasteboard.changeCount
     postCopy()

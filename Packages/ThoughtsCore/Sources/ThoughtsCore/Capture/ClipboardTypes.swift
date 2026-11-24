@@ -10,4 +10,8 @@ public enum ClipboardTypes {
   public static func isConcealed(_ types: [String]) -> Bool {
     types.contains(concealed)
   }
+
+  public static func isConcealedOrTransient(_ types: [String]) -> Bool {
+    types.contains { [concealed, transient].contains($0) }
+  }
 }

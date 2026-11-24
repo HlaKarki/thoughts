@@ -144,4 +144,25 @@ struct PasteboardSnapshotTests {
     #expect(Self.contents(of: board) == before)
     #expect(counts.last == board.changeCount)
   }
+
+  @Test func aConcealedOrTransientClipboardSkipsTheCopyAndTouchesNothing() async {
+    for marker in [ClipboardTypes.concealed, ClipboardTypes.transient] {
+      let board = Self.privateBoard()
+      defer { board.releaseGlobally() }
+      board.clearContents()
+      board.setString("hunter2", forType: .string)
+      board.setData(Data(), forType: NSPasteboard.PasteboardType(marker))
+      let before = Self.contents(of: board)
+      let count = board.changeCount
+      var posted = 0
+      let reader = SelectionReader(
+        pasteboard: board, postCopy: { posted += 1 }, secureInput: { false })
+      let (probe, counts) = await reader.copySelection()
+      #expect(probe == .copiedNothing)
+      #expect(counts.isEmpty)
+      #expect(posted == 0)
+      #expect(board.changeCount == count)
+      #expect(Self.contents(of: board) == before)
+    }
+  }
 }
