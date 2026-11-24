@@ -81,6 +81,7 @@ private final class Fixture {
   let fromSettings = fixture.url("FromSettings")
   let fromEnvironment = fixture.url("FromEnvironment")
   let plain = fixture.location()
+  try FileManager.default.createDirectory(at: fromSettings, withIntermediateDirectories: false)
   try plain.setFolder(fromSettings)
   #expect(try plain.resolve().path == fromSettings.path)
   let overridden = fixture.location(["THOUGHTS_DIR": fromEnvironment.path])
@@ -122,6 +123,22 @@ private final class Fixture {
     try location.resolve()
   }
   #expect(!FileManager.default.fileExists(atPath: "/Volumes/NoSuchDrive"))
+}
+
+@Test func missingFolderFromSettingsIsUnavailableAndNeverRecreated() throws {
+  let fixture = Fixture()
+  let location = fixture.location()
+  let chosen = fixture.url("Dropbox/Thoughts")
+  try location.setFolder(chosen)
+  #expect(throws: ThoughtsError.storageUnavailable(chosen.path)) {
+    try location.resolve()
+  }
+  #expect(!fixture.exists(fixture.url("Dropbox")))
+  try location.setFolder(fixture.url("Thoughts"))
+  #expect(throws: ThoughtsError.storageUnavailable(fixture.url("Thoughts").path)) {
+    try location.resolve()
+  }
+  #expect(!fixture.exists(fixture.url("Thoughts")))
 }
 
 @Test func setFolderWritesSettingsAndKeepsOtherKeys() throws {

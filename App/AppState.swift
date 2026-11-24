@@ -112,7 +112,8 @@ final class AppState {
       frontmost: { tracker.frontmost.flatMap { $0.bundleID == tracker.ownBundleID ? nil : $0 } },
       ownWindowIsKey: { NSApp.keyWindow != nil })
     self.clipboard = clipboard
-    let screenshots = ScreenshotFolderWatcher(storageFolder: { [location] in try? location.resolve()
+    let screenshots = ScreenshotFolderWatcher(storageFolder: { [location] in
+      try? location.configuredFolder()
     })
     let offers = OfferCenter(
       preferences: preferences, input: input, clipboard: clipboard, screenshots: screenshots,

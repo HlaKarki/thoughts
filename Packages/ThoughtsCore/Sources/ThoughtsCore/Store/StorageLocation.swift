@@ -36,17 +36,19 @@ public struct StorageLocation: Sendable {
   }
 
   public func configuredFolder() throws -> URL {
-    try environmentFolder ?? settingsFolder() ?? defaultFolder
+    try configured().folder
   }
 
   public func resolve() throws -> URL {
-    let folder = try configuredFolder()
+    let (folder, chosenInSettings) = try configured()
     var isDirectory: ObjCBool = false
     if FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory) {
       guard isDirectory.boolValue else { throw ThoughtsError.io("\(folder.path) is not a folder") }
       return folder
     }
-    if Self.isOnVolume(folder) { throw ThoughtsError.storageUnavailable(folder.path) }
+    if chosenInSettings || Self.isOnVolume(folder) {
+      throw ThoughtsError.storageUnavailable(folder.path)
+    }
     try Self.createFolder(folder)
     return folder
   }
@@ -116,6 +118,12 @@ public struct StorageLocation: Sendable {
   private var environmentFolder: URL? {
     guard let path = environment["THOUGHTS_DIR"], !path.isEmpty else { return nil }
     return expand(path)
+  }
+
+  private func configured() throws -> (folder: URL, chosenInSettings: Bool) {
+    if let environmentFolder { return (environmentFolder, false) }
+    if let settingsFolder = try settingsFolder() { return (settingsFolder, true) }
+    return (defaultFolder, false)
   }
 
   private func settingsFolder() throws -> URL? {

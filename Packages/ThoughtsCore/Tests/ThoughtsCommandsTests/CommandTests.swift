@@ -214,6 +214,23 @@ private func decodeRecords(_ text: String) throws -> [ThoughtRecord] {
   #expect(scratch.err.all.count == 2)
 }
 
+@Test func missingFolderFromSettingsExitsWithCodeThreeAndStaysMissing() async throws {
+  let scratch = Scratch()
+  let location = StorageLocation(environment: [:], home: scratch.root)
+  let chosen = scratch.root.appendingPathComponent("Dropbox/Thoughts")
+  try location.setFolder(chosen)
+  let environment = CommandEnvironment(
+    location: location, indexURL: location.indexURL, recognizer: nil, stdin: { nil },
+    out: { _ in }, err: { [err = scratch.err] in err.add($0) })
+  for arguments in [["list"], ["add", "hello"], ["path", "abcd"], ["done", "abcd"]] {
+    let command = try #require(
+      try ThoughtsCommand.parseAsRoot(arguments) as? any EnvironmentCommand)
+    await #expect(throws: ExitCode(3)) { try await command.perform(in: environment) }
+  }
+  #expect(scratch.err.all.count == 4)
+  #expect(!FileManager.default.fileExists(atPath: chosen.deletingLastPathComponent().path))
+}
+
 @Test func searchFindsRecognizedText() async throws {
   let scratch = Scratch()
   let image = try scratch.writePNG()
