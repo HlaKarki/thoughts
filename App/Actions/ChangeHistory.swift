@@ -98,6 +98,7 @@ extension ThoughtActions {
         record(.trash(files.map(\.original)))
         let names = files.map(\.original).filter(Self.isThoughtFile).map(\.lastPathComponent)
         list.releaseRemoval(of: Set(names))
+        list.expectRestored(names)
         list.reveal(names)
       case .trash(let originals):
         let names = Set(originals.filter(Self.isThoughtFile).map(\.lastPathComponent))

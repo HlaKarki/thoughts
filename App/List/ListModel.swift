@@ -56,6 +56,7 @@ final class ListModel {
   @ObservationIgnored private var queuedSelect: (name: String, extend: Bool)?
   @ObservationIgnored private var pendingReveal: [String] = []
   @ObservationIgnored private var isRevealing = false
+  @ObservationIgnored private var restored: Set<String> = []
   @ObservationIgnored private let searchDelay: Duration
   @ObservationIgnored var onCommand: ((KeyCommand) -> Void)?
   @ObservationIgnored var onPreviewChange: ((Thought?) -> Void)?
@@ -205,6 +206,10 @@ final class ListModel {
     return selectedEntries.first?.thought
   }
 
+  func expectRestored(_ names: [String]) {
+    restored.formUnion(names)
+  }
+
   func reveal(_ names: [String]) {
     guard !names.isEmpty, focus != .edit, focus != .menu else { return }
     pendingReveal = names
@@ -269,7 +274,10 @@ final class ListModel {
     guard !changes.isEmpty else { return }
     let held = Set(entries.map(\.fileName))
     load()
-    if entries.contains(where: { !held.contains($0.fileName) }) { addedCount += 1 }
+    let appeared = Set(entries.map(\.fileName)).subtracting(held)
+    let brandNew = appeared.subtracting(restored)
+    restored.subtract(appeared)
+    if !brandNew.isEmpty { addedCount += 1 }
   }
 
   func date(of entry: ThoughtEntry) -> Date? {

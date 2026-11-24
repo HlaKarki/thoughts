@@ -562,6 +562,30 @@ struct UndoTests {
       try fixture.store.entries().compactMap(\.thought).first { $0.id == older.id }?.done != nil)
   }
 
+  @Test func restoredThoughtsAreRevealedAndNeverCountAsNewAdditions() async throws {
+    let rig = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    let model = rig.fixture.model
+    let old = try rig.fixture.addText("old", daysAgo: 5)
+    try rig.fixture.addText("newer", daysAgo: 1)
+    try rig.fixture.reload()
+    model.select(old.file.lastPathComponent, extend: false)
+    rig.actions.perform(.delete)
+    await rig.actions.pending?.value
+    try rig.fixture.reload()
+    let before = model.addedCount
+    rig.actions.undoManager.undo()
+    _ = try rig.fixture.sync.rebuild()
+    model.apply(IndexChanges(added: [old.file.lastPathComponent]))
+    #expect(model.addedCount == before)
+    #expect(model.selection == [old.file.lastPathComponent])
+
+    let fresh = try rig.fixture.addText("fresh", daysAgo: 0)
+    _ = try rig.fixture.sync.rebuild()
+    model.apply(IndexChanges(added: [fresh.file.lastPathComponent]))
+    #expect(model.addedCount == before + 1)
+  }
+
   @Test func typingInAFieldJoinsTheSameStackAndUndoesFirstWhenItIsOnTop() async throws {
     let fixture = try ListFixture()
     fixture.model.panelDidShow()
