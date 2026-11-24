@@ -1,8 +1,21 @@
 import AppKit
 import SwiftUI
+import Synchronization
 import Testing
 
 @testable import Thoughts
+
+private final class PromisedData: NSObject, NSPasteboardItemDataProvider, Sendable {
+  let asked = Mutex<[NSPasteboard.PasteboardType]>([])
+
+  func pasteboard(
+    _ pasteboard: NSPasteboard?, item: NSPasteboardItem,
+    provideDataForType type: NSPasteboard.PasteboardType
+  ) {
+    asked.withLock { $0.append(type) }
+    item.setString("promised text", forType: type)
+  }
+}
 
 @MainActor
 struct PasteFieldTests {
@@ -40,5 +53,22 @@ struct PasteFieldTests {
     #expect(received.count == 1)
     #expect(received.first === board)
     panel.makeFirstResponder(nil)
+  }
+
+  @Test func thePasteItemIsCheckedWithoutReadingTheClipboard() throws {
+    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    defer { board.releaseGlobally() }
+    let editor = PasteFieldEditor()
+    editor.pasteboard = board
+    let item = NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "")
+    for type: NSPasteboard.PasteboardType in [.string, .png, .tiff, .fileURL] {
+      board.clearContents()
+      let promised = PromisedData()
+      let entry = NSPasteboardItem()
+      #expect(entry.setDataProvider(promised, forTypes: [type]))
+      #expect(board.writeObjects([entry]))
+      #expect(editor.validateUserInterfaceItem(item))
+      #expect(promised.asked.withLock { $0 }.isEmpty)
+    }
   }
 }

@@ -17,8 +17,7 @@ final class PasteFieldEditor: NSTextView {
   }
 
   private var canPaste: Bool {
-    if case .nothing = PasteboardReader.paste(from: pasteboard) { return false }
-    return true
+    pasteboard.availableType(from: [.fileURL, .string, .png, .tiff]) != nil
   }
 }
 
