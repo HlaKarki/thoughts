@@ -41,8 +41,37 @@ class FocusableTextField: NSTextField {
 
   override func becomeFirstResponder() -> Bool {
     let accepted = super.becomeFirstResponder()
-    if accepted { onFocus?() }
+    guard accepted, !wantsFocus else { return accepted }
+    if isPersonsMove(NSApp.currentEvent) {
+      onFocus?()
+    } else {
+      DispatchQueue.main.async { [weak self] in self?.giveFocusBack() }
+    }
     return accepted
+  }
+
+  private func isPersonsMove(_ event: NSEvent?) -> Bool {
+    guard let event, event.window === window else { return false }
+    switch event.type {
+    case .leftMouseDown, .rightMouseDown, .otherMouseDown:
+      return bounds.contains(convert(event.locationInWindow, from: nil))
+    case .keyDown:
+      return event.keyCode == 48
+    default:
+      return false
+    }
+  }
+
+  private func giveFocusBack() {
+    guard let window, !wantsFocus, currentEditor() != nil else { return }
+    window.makeFirstResponder(nil)
+    guard let content = window.contentView else { return }
+    for field in Self.wantedFields(in: content) { field.applyFocus() }
+  }
+
+  private static func wantedFields(in view: NSView) -> [FocusableTextField] {
+    if let field = view as? FocusableTextField { return field.wantsFocus ? [field] : [] }
+    return view.subviews.flatMap(wantedFields(in:))
   }
 }
 

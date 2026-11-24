@@ -87,11 +87,13 @@ final class PanelHarness {
   var list: ListModel { fixture.model }
   var input: InputModel { fixture.input }
 
-  static func run(_ body: (PanelHarness) async throws -> Void) async throws {
+  static func run(
+    laidOut: Bool = true, _ body: (PanelHarness) async throws -> Void
+  ) async throws {
     while busy { try await Task.sleep(for: .milliseconds(20)) }
     busy = true
     defer { busy = false }
-    let harness = try PanelHarness()
+    let harness = try PanelHarness(laidOut: laidOut)
     do {
       try await body(harness)
     } catch {
@@ -102,7 +104,7 @@ final class PanelHarness {
     harness.verifyIsolation()
   }
 
-  private init() throws {
+  private init(laidOut: Bool) throws {
     fixture = try ListFixture()
     let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
     let preferences = Preferences(defaults: defaults)
@@ -113,8 +115,11 @@ final class PanelHarness {
     hosting.sizingOptions = []
     let content = DropDestinationView(content: hosting)
     panel = ThoughtsPanel(content: content)
-    panel.setContentSize(NSSize(width: PanelController.width, height: PanelController.maxHeight))
-    hosting.layoutSubtreeIfNeeded()
+    if laidOut {
+      panel.setContentSize(
+        NSSize(width: PanelController.width, height: PanelController.maxHeight))
+      hosting.layoutSubtreeIfNeeded()
+    }
     board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
     panel.pasteboard = board
     trash = FakeTrash(folder: fixture.root.appendingPathComponent("Trash"))

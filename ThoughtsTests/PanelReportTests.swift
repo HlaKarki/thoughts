@@ -193,6 +193,37 @@ struct PanelReportTests {
     }
   }
 
+  @Test func theFirstSummonOfAPanelNeverLaidOutFocusesTheInput() async throws {
+    try await PanelHarness.run(laidOut: false) { harness in
+      try harness.seed(["one", "two"])
+      try await harness.show()
+      #expect(harness.list.focus == .input)
+      #expect(harness.isEditing(harness.inputField))
+      await harness.type("hi")
+      #expect(harness.input.text == "hi")
+      #expect(harness.list.query == "")
+    }
+  }
+
+  @Test(arguments: [Focus.input, .list])
+  func aFieldTakingFocusOnItsOwnGivesItBackToTheModelsChoice(_ held: Focus) async throws {
+    try await PanelHarness.run { harness in
+      try harness.seed(["one", "two"])
+      try await harness.show()
+      if held == .list { await harness.press(.up) }
+      let search = try #require(harness.field(SearchTextField.self))
+      #expect(harness.panel.makeFirstResponder(search))
+      await harness.settle("after the search field took focus")
+      #expect(harness.list.focus == held)
+      #expect(!harness.isEditing(search))
+      #expect(harness.isEditing(harness.inputField) == (held == .input))
+      await harness.type("x")
+      #expect(harness.list.focus == .input)
+      #expect(harness.list.query == "")
+      #expect(harness.input.text == "x")
+    }
+  }
+
   @Test func theActionsMenuStaysAboveAGrownInput() async throws {
     try await PanelHarness.run { harness in
       try harness.seed(["one", "two"])
