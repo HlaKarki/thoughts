@@ -54,6 +54,8 @@ final class ListModel {
   @ObservationIgnored private var birthDates: [String: Date] = [:]
   @ObservationIgnored private var searchTask: Task<Void, Never>?
   @ObservationIgnored private var queuedSelect: (name: String, extend: Bool)?
+  @ObservationIgnored private var pendingReveal: [String] = []
+  @ObservationIgnored private var isRevealing = false
   @ObservationIgnored private let searchDelay: Duration
   @ObservationIgnored var onCommand: ((KeyCommand) -> Void)?
   @ObservationIgnored var onPreviewChange: ((Thought?) -> Void)?
@@ -75,6 +77,7 @@ final class ListModel {
   var selection: [String] = [] {
     didSet {
       guard selection != oldValue else { return }
+      if !isRevealing { pendingReveal = [] }
       if isMenuOpen, selection.isEmpty { closeMenu() }
       if isPreviewing, previewThought == nil { isPreviewing = false }
       if isPreviewing { onPreviewChange?(previewThought) }
@@ -106,6 +109,7 @@ final class ListModel {
   var query = "" {
     didSet {
       guard query != oldValue else { return }
+      pendingReveal = []
       scheduleSearch()
     }
   }
@@ -201,6 +205,24 @@ final class ListModel {
     return selectedEntries.first?.thought
   }
 
+  func reveal(_ names: [String]) {
+    guard !names.isEmpty, focus != .edit, focus != .menu else { return }
+    pendingReveal = names
+    settleReveal()
+  }
+
+  private func settleReveal() {
+    guard !pendingReveal.isEmpty else { return }
+    let shown = visible.map(\.fileName)
+    guard pendingReveal.allSatisfy(shown.contains) else { return }
+    let wanted = Set(pendingReveal)
+    pendingReveal = []
+    isRevealing = true
+    defer { isRevealing = false }
+    if focus != .list { focus = .list }
+    selection = shown.filter { wanted.contains($0) }
+  }
+
   func neighbor(excluding names: Set<String>) -> String? {
     let all = visible.map(\.fileName)
     guard let first = all.firstIndex(where: names.contains),
@@ -233,6 +255,7 @@ final class ListModel {
       settlePending()
       now = Date()
       refreshMatches()
+      settleReveal()
       pruneSelection()
       endEditIfDeleted()
     } catch let error as ThoughtsError {
@@ -537,41 +560,13 @@ final class ListModel {
     if let command { perform(command) }
   }
 
-  func clearDone() {
-    let folder: URL
-    do {
-      folder = try location.resolve()
-    } catch let error as ThoughtsError {
-      report(error)
-      return
-    } catch {
-      tell(error.localizedDescription)
-      return
-    }
-    let store = ThoughtStore(folder: folder)
-    Task {
-      do {
-        let cleared = try await Task.detached { try store.clearDone() }.value
-        if cleared.isEmpty {
-          tell(String(localized: "Nothing is marked done"))
-        } else {
-          confirm(String(localized: "Cleared the done thoughts"))
-        }
-      } catch let error as ThoughtsError {
-        report(error)
-      } catch {
-        tell(error.localizedDescription)
-      }
-    }
-  }
-
   func tell(_ text: String) {
     present(Feedback(kind: .message, text: text))
   }
 
-  func confirm(_ text: String) {
+  func confirm(_ text: String, lingers: Bool = false) {
     guard isPanelShown else { return }
-    present(Feedback(kind: .confirmation, text: text))
+    present(Feedback(kind: .confirmation, text: text, lingers: lingers))
   }
 
   private func present(_ next: Feedback) {
@@ -616,7 +611,7 @@ final class ListModel {
     }
   }
 
-  private func report(_ error: ThoughtsError) {
+  func report(_ error: ThoughtsError) {
     if case .storageUnavailable = error {
       storageProblem = Self.message(for: error)
     } else {
@@ -626,6 +621,7 @@ final class ListModel {
 
   func panelDidHide() {
     isPanelShown = false
+    pendingReveal = []
     isPreviewing = false
     isMenuOpen = false
     menuQuery = ""

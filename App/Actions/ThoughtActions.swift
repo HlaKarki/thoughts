@@ -3,20 +3,23 @@ import ThoughtsCore
 
 @MainActor
 final class ThoughtActions {
-  private let list: ListModel
+  let list: ListModel
   private let location: StorageLocation
   private let pasteboard: PasteboardWriter
   private let opener: SourceOpener
-  private let trash: @Sendable (URL) throws -> Void
+  let trash: @Sendable (URL) throws -> URL
+  let undoManager: UndoManager
   private let now: () -> Date
   private(set) var pending: Task<Void, Never>?
+  private(set) var busy = 0
 
   init(
     list: ListModel,
     location: StorageLocation,
     pasteboard: PasteboardWriter,
     opener: SourceOpener = .live,
-    trash: @escaping @Sendable (URL) throws -> Void = ThoughtStore.moveToTrash,
+    trash: @escaping @Sendable (URL) throws -> URL = ThoughtStore.moveToTrash,
+    undoManager: UndoManager = UndoManager(),
     now: @escaping () -> Date = Date.init
   ) {
     self.list = list
@@ -24,6 +27,7 @@ final class ThoughtActions {
     self.pasteboard = pasteboard
     self.opener = opener
     self.trash = trash
+    self.undoManager = undoManager
     self.now = now
   }
 
@@ -33,6 +37,7 @@ final class ThoughtActions {
     case .copyPath: copyPath()
     case .toggleDone: toggleDone()
     case .delete: delete()
+    case .clearDone: clearDone()
     case .openSource: openSource()
     case .showInFinder: showInFinder()
     case .saveEdit: saveEdit()
@@ -104,14 +109,29 @@ final class ThoughtActions {
     let done = thoughts.contains { !list.isDone($0) }
     let changing = thoughts.filter { list.isDone($0) != done }
     let names = changing.map { $0.file.lastPathComponent }
-    let ids = changing.map(\.id)
     let date = now()
     list.holdDone(done, for: names)
     run(
       { store in
-        for id in ids { _ = try store.setDone(done, for: id, at: date) }
+        var reversals: [Reversal] = []
+        var failure: (any Error)?
+        for thought in changing {
+          do {
+            let before = (try? store.entry(at: thought.file).thought) ?? thought
+            let after = try store.setDone(done, for: thought.id, at: date)
+            reversals.append(Reversal(before: before, after: after))
+          } catch {
+            failure = error
+            break
+          }
+        }
+        return Attempt(value: reversals.isEmpty ? nil : reversals, failure: failure)
       },
-      rollback: { [list] in list.releaseDone(for: names) })
+      rollback: { [list] landed in
+        let kept = Set((landed ?? []).map { $0.file.lastPathComponent })
+        list.releaseDone(for: names.filter { !kept.contains($0) })
+      },
+      finish: { [self] reversals in record(.amend(reversals)) })
   }
 
   private func delete() {
@@ -123,8 +143,67 @@ final class ThoughtActions {
     list.selection = neighbor.map { [$0] } ?? []
     if neighbor == nil { list.focus = .input }
     run(
-      { store in try store.delete(ids) },
-      rollback: { [list] in list.releaseRemoval(of: names) })
+      { store in
+        var landed: [TrashedFile] = []
+        do {
+          try store.delete(ids, landing: &landed)
+          return Attempt(value: landed.isEmpty ? nil : landed)
+        } catch {
+          return Attempt(value: landed.isEmpty ? nil : landed, failure: error)
+        }
+      },
+      rollback: { [list] landed in
+        let gone = Set((landed ?? []).map { $0.original.lastPathComponent })
+        list.releaseRemoval(of: names.subtracting(gone))
+      },
+      finish: { [self] files in
+        record(.restore(files))
+        let count = files.filter { Self.isThoughtFile($0.original) }.count
+        list.confirm(
+          count == 1
+            ? String(localized: "Moved to the Trash. Press ⌘Z to put it back.")
+            : String(localized: "Moved \(count) thoughts to the Trash. Press ⌘Z to put them back."),
+          lingers: true)
+      })
+  }
+
+  private func clearDone() {
+    let store: ThoughtStore
+    do {
+      store = ThoughtStore(folder: try location.resolve(), trash: trash)
+    } catch let error as ThoughtsError {
+      list.report(error)
+      return
+    } catch {
+      list.tell(error.localizedDescription)
+      return
+    }
+    run(
+      { store in
+        var cleared: [Thought] = []
+        do {
+          try store.clearingDone(landing: &cleared)
+          return Attempt(value: cleared.isEmpty ? nil : cleared)
+        } catch {
+          return Attempt(value: cleared.isEmpty ? nil : cleared, failure: error)
+        }
+      },
+      store: store,
+      emptyNote: String(localized: "Nothing is marked done"),
+      rollback: { _ in },
+      fail: { [list] error in
+        if let error = error as? ThoughtsError {
+          list.report(error)
+        } else {
+          list.tell(error.localizedDescription)
+        }
+      },
+      finish: { [self] cleared in
+        record(.amend(cleared.map(Reversal.cleared)))
+        list.confirm(
+          String(localized: "Cleared the done thoughts. Press ⌘Z to bring them back."),
+          lingers: true)
+      })
   }
 
   private func saveEdit() {
@@ -140,9 +219,7 @@ final class ThoughtActions {
     }
     guard let store = makeStore() else { return }
     list.markEditSaving()
-    let previous = pending
-    pending = Task { [weak list] in
-      await previous?.value
+    enqueue { [self, weak list] in
       let outcome = await Task.detached { () -> EditOutcome in
         do {
           return .saved(try store.setText(text, of: session.id, expected: session.version))
@@ -157,6 +234,14 @@ final class ThoughtActions {
           return .failed(error.localizedDescription)
         }
       }.value
+      if case .saved(let saved) = outcome {
+        record(
+          .amend([
+            Reversal(
+              id: session.id, file: session.file, version: saved.version,
+              applied: .text(text), previous: .text(session.original))
+          ]))
+      }
       list?.finishEdit(outcome, for: session.name)
     }
   }
@@ -200,7 +285,17 @@ final class ThoughtActions {
     }
   }
 
-  private func makeStore() -> ThoughtStore? {
+  func enqueue(_ body: @escaping @MainActor () async -> Void) {
+    let previous = pending
+    busy += 1
+    pending = Task { [weak self] in
+      await previous?.value
+      await body()
+      self?.busy -= 1
+    }
+  }
+
+  func makeStore() -> ThoughtStore? {
     do {
       return ThoughtStore(folder: try location.resolve(), trash: trash)
     } catch let error as ThoughtsError {
@@ -211,26 +306,53 @@ final class ThoughtActions {
     return nil
   }
 
-  private func run(
-    _ work: @escaping @Sendable (ThoughtStore) throws -> Void,
-    rollback: @escaping @MainActor () -> Void
+  private func run<T: Sendable>(
+    _ work: @escaping @Sendable (ThoughtStore) throws -> Attempt<T>,
+    store given: ThoughtStore? = nil,
+    emptyNote: String? = nil,
+    rollback: @escaping @MainActor (T?) -> Void,
+    fail: (@MainActor (any Error) -> Void)? = nil,
+    finish: @escaping @MainActor (T) -> Void
   ) {
-    guard let store = makeStore() else {
-      rollback()
+    guard let store = given ?? makeStore() else {
+      rollback(nil)
       return
     }
-    let previous = pending
-    pending = Task { [weak list] in
-      await previous?.value
+    enqueue { [weak list] in
+      let attempt: Attempt<T>
       do {
-        try await Task.detached { try work(store) }.value
-      } catch let error as ThoughtsError {
-        rollback()
-        list?.tell(ListModel.message(for: error))
+        attempt = try await Task.detached { try work(store) }.value
       } catch {
-        rollback()
-        list?.tell(error.localizedDescription)
+        attempt = Attempt(failure: error)
+      }
+      if let value = attempt.value {
+        finish(value)
+      } else if attempt.failure == nil, let emptyNote {
+        list?.tell(emptyNote)
+      }
+      guard let failure = attempt.failure else { return }
+      rollback(attempt.value)
+      if let fail {
+        fail(failure)
+      } else if let error = failure as? ThoughtsError {
+        list?.tell(ListModel.message(for: error))
+      } else {
+        list?.tell(failure.localizedDescription)
       }
     }
+  }
+}
+
+struct Attempt<T: Sendable>: Sendable {
+  var value: T?
+  var failure: (any Error)?
+
+  init(value: T?, failure: (any Error)? = nil) {
+    self.value = value
+    self.failure = failure
+  }
+
+  init(failure: any Error) {
+    self.failure = failure
   }
 }

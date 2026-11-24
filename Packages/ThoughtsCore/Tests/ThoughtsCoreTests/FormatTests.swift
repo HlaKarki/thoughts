@@ -25,7 +25,7 @@ private func label(_ value: Date) -> String {
 }
 
 private let folder = URL(fileURLWithPath: "/tmp/thoughts-format-tests/Thoughts")
-private let store = ThoughtStore(folder: folder, trash: { _ in })
+private let store = ThoughtStore(folder: folder, trash: { $0 })
 
 private func thought(_ name: String, _ content: ThoughtContent) -> Thought {
   Thought(
@@ -113,7 +113,7 @@ private func thought(_ name: String, _ content: ThoughtContent) -> Thought {
 
 @Test func markdownListUsesRawAbsolutePath() {
   let spaced = URL(fileURLWithPath: "/tmp/with space/Thoughts")
-  let spacedStore = ThoughtStore(folder: spaced, trash: { _ in })
+  let spacedStore = ThoughtStore(folder: spaced, trash: { $0 })
   let shot = Thought(
     id: ThoughtID(rawValue: "eeee5555")!,
     created: now,

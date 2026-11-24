@@ -8,9 +8,19 @@ import UniformTypeIdentifiers
 
 private final class Trashed: Sendable {
   private let urls = Mutex<[URL]>([])
+  let folder: URL
 
-  func record(_ url: URL) {
+  init(folder: URL) {
+    self.folder = folder
+  }
+
+  func move(_ url: URL) throws -> URL {
     urls.withLock { $0.append(url) }
+    let slot = folder.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: slot, withIntermediateDirectories: true)
+    let landed = slot.appendingPathComponent(url.lastPathComponent)
+    try FileManager.default.moveItem(at: url, to: landed)
+    return landed
   }
 
   var all: [URL] { urls.withLock { $0 } }
@@ -19,7 +29,7 @@ private final class Trashed: Sendable {
 private final class Fixture {
   let scratch: URL
   let folder: URL
-  let trashed = Trashed()
+  let trashed: Trashed
   let store: ThoughtStore
 
   init() {
@@ -27,8 +37,9 @@ private final class Fixture {
       .appendingPathComponent("thought-store-tests-\(UUID().uuidString)")
     folder = scratch.appendingPathComponent("Thoughts")
     try! FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-    let trashed = trashed
-    store = ThoughtStore(folder: folder, trash: { trashed.record($0) })
+    let trashed = Trashed(folder: scratch.appendingPathComponent("Trash"))
+    self.trashed = trashed
+    store = ThoughtStore(folder: folder, trash: { try trashed.move($0) })
   }
 
   deinit {

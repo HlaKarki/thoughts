@@ -65,7 +65,7 @@ struct PanelRootView: View {
   private var header: some View {
     HStack(spacing: 8) {
       SearchField(list: list)
-      MoreMenu(preferences: preferences, shared: shared, onClearDone: { list.clearDone() })
+      MoreMenu(preferences: preferences, shared: shared, onClearDone: { list.perform(.clearDone) })
     }
     .padding(.top, 12)
     .padding(.bottom, 10)

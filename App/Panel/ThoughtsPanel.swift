@@ -26,7 +26,11 @@ final class ThoughtsPanel: NSPanel {
   var onCancel: (() -> Void)?
   var pasteboard: NSPasteboard = .general
   var onPaste: ((NSPasteboard) -> Bool)?
+  var onNothingToDo: ((HistoryDirection) -> Void)?
+  let sharedUndoManager = UndoManager()
   private var pasteEditor: PasteFieldEditor?
+
+  override var undoManager: UndoManager? { sharedUndoManager }
 
   init(content: NSView) {
     super.init(
@@ -67,9 +71,30 @@ final class ThoughtsPanel: NSPanel {
     }
   }
 
+  static func historyDirection(for event: NSEvent) -> HistoryDirection? {
+    switch editAction(for: event) {
+    case Selector(("undo:")): .undo
+    case Selector(("redo:")): .redo
+    default: nil
+    }
+  }
+
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    if let direction = Self.historyDirection(for: event) { return step(direction) }
     if let action = Self.editAction(for: event), send(action) { return true }
     return super.performKeyEquivalent(with: event)
+  }
+
+  private func step(_ direction: HistoryDirection) -> Bool {
+    let manager = sharedUndoManager
+    let typing = firstResponder is NSTextView && manager.groupingLevel > 0
+    let available = direction == .undo ? manager.canUndo : manager.canRedo
+    guard available || typing else {
+      onNothingToDo?(direction)
+      return true
+    }
+    if direction == .undo { manager.undo() } else { manager.redo() }
+    return true
   }
 
   private func send(_ action: Selector) -> Bool {

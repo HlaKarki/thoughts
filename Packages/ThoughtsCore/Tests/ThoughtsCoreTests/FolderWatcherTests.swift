@@ -29,7 +29,12 @@ private final class Scratch {
   }
 
   var store: ThoughtStore {
-    ThoughtStore(folder: folder, trash: { try FileManager.default.removeItem(at: $0) })
+    ThoughtStore(
+      folder: folder,
+      trash: { url in
+        try FileManager.default.removeItem(at: url)
+        return url
+      })
   }
 
   func makeIndex() throws -> SearchIndex {

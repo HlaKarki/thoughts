@@ -12,8 +12,9 @@ struct Feedback: Equatable, Identifiable {
   let id = UUID()
   let kind: Kind
   let text: String
+  var lingers = false
 
   var lifetime: Duration {
-    kind == .confirmation ? Self.confirmationLifetime : Self.messageLifetime
+    kind == .confirmation && !lingers ? Self.confirmationLifetime : Self.messageLifetime
   }
 }

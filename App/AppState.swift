@@ -86,8 +86,10 @@ final class AppState {
     menuBar.start()
     let pasteboard = PasteboardWriter()
     self.pasteboard = pasteboard
-    let actions = ThoughtActions(list: list, location: location, pasteboard: pasteboard)
+    let actions = ThoughtActions(
+      list: list, location: location, pasteboard: pasteboard, undoManager: panel.undoManager)
     self.actions = actions
+    panel.onNothingToDo = { [actions] in actions.nothingToDo($0) }
     let preview = PreviewWindowController(list: list) { [panel] in
       panel.isShown ? (panel.frame, panel.edge) : nil
     }

@@ -2,18 +2,20 @@ import Foundation
 
 public struct ThoughtStore: Sendable {
   public let folder: URL
-  private let trash: @Sendable (URL) throws -> Void
+  private let trash: @Sendable (URL) throws -> URL
 
   public init(
     folder: URL,
-    trash: @escaping @Sendable (URL) throws -> Void = ThoughtStore.moveToTrash
+    trash: @escaping @Sendable (URL) throws -> URL = ThoughtStore.moveToTrash
   ) {
     self.folder = folder
     self.trash = trash
   }
 
-  public static func moveToTrash(_ url: URL) throws {
-    try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+  public static func moveToTrash(_ url: URL) throws -> URL {
+    var landed: NSURL?
+    try FileManager.default.trashItem(at: url, resultingItemURL: &landed)
+    return (landed as URL?) ?? url
   }
 
   public func add(_ new: NewThought) throws -> Thought {
@@ -117,23 +119,109 @@ public struct ThoughtStore: Sendable {
   }
 
   public func clearDone() throws -> [ThoughtID] {
-    var cleared: [ThoughtID] = []
-    for case .thought(var thought) in try entries() where thought.done != nil && !thought.cleared {
-      thought.cleared = true
-      _ = try rewrite(thought)
-      cleared.append(thought.id)
-    }
+    try clearingDone().map(\.id)
+  }
+
+  public func clearingDone() throws -> [Thought] {
+    var cleared: [Thought] = []
+    try clearingDone(landing: &cleared)
     return cleared
   }
 
-  public func delete(_ ids: [ThoughtID]) throws {
+  public func clearingDone(landing cleared: inout [Thought]) throws {
+    for case .thought(var thought) in try entries() where thought.done != nil && !thought.cleared {
+      thought.cleared = true
+      cleared.append(try rewrite(thought))
+    }
+  }
+
+  @discardableResult
+  public func delete(_ ids: [ThoughtID]) throws -> [TrashedFile] {
+    var moved: [TrashedFile] = []
+    try delete(ids, landing: &moved)
+    return moved
+  }
+
+  public func delete(_ ids: [ThoughtID], landing moved: inout [TrashedFile]) throws {
     for id in ids {
       guard case .found(let thought) = try locate(id) else { continue }
-      try wrapped { try trash(thought.file) }
+      moved.append(try trashed(thought.file))
       if let image = ownImageURL(of: thought), FileManager.default.fileExists(atPath: image.path) {
-        try wrapped { try trash(image) }
+        moved.append(try trashed(image))
       }
     }
+  }
+
+  public func trashFiles(_ originals: [URL]) throws -> [TrashedFile] {
+    try requireFolder()
+    for original in originals where !FileManager.default.fileExists(atPath: original.path) {
+      throw RestoreError.changed
+    }
+    var moved: [TrashedFile] = []
+    do {
+      for original in originals {
+        moved.append(try trashed(original))
+      }
+    } catch {
+      try? restore(moved)
+      throw error
+    }
+    return moved
+  }
+
+  public func restore(_ files: [TrashedFile]) throws {
+    try requireFolder()
+    let manager = FileManager.default
+    for file in files where !manager.fileExists(atPath: file.trashed.path) {
+      throw RestoreError.notInTrash
+    }
+    for file in files where manager.fileExists(atPath: file.original.path) {
+      throw RestoreError.nameTaken
+    }
+    var restored: [TrashedFile] = []
+    for file in files {
+      do {
+        try manager.moveItem(at: file.trashed, to: file.original)
+        restored.append(file)
+      } catch {
+        for done in restored.reversed() {
+          try? manager.moveItem(at: done.original, to: done.trashed)
+        }
+        throw mapped(error)
+      }
+    }
+  }
+
+  public func amend(_ amendments: [Amendment]) throws -> [Thought] {
+    var originals: [Thought] = []
+    for amendment in amendments {
+      originals.append(try current(for: amendment))
+    }
+    var applied: [Thought] = []
+    for (amendment, original) in zip(amendments, originals) {
+      var thought = original
+      switch amendment.change {
+      case .mark(let mark):
+        thought.done = mark.done
+        thought.cleared = mark.cleared
+      case .text(let text):
+        switch thought.content {
+        case .text: thought.content = .text(text)
+        case .image(let fileName, _): thought.content = .image(fileName: fileName, note: text)
+        }
+      }
+      do {
+        applied.append(try rewrite(thought))
+      } catch {
+        for (back, written) in zip(originals, applied).reversed() {
+          var undone = back
+          undone.version = written.version
+          _ = try? rewrite(undone)
+        }
+        throw error
+      }
+    }
+    return applied
   }
 
   public func imageURL(of thought: Thought) -> URL? {
@@ -237,6 +325,26 @@ extension ThoughtStore {
       }
       return entry
     }
+  }
+
+  private func trashed(_ url: URL) throws -> TrashedFile {
+    let landed = try wrapped { try trash(url) }
+    return TrashedFile(original: url, trashed: landed)
+  }
+
+  private func current(for amendment: Amendment) throws -> Thought {
+    let entry: ThoughtEntry
+    do {
+      entry = try load(amendment.file)
+    } catch AtomicFileError.missing {
+      throw ThoughtsError.deletedOnDisk(amendment.id)
+    } catch {
+      throw mapped(error)
+    }
+    guard case .thought(let thought) = entry, thought.id == amendment.id,
+      thought.version == amendment.expected
+    else { throw ThoughtsError.changedOnDisk(amendment.id) }
+    return thought
   }
 
   private func ownImageURL(of thought: Thought) -> URL? {

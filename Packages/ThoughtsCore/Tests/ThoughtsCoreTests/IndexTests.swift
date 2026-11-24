@@ -49,7 +49,12 @@ private final class Fixture {
     folder = scratch.appendingPathComponent("Thoughts")
     indexURL = scratch.appendingPathComponent("Support/index.sqlite")
     try! FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-    store = ThoughtStore(folder: folder, trash: { try FileManager.default.removeItem(at: $0) })
+    store = ThoughtStore(
+      folder: folder,
+      trash: { url in
+        try FileManager.default.removeItem(at: url)
+        return url
+      })
     index = try! SearchIndex(url: indexURL, folder: folder)
   }
 

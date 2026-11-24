@@ -27,6 +27,7 @@ enum KeyCommand: Equatable {
   case openSource
   case showInFinder
   case delete
+  case clearDone
   case actionsMenu
   case backToInput
   case type(String)

@@ -5,14 +5,36 @@ import ThoughtsCore
 
 @testable import Thoughts
 
-final class Recorder: @unchecked Sendable {
+final class FakeTrash: @unchecked Sendable {
   private let lock = NSLock()
   private var urls: [URL] = []
+  private var moves = 0
+  let folder: URL
+  let failingOn: Int?
 
-  func add(_ url: URL) {
+  struct Refused: LocalizedError {
+    var errorDescription: String? { "The Trash is full" }
+  }
+
+  init(folder: URL, failingOn: Int? = nil) {
+    self.folder = folder
+    self.failingOn = failingOn
+  }
+
+  func move(_ url: URL) throws -> URL {
+    lock.lock()
+    moves += 1
+    let refuse = moves == failingOn
+    lock.unlock()
+    if refuse { throw Refused() }
+    let slot = folder.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: slot, withIntermediateDirectories: true)
+    let landed = slot.appendingPathComponent(url.lastPathComponent)
+    try FileManager.default.moveItem(at: url, to: landed)
     lock.lock()
     urls.append(url)
     lock.unlock()
+    return landed
   }
 
   var all: [URL] {
@@ -50,21 +72,21 @@ struct ThoughtActionsTests {
     let actions: ThoughtActions
     let log: OpenerLog
     let board: NSPasteboard
-    let trashed: Recorder
+    let trashed: FakeTrash
   }
 
   static func rig() throws -> Rig {
     let fixture = try ListFixture()
     let log = OpenerLog()
     let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    let trashed = Recorder()
+    let trashed = FakeTrash(folder: fixture.root.appendingPathComponent("Trash"))
+    let undoManager = UndoManager()
+    undoManager.groupsByEvent = false
     let actions = ThoughtActions(
       list: fixture.model, location: fixture.location,
       pasteboard: PasteboardWriter(pasteboard: board), opener: log.opener,
-      trash: {
-        trashed.add($0)
-        try FileManager.default.removeItem(at: $0)
-      }, now: { ListFixture.now.addingTimeInterval(3600) })
+      trash: { try trashed.move($0) }, undoManager: undoManager,
+      now: { ListFixture.now.addingTimeInterval(3600) })
     return Rig(fixture: fixture, actions: actions, log: log, board: board, trashed: trashed)
   }
 

@@ -66,6 +66,13 @@ final class PanelController {
     set { panel.onPaste = newValue }
   }
 
+  var undoManager: UndoManager { panel.sharedUndoManager }
+
+  var onNothingToDo: ((HistoryDirection) -> Void)? {
+    get { panel.onNothingToDo }
+    set { panel.onNothingToDo = newValue }
+  }
+
   var frame: CGRect { panel.frame }
   var edge: PanelEdge { preferences.edge }
 

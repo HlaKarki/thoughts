@@ -175,11 +175,13 @@ struct ActionFeedbackTests {
     fixture.model.panelDidShow()
     let log = OpenerLog()
     let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    let trashed = Recorder()
+    let trashed = FakeTrash(folder: fixture.root.appendingPathComponent("Trash"))
+    let undoManager = UndoManager()
+    undoManager.groupsByEvent = false
     let actions = ThoughtActions(
       list: fixture.model, location: fixture.location,
       pasteboard: PasteboardWriter(pasteboard: board), opener: log.opener,
-      trash: { trashed.add($0) }, now: { ListFixture.now })
+      trash: { try trashed.move($0) }, undoManager: undoManager, now: { ListFixture.now })
     let rig = ThoughtActionsTests.Rig(
       fixture: fixture, actions: actions, log: log, board: board, trashed: trashed)
     return (rig, gate)
@@ -347,13 +349,16 @@ struct ActionFeedbackTests {
     let model = rig.fixture.model
     try rig.fixture.addText("open", daysAgo: 2)
     try rig.fixture.reload()
-    model.clearDone()
+    rig.actions.perform(.clearDone)
     #expect(await Eventually.hold { model.feedback?.text == "Nothing is marked done" })
     #expect(model.feedback?.kind == .message)
     try rig.fixture.addText("finished", daysAgo: 1, done: true)
     try rig.fixture.reload()
-    model.clearDone()
-    #expect(await Eventually.hold { model.feedback?.text == "Cleared the done thoughts" })
+    rig.actions.perform(.clearDone)
+    #expect(
+      await Eventually.hold {
+        model.feedback?.text == "Cleared the done thoughts. Press ⌘Z to bring them back."
+      })
     #expect(model.feedback?.kind == .confirmation)
   }
 
