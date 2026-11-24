@@ -48,6 +48,7 @@ public enum ClipboardContent: Sendable, Equatable {
   case image
   case text(String)
   case nothing
+  case refused
 }
 
 public struct CaptureContext: Sendable, Equatable {
@@ -95,6 +96,7 @@ public enum CaptureAction: Sendable, Equatable {
   case saveCopiedText(String, Source)
   case saveClipboardImage
   case alreadySaved(URL)
+  case clipboardRefused
   case nothingToSave
 }
 
@@ -140,6 +142,8 @@ public enum CaptureDecision {
       return .saveCopiedText(text, source)
     case .nothing:
       return .nothingToSave
+    case .refused:
+      return .clipboardRefused
     }
   }
 

@@ -25,6 +25,7 @@ final class CaptureCoordinator {
   private let currentOffer: (() -> OfferID?)?
   private let acceptOffer: (() async throws -> Thought)?
   private let clipboardCopy: (() -> ClipboardCopy?)?
+  private let accessBehavior: @MainActor () -> NSPasteboard.AccessBehavior
   private(set) var isCapturing = false
 
   init(
@@ -40,7 +41,8 @@ final class CaptureCoordinator {
     now: @escaping () -> Date = Date.init,
     currentOffer: (() -> OfferID?)? = nil,
     acceptOffer: (() async throws -> Thought)? = nil,
-    clipboardCopy: (() -> ClipboardCopy?)? = nil
+    clipboardCopy: (() -> ClipboardCopy?)? = nil,
+    accessBehavior: (@MainActor () -> NSPasteboard.AccessBehavior)? = nil
   ) {
     self.frontmost = frontmost
     self.ownBundleID = ownBundleID
@@ -55,6 +57,7 @@ final class CaptureCoordinator {
     self.currentOffer = currentOffer
     self.acceptOffer = acceptOffer
     self.clipboardCopy = clipboardCopy
+    self.accessBehavior = accessBehavior ?? { [pasteboard] in pasteboard.accessBehavior }
   }
 
   func capture() async -> CaptureOutcome {
@@ -98,6 +101,8 @@ final class CaptureCoordinator {
       return await saveClipboardImage(held, recordedSource, expecting: current.changeCount)
     case .alreadySaved(let file):
       return .alreadySaved(input.thought(at: file))
+    case .clipboardRefused:
+      return .failed(Self.pasteRefusedMessage)
     case .copyFallback, .readClipboard, .nothingToSave:
       return .nothingToSave
     }
@@ -139,7 +144,9 @@ final class CaptureCoordinator {
     if holdsExcludedCopy() { return (.nothing, nil) }
     if let image = Self.image(in: pasteboard) { return (.image, image) }
     if !PasteboardReader.fileURLs(in: pasteboard).isEmpty { return (.nothing, nil) }
-    guard let text = pasteboard.string(forType: .string) else { return (.nothing, nil) }
+    guard let text = pasteboard.string(forType: .string) else {
+      return (accessBehavior() == .alwaysAllow ? .nothing : .refused, nil)
+    }
     return (.text(text), nil)
   }
 
@@ -160,7 +167,9 @@ final class CaptureCoordinator {
       return .failed(Self.message(for: ThoughtsError.clipboardChanged))
     }
     if held == nil, holdsExcludedCopy() { return .nothingToSave }
-    guard let image = held ?? Self.image(in: pasteboard) else { return .nothingToSave }
+    guard let image = held ?? Self.image(in: pasteboard) else {
+      return accessBehavior() == .alwaysAllow ? .nothingToSave : .failed(Self.pasteRefusedMessage)
+    }
     var source = recorded
     if case .file(let file) = image { source.file = file.path }
     return await save(.image(image, note: ""), source, pasteboardChangeCount: changeCount)
@@ -188,6 +197,10 @@ final class CaptureCoordinator {
       }.map { .file($0) }
     }
     return PasteboardReader.imageData(in: pasteboard).map { .data($0.data, $0.type) }
+  }
+
+  static var pasteRefusedMessage: String {
+    String(localized: "macOS didn't let Thoughts paste from other apps")
   }
 
   static func message(for error: Error) -> String {

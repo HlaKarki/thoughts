@@ -100,10 +100,14 @@ final class OfferCenter {
       content = .image(.file(file), note: "")
     } else if let changeCount = offer.changeCount {
       guard pasteboard.changeCount == changeCount else { throw ThoughtsError.clipboardChanged }
-      guard !ClipboardWatcher.isExcluded(pasteboard.types ?? []),
-        let image = CaptureCoordinator.image(in: pasteboard)
-      else {
+      guard !ClipboardWatcher.isExcluded(pasteboard.types ?? []) else {
         throw ThoughtsError.io(String(localized: "The clipboard no longer holds an image"))
+      }
+      guard let image = CaptureCoordinator.image(in: pasteboard) else {
+        throw ThoughtsError.io(
+          accessBehavior() == .alwaysAllow
+            ? String(localized: "The clipboard no longer holds an image")
+            : CaptureCoordinator.pasteRefusedMessage)
       }
       guard pasteboard.changeCount == changeCount else { throw ThoughtsError.clipboardChanged }
       content = .image(image, note: "")

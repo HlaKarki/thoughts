@@ -362,7 +362,7 @@ struct CaptureCoordinatorTests {
   static func textRig(
     probe: SelectionProbe = .empty, front: AppSnapshot? = editor, text: String? = "ls -la",
     age: TimeInterval = 60, kind: ClipboardCopy.Kind = .text, own: Bool = false,
-    recorded: Source = page
+    recorded: Source = page, access: NSPasteboard.AccessBehavior = .alwaysAllow
   ) throws -> (
     fixture: ListFixture, board: NSPasteboard, reader: FakeReader, coordinator: CaptureCoordinator
   ) {
@@ -383,7 +383,8 @@ struct CaptureCoordinatorTests {
         ClipboardCopy(
           changeCount: board.changeCount, seen: ListFixture.now.addingTimeInterval(-age),
           kind: kind, app: terminal, own: own)
-      })
+      },
+      accessBehavior: { access })
     return (fixture, board, reader, coordinator)
   }
 
@@ -522,6 +523,35 @@ struct CaptureCoordinatorTests {
     rig.board.setData(Data(), forType: NSPasteboard.PasteboardType(ClipboardTypes.concealed))
     #expect(await rig.coordinator.capture() == .nothingToSave)
     #expect(try rig.fixture.store.entries().isEmpty)
+  }
+
+  static let refused = CaptureOutcome.failed(CaptureCoordinator.pasteRefusedMessage)
+
+  @Test(arguments: [ClipboardCopy.Kind.text, .unknown])
+  func aRefusedPasteOfARecentCopyIsCouldntSaveNotNothingToSave(_ kind: ClipboardCopy.Kind)
+    async throws
+  {
+    for access in [NSPasteboard.AccessBehavior.ask, .alwaysDeny] {
+      let rig = try Self.textRig(text: nil, kind: kind, access: access)
+      defer { rig.board.releaseGlobally() }
+      #expect(await rig.coordinator.capture() == Self.refused)
+      #expect(try rig.fixture.store.entries().isEmpty)
+    }
+  }
+
+  @Test func aRefusedPasteOfARecentImageIsCouldntSaveToo() async throws {
+    let rig = try Self.textRig(text: nil, kind: .image, access: .alwaysDeny)
+    defer { rig.board.releaseGlobally() }
+    #expect(await rig.coordinator.capture() == Self.refused)
+  }
+
+  @Test func anEmptyReadWithPasteAllowedIsStillNothingToSave() async throws {
+    let rig = try Self.textRig(text: nil, kind: .unknown, access: .alwaysAllow)
+    defer { rig.board.releaseGlobally() }
+    #expect(await rig.coordinator.capture() == .nothingToSave)
+    let image = try Self.textRig(text: nil, kind: .image, access: .alwaysAllow)
+    defer { image.board.releaseGlobally() }
+    #expect(await image.coordinator.capture() == .nothingToSave)
   }
 
   @Test func anEmptyOrBlankClipboardSavesNothing() async throws {

@@ -96,6 +96,19 @@ struct OfferCenterTests {
     #expect(try rig.fixture.store.entries().isEmpty)
   }
 
+  @Test func acceptSaysWhyWhenMacOSRefusedThePaste() async throws {
+    let rig = try Self.rig(behavior: .alwaysDeny)
+    defer { rig.board.releaseGlobally() }
+    rig.board.clearContents()
+    rig.board.setString("nothing readable as an image", forType: .string)
+    let count = rig.board.changeCount
+    rig.center.receive(.clipboard(changeCount: count, file: nil, at: Date()))
+    await Self.wait { rig.center.current != nil }
+    await #expect(throws: ThoughtsError.io(CaptureCoordinator.pasteRefusedMessage)) {
+      _ = try await rig.center.accept()
+    }
+  }
+
   @Test func acceptThrowsWhenTheClipboardMoved() async throws {
     let rig = try Self.rig()
     defer { rig.board.releaseGlobally() }

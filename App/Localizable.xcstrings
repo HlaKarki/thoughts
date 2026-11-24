@@ -171,6 +171,7 @@
     "When you copy an image, a small offer appears at the edge of the screen. Press %@ to keep it.": {},
     "done": {},
     "macOS asks for this so the capture gesture works in other apps.": {},
+    "macOS didn't let Thoughts paste from other apps": {},
     "macOS is set to never let Thoughts paste from other apps, so offers show no preview. You can change this in System Settings under Privacy & Security, Paste from Other Apps.": {},
     "macOS needs your approval before Thoughts can open at login.": {}
   },

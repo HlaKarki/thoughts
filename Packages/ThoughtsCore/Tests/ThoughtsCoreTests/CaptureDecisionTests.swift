@@ -363,6 +363,20 @@ struct CaptureDecisionTests {
     #expect(!ClipboardTypes.isConcealed(["org.nspasteboard.TransientType"]))
   }
 
+  @Test func aRefusedClipboardReadIsNeverNothingToSave() {
+    for kind in [ClipboardCopy.Kind.text, .image, .unknown] {
+      let action = CaptureDecision.decide(
+        Self.context(selection: .empty, imageAge: 20, copy: kind, content: .refused))
+      #expect(action == .clipboardRefused)
+    }
+    let own = CaptureDecision.decide(
+      Self.context(selection: .empty, imageAge: 20, copy: .text, copyOwn: true, content: .refused))
+    #expect(own == .nothingToSave)
+    let stale = CaptureDecision.decide(
+      Self.context(selection: .empty, imageAge: 200, copy: .unknown, content: .refused))
+    #expect(stale == .nothingToSave)
+  }
+
   @Test func aMovedCopyKeepsItsKindAppAndAge() {
     let copy = ClipboardCopy(
       changeCount: 7, seen: Self.now, kind: .text, app: Self.terminal, own: true)
