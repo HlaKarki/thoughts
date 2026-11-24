@@ -16,7 +16,13 @@ enum SnapshotRenderer {
     let hosting = NSHostingView(rootView: view.background(Color(nsColor: .windowBackgroundColor)))
     hosting.appearance = NSAppearance(named: appearance)
     hosting.frame = CGRect(origin: .zero, size: size)
-    hosting.layoutSubtreeIfNeeded()
+    return try render(view: hosting, name: name)
+  }
+
+  @MainActor
+  static func render(view: NSView, name: String) throws -> URL {
+    let size = view.bounds.size
+    view.layoutSubtreeIfNeeded()
     guard
       let bitmap = NSBitmapImageRep(
         bitmapDataPlanes: nil,
@@ -31,7 +37,7 @@ enum SnapshotRenderer {
         bitsPerPixel: 0)
     else { throw Failure.noBitmap }
     bitmap.size = size
-    hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
+    view.cacheDisplay(in: view.bounds, to: bitmap)
     guard let png = bitmap.representation(using: .png, properties: [:]) else {
       throw Failure.noPNG
     }
