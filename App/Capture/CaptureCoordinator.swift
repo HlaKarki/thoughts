@@ -68,10 +68,11 @@ final class CaptureCoordinator {
     let app = frontmost()
     let offer = currentOffer?()
     let ownWindow = ownWindowIsKey()
+    let secureInput = reader.secureInputOn
     let selection = offer == nil && !ownWindow ? await probe(app) : .empty
     let recordedSource = await recorded
     let fallbackAllowed =
-      !ownWindow
+      !ownWindow && !secureInput
       && CopyFallbackPolicy.allowed(bundleID: app?.bundleID, ownBundleID: ownBundleID)
     var current = context(
       offer: offer, selection: selection, fallbackAllowed: fallbackAllowed,

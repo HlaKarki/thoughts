@@ -4,6 +4,7 @@ import ThoughtsCore
 
 @MainActor
 protocol SelectionReading: AnyObject {
+  var secureInputOn: Bool { get }
   func probe(pid: Int32) async -> SelectionProbe
   func copySelection() async -> (SelectionProbe, ownChangeCounts: [Int])
 }
@@ -82,13 +83,15 @@ final class SelectionReader: SelectionReading {
     self.secureInput = secureInput
   }
 
+  var secureInputOn: Bool { secureInput() }
+
   func probe(pid: Int32) async -> SelectionProbe {
     let readSelection = readSelection
     return await Task.detached { readSelection(pid) }.value
   }
 
   func copySelection() async -> (SelectionProbe, ownChangeCounts: [Int]) {
-    if secureInput() { return (.secureField, []) }
+    if secureInput() { return (.copiedNothing, []) }
     if ClipboardTypes.isConcealedOrTransient((pasteboard.types ?? []).map(\.rawValue)) {
       return (.copiedNothing, [])
     }

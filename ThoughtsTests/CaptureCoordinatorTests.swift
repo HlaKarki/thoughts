@@ -14,6 +14,7 @@ struct CaptureCoordinatorTests {
 
   @MainActor
   final class FakeReader: SelectionReading {
+    var secureInputOn = false
     var probed: [Int32] = []
     var copies = 0
     var probeResult = SelectionProbe.unavailable

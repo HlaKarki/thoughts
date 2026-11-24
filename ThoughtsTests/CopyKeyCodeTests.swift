@@ -29,9 +29,16 @@ struct CopyKeyCodeTests {
     #expect(CopyKeyCode.translate(CopyKeyCode.current(), layout: layout) == "c")
   }
 
-  @Test func secureInputWithAnUnreadableFocusIsASecureField() {
-    let reader = AXReader(secureInput: { true })
-    #expect(reader.selection(pid: 1) == .secureField)
+  @Test func secureInputNeverMakesAnUnreadableFocusASecureField() async {
+    let board = PasteboardSnapshotTests.privateBoard()
+    defer { board.releaseGlobally() }
+    let host = ProcessInfo.processInfo.processIdentifier
+    let ax = AXReader()
+    let reader = SelectionReader(
+      pasteboard: board, readSelection: { ax.selection(pid: $0) }, postCopy: {},
+      secureInput: { true })
+    #expect(reader.secureInputOn)
+    #expect(await reader.probe(pid: host) != .secureField)
   }
 
   @Test func secureInputTurningOnBeforeThePostPostsNothing() async {
@@ -43,7 +50,7 @@ struct CopyKeyCodeTests {
     let reader = SelectionReader(
       pasteboard: board, postCopy: { posts += 1 }, secureInput: { true })
     let (probe, counts) = await reader.copySelection()
-    #expect(probe == .secureField)
+    #expect(probe == .copiedNothing)
     #expect(counts.isEmpty)
     #expect(posts == 0)
     #expect(board.changeCount == count)

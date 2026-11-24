@@ -1,5 +1,4 @@
 import ApplicationServices
-import Carbon.HIToolbox
 import Foundation
 import ThoughtsCore
 
@@ -9,10 +8,7 @@ final class AXReader: Sendable {
   private static let searchDepth = 14
   private static let searchLimit = 1500
 
-  private let secureInput: @Sendable () -> Bool
-
-  init(secureInput: @escaping @Sendable () -> Bool = { IsSecureEventInputEnabled() }) {
-    self.secureInput = secureInput
+  init() {
     AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), Self.messagingTimeout)
   }
 
@@ -32,7 +28,6 @@ final class AXReader: Sendable {
   }
 
   func selection(pid: Int32) -> SelectionProbe {
-    if secureInput() { return .secureField }
     guard AXIsProcessTrusted() else { return .unavailable }
     let app = SystemAXNode(element: AXUIElementCreateApplication(pid))
     let deadline = Date().addingTimeInterval(Self.searchBudget)

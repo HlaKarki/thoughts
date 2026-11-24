@@ -166,26 +166,47 @@ struct EngineCopyCaptureTests {
     }
   }
 
-  @Test func aFreshCopyIsSavedWhileAnotherProcessHoldsSecureInputAndNothingIsSelected()
-    async throws
-  {
-    let axReader = AXReader(secureInput: { true })
+  @Test func aFreshCopyIsSavedWhileSecureInputIsOnAndTheFocusIsUnreadable() async throws {
+    let axReader = AXReader()
     for copy in [Copy.selection, .writeText] {
+      var posts = 0
       let rig = try Rig(front: Self.hostInFront) { board in
         SelectionReader(
-          pasteboard: board, readSelection: { axReader.selection(pid: $0) }, postCopy: {},
-          secureInput: { true })
+          pasteboard: board, readSelection: { axReader.selection(pid: $0) },
+          postCopy: { posts += 1 }, secureInput: { true })
       }
       defer { rig.close() }
       rig.copy(copy)
       await rig.poll()
       #expect(rig.watcher.lastCopy?.kind == .text)
       let outcome = await rig.coordinator.capture()
-      let stored = try rig.storedTexts
-      withKnownIssue("Secure input held by any process reads as a secure field in the front app") {
-        #expect(Self.isSaved(outcome), "got \(outcome)")
-        #expect(stored == [Self.words])
+      #expect(Self.isSaved(outcome), "got \(outcome)")
+      #expect(try rig.storedTexts == [Self.words])
+      #expect(posts == 0)
+    }
+  }
+
+  @Test func theFrontAppsFocusedPasswordFieldWithTextSelectedSavesNothingAndPostsNoCopy()
+    async throws
+  {
+    for secureInput in [false, true] {
+      var posts = 0
+      let rig = try Rig { board in
+        SelectionReader(
+          pasteboard: board,
+          readSelection: { _ in
+            let field = SelectionInspectorTests.Node(role: "AXTextField", selected: "hunter2")
+            field.strings[kAXSubroleAttribute] = "AXSecureTextField"
+            return SelectionInspector().probe(focused: field, menuBar: { nil })
+          },
+          postCopy: { posts += 1 }, secureInput: { secureInput })
       }
+      defer { rig.close() }
+      rig.copy(.writeText)
+      await rig.poll()
+      #expect(await rig.coordinator.capture() == .nothingToSave)
+      #expect(try rig.storedTexts.isEmpty)
+      #expect(posts == 0)
     }
   }
 
