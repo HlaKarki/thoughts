@@ -36,7 +36,7 @@ public enum FrontMatterCodec {
   public static func decode(
     _ text: String, file: URL, version: FileVersion, fallbackCreated: Date
   ) -> ThoughtEntry {
-    let normalized = text.replacingOccurrences(of: "\r\n", with: "\n")
+    let normalized = trimmingOpeningLine(text.replacingOccurrences(of: "\r\n", with: "\n"))
     let stem = file.deletingPathExtension().lastPathComponent
 
     guard normalized.hasPrefix("---\n") else {
@@ -272,6 +272,13 @@ extension FrontMatterCodec {
       }
     }
     return (source == Source() ? nil : source, extra.isEmpty ? "" : emit(Node(extra)))
+  }
+
+  fileprivate static func trimmingOpeningLine(_ text: String) -> String {
+    guard text.hasPrefix("---"), let end = text.firstIndex(of: "\n") else { return text }
+    let tail = text[text.index(text.startIndex, offsetBy: 3)..<end]
+    guard !tail.isEmpty, tail.allSatisfy({ $0 == " " || $0 == "\t" }) else { return text }
+    return "---" + text[end...]
   }
 
   fileprivate static func sourceNode(_ source: Source?, extra: String) -> Node? {

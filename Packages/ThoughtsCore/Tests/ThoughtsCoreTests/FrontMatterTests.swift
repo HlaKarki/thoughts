@@ -306,3 +306,20 @@ private func thought(from text: String) -> Thought? {
   }
   #expect(!reason.isEmpty)
 }
+
+@Test func anOpeningLineWithTrailingSpacesStartsFrontMatter() {
+  for opening in ["--- ", "---\t", "---  \t"] {
+    let text =
+      "\(opening)\nid: a1b2c3d4\ncreated: 2026-11-22T18:14:03.120-05:00\ncleared: true\n---\nbody\n"
+    guard let decoded = thought(from: text) else {
+      Issue.record("expected thought")
+      continue
+    }
+    #expect(decoded.cleared)
+    #expect(decoded.content == .text("body"))
+    #expect(decoded.id.rawValue == "a1b2c3d4")
+    let encoded = FrontMatterCodec.encode(decoded)
+    #expect(encoded.components(separatedBy: "id: ").count == 2)
+    #expect(thought(from: encoded) == decoded)
+  }
+}
