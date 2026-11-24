@@ -447,6 +447,10 @@ private func checkNewImagesArriveBeforeTheirRecognition(gap: Duration?) async th
   try await Task.sleep(for: .milliseconds(400))
   #expect(recognizer.total == count)
   #expect(recognizer.mostPerImage == 1)
+  #expect(
+    await eventually(seconds: 20) {
+      deliveries.changes.flatMap(\.added).filter { $0.hasPrefix("outside-") }.count >= 20
+    })
 
   let updated = deliveries.changes.flatMap(\.updated)
   #expect(Set(updated).count == updated.count)
