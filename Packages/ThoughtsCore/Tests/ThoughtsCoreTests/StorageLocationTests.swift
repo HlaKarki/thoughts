@@ -232,6 +232,56 @@ private final class Fixture {
   #expect(fixture.names(destination) == ["a.md"])
 }
 
+@Test func moveIntoAFolderHoldingOnlyFinderDataWorks() throws {
+  for crossesVolumes in [false, true] {
+    let fixture = Fixture()
+    let location = fixture.location()
+    let old = try location.resolve()
+    fixture.write("x", to: old.appendingPathComponent("a.md"))
+    let destination = fixture.url("Shown in Finder")
+    fixture.write("finder", to: destination.appendingPathComponent(".DS_Store"))
+    if crossesVolumes {
+      try location.move(to: destination, rename: { _, _ in EXDEV })
+    } else {
+      try location.move(to: destination)
+    }
+    #expect(fixture.names(destination) == ["a.md"])
+    #expect(fixture.isSymlink(old))
+  }
+}
+
+@Test func moveNamesOnlyTheFilesFinderDoesNotHide() throws {
+  let fixture = Fixture()
+  let location = fixture.location()
+  let old = try location.resolve()
+  fixture.write("x", to: old.appendingPathComponent("a.md"))
+  let destination = fixture.url("Taken")
+  fixture.write("finder", to: destination.appendingPathComponent(".DS_Store"))
+  fixture.write("x", to: destination.appendingPathComponent("notes.txt"))
+  #expect(throws: ThoughtsError.folderNotEmpty(["notes.txt"])) {
+    try location.move(to: destination)
+  }
+  #expect(fixture.names(destination) == [".DS_Store", "notes.txt"])
+  #expect(!fixture.isSymlink(old))
+}
+
+@Test func crossVolumeMoveLinksTheOldPathWhenFinderRewritesItsFile() throws {
+  let fixture = Fixture()
+  let location = fixture.location()
+  let old = try location.resolve()
+  fixture.write("one", to: old.appendingPathComponent("a.md"))
+  fixture.write("finder", to: old.appendingPathComponent(".DS_Store"))
+  let destination = fixture.url("Elsewhere/Thoughts")
+  try location.move(
+    to: destination, rename: { _, _ in EXDEV },
+    afterVerify: {
+      fixture.write("finder, written again", to: old.appendingPathComponent(".DS_Store"))
+    })
+  #expect(fixture.isSymlink(old))
+  #expect(fixture.text(old.appendingPathComponent("a.md")) == "one")
+  #expect(fixture.settings(location)["folder"] as? String == destination.path)
+}
+
 @Test func moveAcrossVolumesCopiesThenRemoves() throws {
   let fixture = Fixture()
   let location = fixture.location()

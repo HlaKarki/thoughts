@@ -184,7 +184,15 @@ public struct StorageLocation: Sendable {
     if FileManager.default.fileExists(atPath: target.path, isDirectory: &isDirectory) {
       guard isDirectory.boolValue else { throw ThoughtsError.io("\(target.path) is not a folder") }
       let names = try Self.names(in: target)
-      guard names.isEmpty else { throw ThoughtsError.folderNotEmpty(names.sorted()) }
+      let shown = names.filter { $0 != Self.finderFile }
+      guard shown.isEmpty else { throw ThoughtsError.folderNotEmpty(shown.sorted()) }
+      if !names.isEmpty {
+        do {
+          try FileManager.default.removeItem(at: target.appendingPathComponent(Self.finderFile))
+        } catch {
+          throw ThoughtsError.io(error.localizedDescription)
+        }
+      }
       return
     }
     let parent = target.deletingLastPathComponent()
@@ -243,6 +251,7 @@ public struct StorageLocation: Sendable {
         try? fileManager.removeItem(at: file)
       }
     }
+    try? fileManager.removeItem(at: source.appendingPathComponent(Self.finderFile))
     guard rmdir(source.path) == 0 else {
       let left = ((try? Self.names(in: source)) ?? []).sorted().joined(separator: ", ")
       throw ThoughtsError.io(
@@ -257,6 +266,8 @@ public struct StorageLocation: Sendable {
       )
     }
   }
+
+  private static let finderFile = ".DS_Store"
 
   private static func renameFolder(_ source: URL, _ target: URL) -> Int32 {
     Darwin.rename(source.path, target.path) == 0 ? 0 : errno
@@ -313,7 +324,7 @@ public struct StorageLocation: Sendable {
     let names = try names(in: folder)
     let documents = Set(names.filter { $0.hasSuffix(".md") }.map(baseName))
     return names.filter { name in
-      if name.hasSuffix(".md") || name == ".DS_Store" || isTemporary(name) { return false }
+      if name.hasSuffix(".md") || name == finderFile || isTemporary(name) { return false }
       var isDirectory: ObjCBool = false
       let path = folder.appendingPathComponent(name).path
       _ = FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory)
