@@ -25,8 +25,9 @@ final class CaptureCoordinator {
   private let currentOffer: (() -> OfferID?)?
   private let acceptOffer: (() async throws -> Thought)?
   private let clipboardCopy: (() -> ClipboardCopy?)?
-  private let pollClipboard: (@MainActor () async -> Void)?
+  private let pollClipboard: (@MainActor () async -> Int)?
   private let accessBehavior: @MainActor () -> NSPasteboard.AccessBehavior
+  private let log: @MainActor (CaptureTrail) -> Void
   private(set) var isCapturing = false
 
   init(
@@ -43,8 +44,9 @@ final class CaptureCoordinator {
     currentOffer: (() -> OfferID?)? = nil,
     acceptOffer: (() async throws -> Thought)? = nil,
     clipboardCopy: (() -> ClipboardCopy?)? = nil,
-    pollClipboard: (@MainActor () async -> Void)? = nil,
-    accessBehavior: (@MainActor () -> NSPasteboard.AccessBehavior)? = nil
+    pollClipboard: (@MainActor () async -> Int)? = nil,
+    accessBehavior: (@MainActor () -> NSPasteboard.AccessBehavior)? = nil,
+    log: @escaping @MainActor (CaptureTrail) -> Void = CaptureLog.record
   ) {
     self.frontmost = frontmost
     self.ownBundleID = ownBundleID
@@ -61,6 +63,7 @@ final class CaptureCoordinator {
     self.clipboardCopy = clipboardCopy
     self.pollClipboard = pollClipboard
     self.accessBehavior = accessBehavior ?? { [pasteboard] in pasteboard.accessBehavior }
+    self.log = log
   }
 
   func capture() async -> CaptureOutcome {
@@ -68,12 +71,16 @@ final class CaptureCoordinator {
     isCapturing = true
     defer { isCapturing = false }
     async let recorded = source()
-    await pollClipboard?()
+    let polledCount = await pollClipboard?()
     let app = frontmost()
     let offer = currentOffer?()
     let ownWindow = ownWindowIsKey()
     let secureInput = reader.secureInputOn
-    let selection = offer == nil && !ownWindow ? await probe(app) : .empty
+    var trail = CaptureTrail(
+      secureInput: secureInput, polledCount: polledCount, currentCount: pasteboard.changeCount,
+      now: now())
+    trail.probe = offer == nil && !ownWindow ? await probe(app) : nil
+    let selection = trail.probe ?? .empty
     let recordedSource = await recorded
     let fallbackAllowed =
       !ownWindow && !secureInput
@@ -83,6 +90,7 @@ final class CaptureCoordinator {
       source: recordedSource)
     var action = CaptureDecision.decide(current)
     if action == .copyFallback {
+      trail.fallbackRan = true
       (current, action) = await decideAfterCopy(source: recordedSource)
     }
     var held: ImageInput?
@@ -92,6 +100,10 @@ final class CaptureCoordinator {
       held = read.image
       action = CaptureDecision.decide(current)
     }
+    trail.copy = current.clipboard
+    trail.action = action
+    trail.now = current.now
+    log(trail)
     switch action {
     case .acceptOffer:
       return await accept()

@@ -101,12 +101,15 @@ final class ClipboardWatcher {
     classifying = Task { await classify(change.copy, own: change.ownChange) }
   }
 
-  func pollNow() async {
+  @discardableResult
+  func pollNow() async -> Int {
+    let polled = lastCount
     guard let change = record(ownWindowWasKey: ownWindowIsKey()) else {
       await classifying?.value
-      return
+      return polled
     }
     await classify(change.copy, own: change.ownChange)
+    return polled
   }
 
   private func record(ownWindowWasKey: Bool) -> (copy: ClipboardCopy, ownChange: Bool)? {

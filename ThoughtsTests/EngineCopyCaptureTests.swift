@@ -44,6 +44,11 @@ struct EngineCopyCaptureTests {
   }
 
   @MainActor
+  final class Trails {
+    var all: [CaptureTrail] = []
+  }
+
+  @MainActor
   final class Rig {
     let fixture: ListFixture
     let board: NSPasteboard
@@ -53,6 +58,7 @@ struct EngineCopyCaptureTests {
     let coordinator: CaptureCoordinator
     let keys = ClipboardWatcherTests.Keys()
     let panel = NSObject()
+    let trails = Trails()
     let suite: String
 
     init(
@@ -79,7 +85,11 @@ struct EngineCopyCaptureTests {
         sound: SavedSound(preferences: Preferences(defaults: defaults), player: {}),
         pasteboard: board, now: { ListFixture.now.addingTimeInterval(captureDelay) },
         clipboardCopy: { watcher.lastCopy }, pollClipboard: { await watcher.pollNow() },
-        accessBehavior: { behavior })
+        accessBehavior: { behavior },
+        log: { [trails] in
+          trails.all.append($0)
+          CaptureLog.record($0)
+        })
       self.fixture = fixture
       self.board = board
       self.suite = suite
