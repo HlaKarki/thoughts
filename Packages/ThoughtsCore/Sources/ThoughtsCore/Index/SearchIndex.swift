@@ -256,6 +256,7 @@ extension SearchIndex {
               sql: """
                 UPDATE thoughts SET recognized = ?
                 WHERE file = ? AND image_name = ? AND image_modified IS ? AND image_size IS ?
+                  AND recognized IS NULL
                 """,
               arguments: [
                 item.text, item.name, item.image.name,

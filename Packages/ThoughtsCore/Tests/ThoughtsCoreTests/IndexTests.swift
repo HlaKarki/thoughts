@@ -691,3 +691,18 @@ private func onlyName(in fx: Fixture) throws -> String? {
   released.wait()
   #expect(failure.withLock { $0 } == nil)
 }
+
+@Test func aLateFailedRecognitionNeverReplacesRecognizedText() throws {
+  let fx = Fixture()
+  let image = fx.addImage()
+  _ = try fx.sync.reconcile(nil)
+  let name = image.file.lastPathComponent
+  let state = try #require(try fx.index.states()[ExactName(name)])
+  #expect(state.recognized == "screenshot of an invoice")
+  let indexed = try #require(state.image)
+
+  let write = try fx.index.applyRecognized([RecognizedImage(name: name, image: indexed, text: "")])
+  #expect(write.updated.isEmpty)
+  #expect(try fx.index.states()[ExactName(name)]?.recognized == "screenshot of an invoice")
+  #expect(try fx.index.search("invoice") == [image.id])
+}
