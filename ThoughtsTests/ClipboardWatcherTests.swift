@@ -323,6 +323,17 @@ struct ClipboardWatcherTests {
     #expect(rig.watcher.lastCopy == ClipboardCopy(changeCount: count, seen: Self.now, kind: .text))
   }
 
+  @Test(arguments: [UTType.url, .data, .pdf])
+  func gatedPathDropsACopyTheDetectAPICallsNeitherTextNorImage(detected: UTType) async {
+    let rig = Self.rig(behavior: .ask, type: detected)
+    defer { rig.board.releaseGlobally() }
+    rig.board.clearContents()
+    rig.board.setString("words", forType: .string)
+    await rig.watcher.pollNow()
+    #expect(rig.signals.all.isEmpty)
+    #expect(rig.watcher.lastCopy == nil)
+  }
+
   @Test func aFinderCopyOfATextFileNeverCountsAsText() async throws {
     let rig = Self.rig(type: .plainText)
     defer { rig.board.releaseGlobally() }

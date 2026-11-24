@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Testing
 import ThoughtsCore
+import UniformTypeIdentifiers
 
 @testable import Thoughts
 
@@ -55,7 +56,7 @@ struct EngineCopyCaptureTests {
     let suite: String
 
     init(
-      behavior: NSPasteboard.AccessBehavior = .alwaysAllow,
+      behavior: NSPasteboard.AccessBehavior = .alwaysAllow, detected: UTType? = nil,
       captureDelay: TimeInterval = 0, front: AppSnapshot = EngineCopyCaptureTests.browser,
       selectionReader: (@MainActor (NSPasteboard) -> any SelectionReading)? = nil
     ) throws {
@@ -67,7 +68,7 @@ struct EngineCopyCaptureTests {
       let writer = PasteboardWriter(pasteboard: board)
       let watcher = ClipboardWatcher(
         pasteboard: board, accessBehavior: { behavior },
-        isOwnChange: { writer.ownChangeCounts.contains($0) }, contentType: { nil },
+        isOwnChange: { writer.ownChangeCounts.contains($0) }, contentType: { detected },
         now: { ListFixture.now }, frontmost: { front },
         ownWindowIsKey: { [keys] in keys.ownWindowIsKey }, notifications: keys.center)
       coordinator = CaptureCoordinator(
@@ -144,6 +145,20 @@ struct EngineCopyCaptureTests {
         #expect(rig.watcher.lastCopy?.changeCount == rig.board.changeCount)
       }
     }
+  }
+
+  @Test(arguments: [UTType.url, .data, .pdf])
+  func aGatedCopyTheDetectAPICallsNeitherTextNorImageSaysNothingToSave(detected: UTType)
+    async throws
+  {
+    let rig = try Rig(behavior: .ask, detected: detected)
+    defer { rig.close() }
+    rig.copy(.writeText)
+    rig.reader.probeResult = .unavailable
+    rig.reader.copyResult = .copiedNothing
+    #expect(await rig.coordinator.capture() == .nothingToSave)
+    #expect(rig.watcher.lastCopy == nil)
+    #expect(try rig.storedTexts.isEmpty)
   }
 
   @Test func aSelectionTheAccessibilityReadAnswersIsSaved() async throws {
