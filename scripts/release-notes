@@ -30,7 +30,7 @@ for line in "${lines[@]}"; do
     if [[ $line == "## $version" ]]; then
       inside=true
       has_date=false
-    elif [[ $line == "## $version ("<->-<->-<->")" ]]; then
+    elif [[ $line == "## $version ("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")" ]]; then
       inside=true
       has_date=true
     fi
