@@ -363,6 +363,27 @@ struct CaptureDecisionTests {
     #expect(!ClipboardTypes.isConcealed(["org.nspasteboard.TransientType"]))
   }
 
+  @Test func aSavedCopyThatARoundTripMarkedOwnIsStillAlreadySaved() {
+    let saved = Self.ledger(
+      SavedEntry(file: Self.file, clipboardCounts: [9], text: "ls", source: Self.terminalSource))
+    let again = CaptureDecision.decide(
+      Self.context(
+        selection: .copiedNothing, imageAge: 10, imageCount: 9, copy: .text, copyApp: Self.terminal,
+        copyOwn: true, changeCount: 9, saved: saved))
+    #expect(again == .alreadySaved(Self.file))
+    let viaEarlierCount = CaptureDecision.decide(
+      Self.context(
+        selection: .copiedNothing, imageAge: 10, imageCount: 11, copy: .unknown,
+        copyApp: Self.terminal, copyOwn: true, changeCount: 11, equivalentCounts: [9],
+        content: .text("ls"), saved: saved))
+    #expect(viaEarlierCount == .alreadySaved(Self.file))
+    let neverSaved = CaptureDecision.decide(
+      Self.context(
+        selection: .copiedNothing, imageAge: 10, imageCount: 12, copy: .text,
+        copyApp: Self.terminal, copyOwn: true, changeCount: 12, saved: saved))
+    #expect(neverSaved == .nothingToSave)
+  }
+
   @Test func aRefusedClipboardReadIsNeverNothingToSave() {
     for kind in [ClipboardCopy.Kind.text, .image, .unknown] {
       let action = CaptureDecision.decide(

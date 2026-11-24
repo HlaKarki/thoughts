@@ -123,11 +123,11 @@ public enum CaptureDecision {
 
   private static func decideClipboard(_ context: CaptureContext) -> CaptureAction {
     guard let copy = recentCopy(context) else { return .nothingToSave }
-    if copy.own, copy.kind == .text { return .nothingToSave }
     let counts = [context.changeCount] + context.equivalentCounts
     if let match = context.saved.newestHolding(counts: counts) {
       return .alreadySaved(match.file)
     }
+    if copy.own, copy.kind == .text { return .nothingToSave }
     switch context.clipboardContent {
     case nil:
       return copy.kind == .image ? .saveClipboardImage : .readClipboard
