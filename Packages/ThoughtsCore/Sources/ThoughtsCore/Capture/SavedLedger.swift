@@ -34,7 +34,7 @@ public struct SavedLedger: Sendable, Equatable {
     SavedLedger(entries: entries.filter { exists($0.file) })
   }
 
-  public func newestHoldingImage(counts: [Int]) -> SavedEntry? {
+  public func newestHolding(counts: [Int]) -> SavedEntry? {
     entries.last { entry in entry.clipboardCounts.contains { counts.contains($0) } }
   }
 

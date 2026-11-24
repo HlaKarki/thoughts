@@ -52,7 +52,7 @@ struct CaptureCoordinatorTests {
     front: AppSnapshot? = notes,
     ownWindowIsKey: Bool = false,
     soundEnabled: Bool = true,
-    image: (() -> ClipboardImage?)? = nil,
+    image: (() -> ClipboardCopy?)? = nil,
     offer: OfferID? = nil,
     accept: (() async throws -> Thought)? = nil
   ) throws -> Rig {
@@ -70,7 +70,7 @@ struct CaptureCoordinatorTests {
       input: fixture.input, writer: writer,
       sound: SavedSound(preferences: preferences, player: { plays.count += 1 }),
       pasteboard: board, now: { ListFixture.now },
-      currentOffer: offer.map { id in { id } }, acceptOffer: accept, clipboardImage: image)
+      currentOffer: offer.map { id in { id } }, acceptOffer: accept, clipboardCopy: image)
     return Rig(
       fixture: fixture, board: board, reader: reader, writer: writer, coordinator: coordinator,
       plays: plays, defaults: defaults)
@@ -183,7 +183,7 @@ struct CaptureCoordinatorTests {
       input: fixture.input, writer: PasteboardWriter(pasteboard: board),
       sound: SavedSound(preferences: Preferences(defaults: defaults), player: {}),
       pasteboard: board, now: { ListFixture.now },
-      clipboardImage: { ClipboardImage(changeCount: count, seen: seen) })
+      clipboardCopy: { ClipboardCopy(changeCount: count, seen: seen, kind: .image) })
     var saves: [ManualSave] = []
     fixture.input.onManualSave = { saves.append($0) }
     let outcome = await coordinator.capture()
@@ -213,8 +213,9 @@ struct CaptureCoordinatorTests {
           defaults: try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))),
         player: {}),
       pasteboard: rig.board, now: { ListFixture.now },
-      clipboardImage: {
-        ClipboardImage(changeCount: count, seen: ListFixture.now.addingTimeInterval(-30))
+      clipboardCopy: {
+        ClipboardCopy(
+          changeCount: count, seen: ListFixture.now.addingTimeInterval(-30), kind: .image)
       })
     guard case .saved(let thought) = await coordinator.capture() else {
       Issue.record("expected a save")
@@ -243,9 +244,10 @@ struct CaptureCoordinatorTests {
       source: { page }, input: fixture.input, writer: PasteboardWriter(pasteboard: board),
       sound: SavedSound(preferences: Preferences(defaults: defaults), player: {}),
       pasteboard: board, now: { ListFixture.now },
-      clipboardImage: {
-        ClipboardImage(
-          changeCount: board.changeCount, seen: ListFixture.now.addingTimeInterval(-30))
+      clipboardCopy: {
+        ClipboardCopy(
+          changeCount: board.changeCount, seen: ListFixture.now.addingTimeInterval(-30),
+          kind: .image)
       })
     return (fixture, board, reader, coordinator, count)
   }
@@ -354,6 +356,172 @@ struct CaptureCoordinatorTests {
     }
   }
 
+  static let terminal = AppSnapshot(pid: 43, bundleID: "dev.example.terminal", name: "Terminal")
+  static let terminalSource = Source(app: "Terminal", bundleID: "dev.example.terminal")
+
+  static func textRig(
+    probe: SelectionProbe = .empty, front: AppSnapshot? = editor, text: String? = "ls -la",
+    age: TimeInterval = 60, kind: ClipboardCopy.Kind = .text, own: Bool = false,
+    recorded: Source = page
+  ) throws -> (
+    fixture: ListFixture, board: NSPasteboard, reader: FakeReader, coordinator: CaptureCoordinator
+  ) {
+    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    board.clearContents()
+    if let text { board.setString(text, forType: .string) }
+    let fixture = try ListFixture()
+    let reader = FakeReader()
+    reader.probeResult = probe
+    let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+    let coordinator = CaptureCoordinator(
+      frontmost: { front }, ownBundleID: Self.own, ownWindowIsKey: { false },
+      reader: reader, source: { recorded }, input: fixture.input,
+      writer: PasteboardWriter(pasteboard: board),
+      sound: SavedSound(preferences: Preferences(defaults: defaults), player: {}),
+      pasteboard: board, now: { ListFixture.now },
+      clipboardCopy: {
+        ClipboardCopy(
+          changeCount: board.changeCount, seen: ListFixture.now.addingTimeInterval(-age),
+          kind: kind, app: terminal, own: own)
+      })
+    return (fixture, board, reader, coordinator)
+  }
+
+  @Test func textCopiedAMinuteAgoIsSavedWithTheAppThatCopiedIt() async throws {
+    let rig = try Self.textRig(text: "  ls -la\n")
+    defer { rig.board.releaseGlobally() }
+    var saves: [ManualSave] = []
+    rig.fixture.input.onManualSave = { saves.append($0) }
+    guard case .saved(let thought) = await rig.coordinator.capture() else {
+      Issue.record("expected a save")
+      return
+    }
+    #expect(thought.content == .text("ls -la"))
+    #expect(thought.source == Self.terminalSource)
+    #expect(saves.first?.pasteboardChangeCount == rig.board.changeCount)
+  }
+
+  @Test func textCopiedFromTheAppStillInFrontKeepsItsWindowAndPage() async throws {
+    let frontSource = Source(
+      app: "Terminal", bundleID: "dev.example.terminal", window: "~/code", title: "~/code")
+    let rig = try Self.textRig(front: Self.terminal, recorded: frontSource)
+    defer { rig.board.releaseGlobally() }
+    guard case .saved(let thought) = await rig.coordinator.capture() else {
+      Issue.record("expected a save")
+      return
+    }
+    #expect(thought.source == frontSource)
+  }
+
+  @Test func textCopiedThreeMinutesAgoSavesNothing() async throws {
+    let rig = try Self.textRig(age: 180)
+    defer { rig.board.releaseGlobally() }
+    #expect(await rig.coordinator.capture() == .nothingToSave)
+    #expect(try rig.fixture.store.entries().isEmpty)
+  }
+
+  @Test func shiftShiftTwiceOnOneTextCopySavesOneThought() async throws {
+    let rig = try Self.textRig()
+    defer { rig.board.releaseGlobally() }
+    guard case .saved(let first) = await rig.coordinator.capture() else {
+      Issue.record("expected the first press to save")
+      return
+    }
+    #expect(await rig.coordinator.capture() == .alreadySaved(first))
+    #expect(try rig.fixture.store.entries().compactMap(\.thought).count == 1)
+  }
+
+  @Test func aNewCopyOfTheSameTextFromTheSameAppIsAlreadySaved() async throws {
+    let rig = try Self.textRig()
+    defer { rig.board.releaseGlobally() }
+    guard case .saved(let first) = await rig.coordinator.capture() else {
+      Issue.record("expected the first press to save")
+      return
+    }
+    rig.board.clearContents()
+    rig.board.setString("ls -la", forType: .string)
+    #expect(await rig.coordinator.capture() == .alreadySaved(first))
+    #expect(try rig.fixture.store.entries().compactMap(\.thought).count == 1)
+  }
+
+  @Test func theTextCopySavesAgainAfterTheOwnerDeletesIt() async throws {
+    let rig = try Self.textRig()
+    defer { rig.board.releaseGlobally() }
+    guard case .saved(let first) = await rig.coordinator.capture() else {
+      Issue.record("expected the first press to save")
+      return
+    }
+    try FileManager.default.removeItem(at: first.file)
+    guard case .saved = await rig.coordinator.capture() else {
+      Issue.record("expected a save after the delete")
+      return
+    }
+  }
+
+  @Test func anAppWithNoSelectionAnswerFallsThroughTheCopyKeyToTheRecentTextCopy() async throws {
+    let rig = try Self.textRig(probe: .unavailable, front: Self.notes)
+    defer { rig.board.releaseGlobally() }
+    guard case .saved(let thought) = await rig.coordinator.capture() else {
+      Issue.record("expected a save")
+      return
+    }
+    #expect(rig.reader.copies == 1)
+    #expect(thought.content == .text("ls -la"))
+  }
+
+  @Test func aSelectionBeatsARecentTextCopy() async throws {
+    let rig = try Self.textRig(probe: .text("selected words"))
+    defer { rig.board.releaseGlobally() }
+    guard case .saved(let thought) = await rig.coordinator.capture() else {
+      Issue.record("expected a save")
+      return
+    }
+    #expect(thought.content == .text("selected words"))
+  }
+
+  @Test func anImageBeatsTextWhenOneCopyHoldsBoth() async throws {
+    let rig = try Self.textRig(kind: .unknown)
+    defer { rig.board.releaseGlobally() }
+    rig.board.setData(try ListFixture.png(), forType: .png)
+    guard case .saved(let thought) = await rig.coordinator.capture(), case .image = thought.content
+    else {
+      Issue.record("expected an image")
+      return
+    }
+  }
+
+  @Test func textThoughtsCopiedItselfNeverSaves() async throws {
+    let rig = try Self.textRig(own: true)
+    defer { rig.board.releaseGlobally() }
+    #expect(await rig.coordinator.capture() == .nothingToSave)
+    let unknown = try Self.textRig(kind: .unknown, own: true)
+    defer { unknown.board.releaseGlobally() }
+    #expect(await unknown.coordinator.capture() == .nothingToSave)
+    #expect(try rig.fixture.store.entries().isEmpty)
+  }
+
+  @Test func aFinderCopyOfAFileNeverSavesAsText() async throws {
+    let rig = try Self.textRig(text: nil, kind: .unknown)
+    defer { rig.board.releaseGlobally() }
+    let folder = TempFolder()
+    try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
+    let file = folder.url.appendingPathComponent("notes.txt")
+    try Data([1]).write(to: file)
+    rig.board.clearContents()
+    rig.board.writeObjects([file as NSURL])
+    rig.board.setString("notes.txt", forType: .string)
+    #expect(await rig.coordinator.capture() == .nothingToSave)
+    #expect(try rig.fixture.store.entries().isEmpty)
+  }
+
+  @Test func anEmptyOrBlankClipboardSavesNothing() async throws {
+    for text in [nil, "  \n"] {
+      let rig = try Self.textRig(text: text, kind: .unknown)
+      defer { rig.board.releaseGlobally() }
+      #expect(await rig.coordinator.capture() == .nothingToSave)
+    }
+  }
+
   @Test func aNonImageFileOnTheClipboardIsNotSavedAsItsIcon() throws {
     let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
     defer { board.releaseGlobally() }
@@ -370,7 +538,8 @@ struct CaptureCoordinatorTests {
 
   @Test func staleClipboardImageSavesNothing() async throws {
     let rig = try Self.rig(
-      front: Self.editor, image: { ClipboardImage(changeCount: -1, seen: ListFixture.now) })
+      front: Self.editor,
+      image: { ClipboardCopy(changeCount: -1, seen: ListFixture.now, kind: .image) })
     defer { rig.board.releaseGlobally() }
     rig.reader.probeResult = .empty
     #expect(await rig.coordinator.capture() == .nothingToSave)

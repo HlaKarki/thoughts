@@ -9,21 +9,53 @@ public enum SelectionProbe: Sendable, Equatable {
   case copyDisabled
 }
 
-public struct ClipboardImage: Sendable, Equatable {
+public struct ClipboardCopy: Sendable, Equatable {
+  public enum Kind: Sendable, Equatable {
+    case image
+    case text
+    case unknown
+  }
+
   public let changeCount: Int
   public let seen: Date
+  public let kind: Kind
+  public let app: AppSnapshot?
+  public let own: Bool
 
-  public init(changeCount: Int, seen: Date) {
+  public init(
+    changeCount: Int, seen: Date, kind: Kind = .unknown, app: AppSnapshot? = nil,
+    own: Bool = false
+  ) {
     self.changeCount = changeCount
     self.seen = seen
+    self.kind = kind
+    self.app = app
+    self.own = own
   }
+
+  public func moved(to changeCount: Int) -> ClipboardCopy {
+    ClipboardCopy(changeCount: changeCount, seen: seen, kind: kind, app: app, own: own)
+  }
+
+  public func source(recorded: Source) -> Source {
+    guard let app else { return Source() }
+    if app.bundleID == recorded.bundleID, app.name == recorded.app { return recorded }
+    return Source(app: app.name, bundleID: app.bundleID)
+  }
+}
+
+public enum ClipboardContent: Sendable, Equatable {
+  case image
+  case text(String)
+  case nothing
 }
 
 public struct CaptureContext: Sendable, Equatable {
   public var offer: OfferID?
   public var selection: SelectionProbe
   public var fallbackAllowed: Bool
-  public var clipboardImage: ClipboardImage?
+  public var clipboard: ClipboardCopy?
+  public var clipboardContent: ClipboardContent?
   public var changeCount: Int
   public var equivalentCounts: [Int]
   public var saved: SavedLedger
@@ -34,7 +66,8 @@ public struct CaptureContext: Sendable, Equatable {
     offer: OfferID? = nil,
     selection: SelectionProbe,
     fallbackAllowed: Bool,
-    clipboardImage: ClipboardImage? = nil,
+    clipboard: ClipboardCopy? = nil,
+    clipboardContent: ClipboardContent? = nil,
     changeCount: Int,
     equivalentCounts: [Int] = [],
     saved: SavedLedger = SavedLedger(),
@@ -44,7 +77,8 @@ public struct CaptureContext: Sendable, Equatable {
     self.offer = offer
     self.selection = selection
     self.fallbackAllowed = fallbackAllowed
-    self.clipboardImage = clipboardImage
+    self.clipboard = clipboard
+    self.clipboardContent = clipboardContent
     self.changeCount = changeCount
     self.equivalentCounts = equivalentCounts
     self.saved = saved
@@ -57,6 +91,8 @@ public enum CaptureAction: Sendable, Equatable {
   case acceptOffer(OfferID)
   case saveText(String)
   case copyFallback
+  case readClipboard
+  case saveCopiedText(String, Source)
   case saveClipboardImage
   case alreadySaved(URL)
   case nothingToSave
@@ -80,20 +116,38 @@ public enum CaptureDecision {
     case .empty, .copyDisabled, .copiedNothing:
       break
     }
-    guard hasRecentImage(context) else { return .nothingToSave }
-    let counts = [context.changeCount] + context.equivalentCounts
-    if let match = context.saved.newestHoldingImage(counts: counts) {
-      return .alreadySaved(match.file)
-    }
-    return .saveClipboardImage
+    return decideClipboard(context)
   }
 
-  private static func hasRecentImage(_ context: CaptureContext) -> Bool {
-    guard let image = context.clipboardImage, image.changeCount == context.changeCount else {
-      return false
+  private static func decideClipboard(_ context: CaptureContext) -> CaptureAction {
+    guard let copy = recentCopy(context) else { return .nothingToSave }
+    if copy.own, copy.kind == .text { return .nothingToSave }
+    let counts = [context.changeCount] + context.equivalentCounts
+    if let match = context.saved.newestHolding(counts: counts) {
+      return .alreadySaved(match.file)
     }
-    let age = context.now.timeIntervalSince(image.seen)
-    return age <= imageWindow
+    switch context.clipboardContent {
+    case nil:
+      return copy.kind == .image ? .saveClipboardImage : .readClipboard
+    case .image:
+      return .saveClipboardImage
+    case .text(let text):
+      guard !copy.own, !isBlank(text) else { return .nothingToSave }
+      let source = copy.source(recorded: context.source)
+      if let match = context.saved.newestMatchingText(text, from: source) {
+        return .alreadySaved(match.file)
+      }
+      return .saveCopiedText(text, source)
+    case .nothing:
+      return .nothingToSave
+    }
+  }
+
+  private static func recentCopy(_ context: CaptureContext) -> ClipboardCopy? {
+    guard let copy = context.clipboard, copy.changeCount == context.changeCount else {
+      return nil
+    }
+    return context.now.timeIntervalSince(copy.seen) <= imageWindow ? copy : nil
   }
 
   private static func isBlank(_ text: String) -> Bool {

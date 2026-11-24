@@ -23,13 +23,16 @@ struct ClipboardWatcherTests {
   static func rig(
     behavior: NSPasteboard.AccessBehavior = .alwaysAllow,
     type: UTType? = nil,
-    own: Set<Int> = []
+    own: Set<Int> = [],
+    app: AppSnapshot? = nil,
+    ownWindowIsKey: Bool = false
   ) -> Rig {
     let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
     let signals = Signals()
     let watcher = ClipboardWatcher(
       pasteboard: board, accessBehavior: { behavior }, isOwnChange: { own.contains($0) },
-      contentType: { type }, now: { now })
+      contentType: { type }, now: { now }, frontmost: { app },
+      ownWindowIsKey: { ownWindowIsKey })
     watcher.onSignal = { signals.all.append($0) }
     return Rig(board: board, watcher: watcher, signals: signals)
   }
@@ -58,18 +61,47 @@ struct ClipboardWatcherTests {
     rig.watcher.poll()
     await Self.settle()
     #expect(rig.signals.all == [.clipboard(changeCount: count, file: nil, at: Self.now)])
-    #expect(rig.watcher.lastImage == ClipboardImage(changeCount: count, seen: Self.now))
+    #expect(rig.watcher.lastCopy == ClipboardCopy(changeCount: count, seen: Self.now, kind: .image))
   }
 
-  @Test func copiedTextNeverOffersOrCountsAsAnImage() async {
-    let rig = Self.rig()
+  static let terminal = AppSnapshot(pid: 9, bundleID: "dev.example.terminal", name: "Terminal")
+
+  @Test func copiedTextIsNotedWithItsAppAndNeverOffers() async {
+    let rig = Self.rig(app: Self.terminal)
     defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setString("just words", forType: .string)
+    let count = rig.board.changeCount
     rig.watcher.poll()
     await Self.settle()
     #expect(rig.signals.all.isEmpty)
-    #expect(rig.watcher.lastImage == nil)
+    #expect(
+      rig.watcher.lastCopy
+        == ClipboardCopy(changeCount: count, seen: Self.now, kind: .text, app: Self.terminal))
+  }
+
+  @Test func textThoughtsCopiedItselfIsNotedAsItsOwn() async {
+    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    defer { board.releaseGlobally() }
+    let writer = PasteboardWriter(pasteboard: board)
+    let watcher = ClipboardWatcher(
+      pasteboard: board, accessBehavior: { .alwaysAllow },
+      isOwnChange: { writer.ownChangeCounts.contains($0) }, contentType: { nil }, now: { Self.now })
+    writer.write(text: "from the panel")
+    watcher.poll()
+    await Self.settle()
+    #expect(watcher.lastCopy?.kind == .text)
+    #expect(watcher.lastCopy?.own == true)
+  }
+
+  @Test func textCopiedWhileOneOfItsOwnWindowsIsKeyIsNotedAsItsOwn() async {
+    let rig = Self.rig(ownWindowIsKey: true)
+    defer { rig.board.releaseGlobally() }
+    rig.board.clearContents()
+    rig.board.setString("typed in the panel", forType: .string)
+    rig.watcher.poll()
+    await Self.settle()
+    #expect(rig.watcher.lastCopy?.own == true)
   }
 
   @Test func copiedImageFileOffersWhenItsContentTypeIsAnImage() async throws {
@@ -89,7 +121,7 @@ struct ClipboardWatcherTests {
     rig.watcher.poll()
     await Self.settle()
     #expect(rig.signals.all.isEmpty)
-    #expect(rig.watcher.lastImage == nil)
+    #expect(rig.watcher.lastCopy == nil)
   }
 
   @Test func ownChangeIsRememberedButNeverOffered() async throws {
@@ -106,7 +138,9 @@ struct ClipboardWatcherTests {
     watcher.poll()
     await Self.settle()
     #expect(signals.all.isEmpty)
-    #expect(watcher.lastImage == ClipboardImage(changeCount: count, seen: Self.now))
+    #expect(
+      watcher.lastCopy == ClipboardCopy(changeCount: count, seen: Self.now, kind: .image, own: true)
+    )
   }
 
   @Test func finderCopyOfANonImageFileWithItsIconIsNotAnImage() async throws {
@@ -118,7 +152,7 @@ struct ClipboardWatcherTests {
     rig.watcher.poll()
     await Self.settle()
     #expect(rig.signals.all.isEmpty)
-    #expect(rig.watcher.lastImage == nil)
+    #expect(rig.watcher.lastCopy == nil)
     withExtendedLifetime(temp) {}
   }
 
@@ -141,10 +175,33 @@ struct ClipboardWatcherTests {
     rig.board.setString("could be anything", forType: .string)
     let count = rig.board.changeCount
     rig.watcher.poll()
-    #expect(rig.watcher.lastImage == ClipboardImage(changeCount: count, seen: Self.now))
+    #expect(rig.watcher.lastCopy == ClipboardCopy(changeCount: count, seen: Self.now))
     await Self.settle()
     #expect(rig.signals.all.isEmpty)
-    #expect(rig.watcher.lastImage == ClipboardImage(changeCount: count, seen: Self.now))
+    #expect(rig.watcher.lastCopy == ClipboardCopy(changeCount: count, seen: Self.now))
+  }
+
+  @Test func gatedPathNotesACopyTheDetectAPICallsText() async {
+    let rig = Self.rig(behavior: .ask, type: .utf8PlainText)
+    defer { rig.board.releaseGlobally() }
+    rig.board.clearContents()
+    rig.board.setString("words", forType: .string)
+    let count = rig.board.changeCount
+    rig.watcher.poll()
+    await Self.settle()
+    #expect(rig.signals.all.isEmpty)
+    #expect(rig.watcher.lastCopy == ClipboardCopy(changeCount: count, seen: Self.now, kind: .text))
+  }
+
+  @Test func aFinderCopyOfATextFileNeverCountsAsText() async throws {
+    let rig = Self.rig(type: .plainText)
+    defer { rig.board.releaseGlobally() }
+    let temp = try Self.copyFile(named: "notes.txt", to: rig.board)
+    rig.board.setString("notes.txt", forType: .string)
+    rig.watcher.poll()
+    await Self.settle()
+    #expect(rig.watcher.lastCopy == nil)
+    withExtendedLifetime(temp) {}
   }
 
   @Test func gatedPathOffersOnlyWhatTheDetectAPIProvesIsAnImage() async throws {
@@ -164,7 +221,7 @@ struct ClipboardWatcherTests {
     rig.watcher.poll()
     await Self.settle()
     #expect(rig.signals.all.isEmpty)
-    #expect(rig.watcher.lastImage == nil)
+    #expect(rig.watcher.lastCopy == nil)
   }
 
   @Test func pollSkipsWhilePausedAndPicksTheChangeUpAfterwards() async throws {

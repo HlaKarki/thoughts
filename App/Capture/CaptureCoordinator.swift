@@ -24,7 +24,7 @@ final class CaptureCoordinator {
   private let now: () -> Date
   private let currentOffer: (() -> OfferID?)?
   private let acceptOffer: (() async throws -> Thought)?
-  private let clipboardImage: (() -> ClipboardImage?)?
+  private let clipboardCopy: (() -> ClipboardCopy?)?
   private(set) var isCapturing = false
 
   init(
@@ -40,7 +40,7 @@ final class CaptureCoordinator {
     now: @escaping () -> Date = Date.init,
     currentOffer: (() -> OfferID?)? = nil,
     acceptOffer: (() async throws -> Thought)? = nil,
-    clipboardImage: (() -> ClipboardImage?)? = nil
+    clipboardCopy: (() -> ClipboardCopy?)? = nil
   ) {
     self.frontmost = frontmost
     self.ownBundleID = ownBundleID
@@ -54,7 +54,7 @@ final class CaptureCoordinator {
     self.now = now
     self.currentOffer = currentOffer
     self.acceptOffer = acceptOffer
-    self.clipboardImage = clipboardImage
+    self.clipboardCopy = clipboardCopy
   }
 
   func capture() async -> CaptureOutcome {
@@ -70,12 +70,19 @@ final class CaptureCoordinator {
     let fallbackAllowed =
       !ownWindow
       && CopyFallbackPolicy.allowed(bundleID: app?.bundleID, ownBundleID: ownBundleID)
-    var action = CaptureDecision.decide(
-      context(
-        offer: offer, selection: selection, fallbackAllowed: fallbackAllowed,
-        source: recordedSource))
+    var current = context(
+      offer: offer, selection: selection, fallbackAllowed: fallbackAllowed,
+      source: recordedSource)
+    var action = CaptureDecision.decide(current)
     if action == .copyFallback {
-      action = await decideAfterCopy(source: recordedSource)
+      (current, action) = await decideAfterCopy(source: recordedSource)
+    }
+    var held: ImageInput?
+    if action == .readClipboard {
+      let read = readClipboard()
+      current.clipboardContent = read.content
+      held = read.image
+      action = CaptureDecision.decide(current)
     }
     switch action {
     case .acceptOffer:
@@ -83,12 +90,15 @@ final class CaptureCoordinator {
     case .saveText(let text):
       return await save(
         .text(text.trimmingCharacters(in: .whitespacesAndNewlines)), recordedSource)
+    case .saveCopiedText(let text, let source):
+      return await save(
+        .text(text.trimmingCharacters(in: .whitespacesAndNewlines)), source,
+        pasteboardChangeCount: current.changeCount)
     case .saveClipboardImage:
-      let imageCount = pasteboard.changeCount
-      return await saveClipboardImage(recordedSource, expecting: imageCount)
+      return await saveClipboardImage(held, recordedSource, expecting: current.changeCount)
     case .alreadySaved(let file):
       return .alreadySaved(input.thought(at: file))
-    case .copyFallback, .nothingToSave:
+    case .copyFallback, .readClipboard, .nothingToSave:
       return .nothingToSave
     }
   }
@@ -101,24 +111,31 @@ final class CaptureCoordinator {
 
   private func context(
     offer: OfferID?, selection: SelectionProbe, fallbackAllowed: Bool, source: Source,
-    image: ClipboardImage? = nil, equivalentCounts: [Int] = []
+    copy: ClipboardCopy? = nil, equivalentCounts: [Int] = []
   ) -> CaptureContext {
     CaptureContext(
       offer: offer, selection: selection, fallbackAllowed: fallbackAllowed,
-      clipboardImage: image ?? clipboardImage?(), changeCount: pasteboard.changeCount,
+      clipboard: copy ?? clipboardCopy?(), changeCount: pasteboard.changeCount,
       equivalentCounts: equivalentCounts, saved: input.savedLedger(), source: source, now: now())
   }
 
-  private func decideAfterCopy(source: Source) async -> CaptureAction {
+  private func decideAfterCopy(source: Source) async -> (CaptureContext, CaptureAction) {
     let countBefore = pasteboard.changeCount
-    let before = clipboardImage?().flatMap { $0.changeCount == countBefore ? $0 : nil }
+    let before = clipboardCopy?().flatMap { $0.changeCount == countBefore ? $0 : nil }
     let (copied, counts) = await reader.copySelection()
     for count in counts { writer.noteOwn(count) }
-    let image = before.map { ClipboardImage(changeCount: pasteboard.changeCount, seen: $0.seen) }
-    return CaptureDecision.decide(
-      context(
-        offer: nil, selection: copied, fallbackAllowed: false, source: source, image: image,
-        equivalentCounts: before == nil ? [] : [countBefore]))
+    let copy = before?.moved(to: pasteboard.changeCount)
+    let after = context(
+      offer: nil, selection: copied, fallbackAllowed: false, source: source, copy: copy,
+      equivalentCounts: before == nil ? [] : [countBefore])
+    return (after, CaptureDecision.decide(after))
+  }
+
+  private func readClipboard() -> (content: ClipboardContent, image: ImageInput?) {
+    if let image = Self.image(in: pasteboard) { return (.image, image) }
+    if !PasteboardReader.fileURLs(in: pasteboard).isEmpty { return (.nothing, nil) }
+    guard let text = pasteboard.string(forType: .string) else { return (.nothing, nil) }
+    return (.text(text), nil)
   }
 
   private func accept() async -> CaptureOutcome {
@@ -131,13 +148,13 @@ final class CaptureCoordinator {
     }
   }
 
-  private func saveClipboardImage(_ recorded: Source, expecting changeCount: Int) async
-    -> CaptureOutcome
-  {
+  private func saveClipboardImage(
+    _ held: ImageInput?, _ recorded: Source, expecting changeCount: Int
+  ) async -> CaptureOutcome {
     guard pasteboard.changeCount == changeCount else {
       return .failed(Self.message(for: ThoughtsError.clipboardChanged))
     }
-    guard let image = Self.image(in: pasteboard) else { return .nothingToSave }
+    guard let image = held ?? Self.image(in: pasteboard) else { return .nothingToSave }
     var source = recorded
     if case .file(let file) = image { source.file = file.path }
     return await save(.image(image, note: ""), source, pasteboardChangeCount: changeCount)

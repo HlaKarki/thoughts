@@ -12,8 +12,12 @@ struct CaptureDecisionTests {
     fallbackAllowed: Bool = true,
     imageAge: TimeInterval? = nil,
     imageCount: Int = 7,
+    copy: ClipboardCopy.Kind = .image,
+    copyApp: AppSnapshot? = nil,
+    copyOwn: Bool = false,
     changeCount: Int = 7,
     equivalentCounts: [Int] = [],
+    content: ClipboardContent? = nil,
     saved: SavedLedger = SavedLedger(),
     source: Source = Self.page
   ) -> CaptureContext {
@@ -21,9 +25,12 @@ struct CaptureDecisionTests {
       offer: offer,
       selection: selection,
       fallbackAllowed: fallbackAllowed,
-      clipboardImage: imageAge.map {
-        ClipboardImage(changeCount: imageCount, seen: now.addingTimeInterval(-$0))
+      clipboard: imageAge.map {
+        ClipboardCopy(
+          changeCount: imageCount, seen: now.addingTimeInterval(-$0), kind: copy, app: copyApp,
+          own: copyOwn)
       },
+      clipboardContent: content,
       changeCount: changeCount,
       equivalentCounts: equivalentCounts,
       saved: saved,
@@ -33,6 +40,8 @@ struct CaptureDecisionTests {
 
   static let page = Source(app: "Notes", bundleID: "com.apple.Notes", window: "Groceries")
   static let other = Source(app: "Safari", bundleID: "com.apple.Safari")
+  static let rex = AppSnapshot(pid: 9, bundleID: "dev.example.terminal", name: "Terminal")
+  static let rexSource = Source(app: "Terminal", bundleID: "dev.example.terminal")
   static let file = URL(fileURLWithPath: "/tmp/thoughts/a.md")
 
   static func ledger(_ entries: SavedEntry...) -> SavedLedger {
@@ -200,6 +209,153 @@ struct CaptureDecisionTests {
         == .saveClipboardImage)
   }
 
+  @Test func aTextCopyAsksForTheClipboardBeforeItSaves() {
+    let asked = CaptureDecision.decide(
+      Self.context(selection: .empty, imageAge: 60, copy: .text, copyApp: Self.rex))
+    #expect(asked == .readClipboard)
+    let unknown = CaptureDecision.decide(
+      Self.context(selection: .copiedNothing, imageAge: 60, copy: .unknown))
+    #expect(unknown == .readClipboard)
+  }
+
+  @Test func textCopiedOneMinuteAgoSavesAndTextCopiedThreeMinutesAgoDoesNot() {
+    let recent = CaptureDecision.decide(
+      Self.context(
+        selection: .empty, imageAge: 60, copy: .text, copyApp: Self.rex,
+        content: .text("from the terminal")))
+    #expect(recent == .saveCopiedText("from the terminal", Self.rexSource))
+    let old = CaptureDecision.decide(
+      Self.context(
+        selection: .empty, imageAge: 180, copy: .text, copyApp: Self.rex,
+        content: .text("from the terminal")))
+    #expect(old == .nothingToSave)
+    let edge = CaptureDecision.decide(
+      Self.context(selection: .empty, imageAge: 120, copy: .text, copyApp: Self.rex))
+    #expect(edge == .readClipboard)
+    #expect(
+      CaptureDecision.decide(Self.context(selection: .empty, imageAge: 121, copy: .text))
+        == .nothingToSave)
+  }
+
+  @Test func aCopyThatChangedSinceItWasNotedIsIgnored() {
+    let action = CaptureDecision.decide(
+      Self.context(
+        selection: .empty, imageAge: 10, imageCount: 7, copy: .text, changeCount: 8,
+        content: .text("old")))
+    #expect(action == .nothingToSave)
+  }
+
+  @Test func theCopiedTextRecordsTheAppThatCopiedItAndTheWindowOnlyWhileItIsFrontmost() {
+    let frontmost = Source(
+      app: "Terminal", bundleID: "dev.example.terminal", window: "~/code", title: "~/code")
+    let still = CaptureDecision.decide(
+      Self.context(
+        selection: .empty, imageAge: 20, copy: .text, copyApp: Self.rex, content: .text("ls"),
+        source: frontmost))
+    #expect(still == .saveCopiedText("ls", frontmost))
+    let moved = CaptureDecision.decide(
+      Self.context(
+        selection: .empty, imageAge: 20, copy: .text, copyApp: Self.rex, content: .text("ls"),
+        source: Self.page))
+    #expect(moved == .saveCopiedText("ls", Self.rexSource))
+    let unknown = CaptureDecision.decide(
+      Self.context(
+        selection: .empty, imageAge: 20, copy: .text, content: .text("ls"), source: Self.page))
+    #expect(unknown == .saveCopiedText("ls", Source()))
+  }
+
+  @Test func aSavedTextCopyIsSavedOnlyOnce() {
+    let saved = Self.ledger(
+      SavedEntry(file: Self.file, clipboardCounts: [7], text: "ls", source: Self.rexSource))
+    let again = CaptureDecision.decide(
+      Self.context(selection: .empty, imageAge: 20, copy: .text, copyApp: Self.rex, saved: saved))
+    #expect(again == .alreadySaved(Self.file))
+  }
+
+  @Test func aNewCopyOfTheSameTextFromTheSameAppIsAlreadySaved() {
+    let saved = Self.ledger(
+      SavedEntry(file: Self.file, clipboardCounts: [7], text: "ls", source: Self.rexSource))
+    let fresh = CaptureDecision.decide(
+      Self.context(
+        selection: .empty, imageAge: 20, imageCount: 9, copy: .text, copyApp: Self.rex,
+        changeCount: 9, content: .text(" ls\n"), saved: saved))
+    #expect(fresh == .alreadySaved(Self.file))
+    let elsewhere = CaptureDecision.decide(
+      Self.context(
+        selection: .empty, imageAge: 20, imageCount: 9,
+        copy: .text, copyApp: AppSnapshot(pid: 5, bundleID: "com.apple.Safari", name: "Safari"),
+        changeCount: 9, content: .text("ls"), saved: saved))
+    #expect(elsewhere == .saveCopiedText("ls", Self.other))
+  }
+
+  @Test func aTextCopySavesAgainOnceItsThoughtIsDeleted() {
+    let saved = Self.ledger(
+      SavedEntry(file: Self.file, clipboardCounts: [7], text: "ls", source: Self.rexSource))
+    let action = CaptureDecision.decide(
+      Self.context(
+        selection: .empty, imageAge: 20, copy: .text, copyApp: Self.rex, content: .text("ls"),
+        saved: saved.pruned { _ in false }))
+    #expect(action == .saveCopiedText("ls", Self.rexSource))
+  }
+
+  @Test func aSelectionBeatsACopy() {
+    let action = CaptureDecision.decide(
+      Self.context(
+        selection: .text("selected"), imageAge: 20, copy: .text, copyApp: Self.rex,
+        content: .text("copied")))
+    #expect(action == .saveText("selected"))
+  }
+
+  @Test func anImageCopyBeatsTextInTheSameCopy() {
+    let action = CaptureDecision.decide(
+      Self.context(selection: .empty, imageAge: 20, copy: .image, copyApp: Self.rex))
+    #expect(action == .saveClipboardImage)
+    let read = CaptureDecision.decide(
+      Self.context(selection: .empty, imageAge: 20, copy: .unknown, content: .image))
+    #expect(read == .saveClipboardImage)
+  }
+
+  @Test func blankOrMissingClipboardTextSavesNothing() {
+    for content in [ClipboardContent.nothing, .text("  \n")] {
+      let action = CaptureDecision.decide(
+        Self.context(selection: .empty, imageAge: 20, copy: .unknown, content: content))
+      #expect(action == .nothingToSave)
+    }
+  }
+
+  @Test func thoughtsOwnTextCopiesNeverCountButItsImageCopiesStillDo() {
+    #expect(
+      CaptureDecision.decide(
+        Self.context(selection: .empty, imageAge: 20, copy: .text, copyOwn: true))
+        == .nothingToSave)
+    #expect(
+      CaptureDecision.decide(
+        Self.context(
+          selection: .empty, imageAge: 20, copy: .unknown, copyOwn: true, content: .text("mine")))
+        == .nothingToSave)
+    #expect(
+      CaptureDecision.decide(
+        Self.context(selection: .empty, imageAge: 20, copy: .image, copyOwn: true))
+        == .saveClipboardImage)
+  }
+
+  @Test func theCountBeforeACopyRoundTripStillNamesTheSavedText() {
+    let saved = Self.ledger(
+      SavedEntry(file: Self.file, clipboardCounts: [7], text: "ls", source: Self.rexSource))
+    let after = CaptureDecision.decide(
+      Self.context(
+        selection: .copiedNothing, imageAge: 10, imageCount: 9, copy: .text, copyApp: Self.rex,
+        changeCount: 9, equivalentCounts: [7], saved: saved))
+    #expect(after == .alreadySaved(Self.file))
+  }
+
+  @Test func aMovedCopyKeepsItsKindAppAndAge() {
+    let copy = ClipboardCopy(changeCount: 7, seen: Self.now, kind: .text, app: Self.rex, own: true)
+    #expect(
+      copy.moved(to: 9)
+        == ClipboardCopy(changeCount: 9, seen: Self.now, kind: .text, app: Self.rex, own: true))
+  }
+
   @Test func theLedgerKeepsOnlyTheLatestSixtyFour() {
     var ledger = SavedLedger()
     for index in 0..<(SavedLedger.remembered + 5) {
@@ -207,8 +363,8 @@ struct CaptureDecisionTests {
         SavedEntry(file: URL(fileURLWithPath: "/tmp/\(index).md"), clipboardCounts: [index]))
     }
     #expect(ledger.entries.count == SavedLedger.remembered)
-    #expect(ledger.newestHoldingImage(counts: [0]) == nil)
-    #expect(ledger.newestHoldingImage(counts: [SavedLedger.remembered + 4]) != nil)
+    #expect(ledger.newestHolding(counts: [0]) == nil)
+    #expect(ledger.newestHolding(counts: [SavedLedger.remembered + 4]) != nil)
   }
 
   @Test func appsThatCopyALineOrCellWithNothingSelectedSkipTheCopy() {

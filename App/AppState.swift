@@ -102,9 +102,10 @@ final class AppState {
     let chip = EdgeChipPanel(edge: { [panel] in panel.edge })
     self.chip = chip
     let sound = SavedSound(preferences: preferences)
-    let clipboard = ClipboardWatcher(isOwnChange: { [pasteboard] in
-      pasteboard.ownChangeCounts.contains($0)
-    })
+    let clipboard = ClipboardWatcher(
+      isOwnChange: { [pasteboard] in pasteboard.ownChangeCounts.contains($0) },
+      frontmost: { tracker.frontmost.flatMap { $0.bundleID == tracker.ownBundleID ? nil : $0 } },
+      ownWindowIsKey: { NSApp.keyWindow != nil })
     self.clipboard = clipboard
     let screenshots = ScreenshotFolderWatcher(storageFolder: { [location] in try? location.resolve()
     })
@@ -128,7 +129,7 @@ final class AppState {
       writer: pasteboard, sound: sound,
       currentOffer: { offers.current?.id },
       acceptOffer: { try await offers.accept() },
-      clipboardImage: { clipboard.lastImage })
+      clipboardCopy: { clipboard.lastCopy })
     self.capture = capture
     clipboard.isPaused = { [capture] in capture.isCapturing }
     let monitor = DragSessionMonitor()
