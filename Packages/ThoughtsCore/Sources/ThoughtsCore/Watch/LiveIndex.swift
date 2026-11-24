@@ -30,6 +30,7 @@ public final class LiveIndex: @unchecked Sendable {
     let onChange: @Sendable (Result<IndexChanges, ThoughtsError>) -> Void
     var active = true
     var recognitionDue = false
+    var delivered: [ExactName: IndexState] = [:]
 
     init(
       watcher: FolderWatcher, rowsSync: IndexSync, sync: IndexSync, store: ThoughtStore,
@@ -194,22 +195,28 @@ public final class LiveIndex: @unchecked Sendable {
       session.onChange(result)
       return nil
     }
-    if !changes.isEmpty { session.onChange(result) }
+    if !changes.isEmpty {
+      session.delivered = (try? index.states()) ?? [:]
+      session.onChange(result)
+    }
     return changes
   }
 
   private func reportOutsideChanges(
     of files: [URL], in session: Session, into changes: inout IndexChanges
   ) throws {
-    let rows = try index.states().keys.map(\.value)
+    let states = try index.states()
     let listed = try session.store.markdownNames()
     let key = IndexSync.ReconcilePlan.folded
     for name in Set(files.map(\.lastPathComponent)).sorted() where IndexSync.isMarkdownName(name) {
       if changes.touches(name) { continue }
       let wanted = key(name)
-      let matching = rows.filter { key($0) == wanted }
+      let matching = states.filter { key($0.key.value) == wanted }
       if !matching.isEmpty {
-        for row in matching where !changes.touches(row) { changes.updated.append(row) }
+        for (row, state) in matching
+        where !changes.touches(row.value) && session.delivered[row] != state {
+          changes.updated.append(row.value)
+        }
       } else if !listed.contains(where: { key($0) == wanted }) {
         changes.removed.append(name)
       }

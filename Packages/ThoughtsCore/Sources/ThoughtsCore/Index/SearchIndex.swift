@@ -33,7 +33,7 @@ struct IndexRow {
   var recognized: String?
 }
 
-struct IndexState {
+struct IndexState: Equatable {
   var version: FileVersion
   var image: IndexedImage?
   var recognized: String?

@@ -513,3 +513,22 @@ private func checkNewImagesArriveBeforeTheirRecognition(gap: Duration?) async th
     })
   #expect(deliveries.failures.isEmpty)
 }
+
+@Test func eventForUnchangedRowDeliversNoUpdate() async throws {
+  let scratch = Scratch()
+  let thought = try scratch.store.add(NewThought(content: .text("kept")))
+  let name = thought.file.lastPathComponent
+  let deliveries = Deliveries()
+  let live = LiveIndex(location: scratch.location, index: try scratch.makeIndex(), recognizer: nil)
+  try live.start { deliveries.record($0) }
+  defer { live.stop() }
+  #expect(await eventually { deliveries.changes.contains { $0.added.contains(name) } })
+
+  let tag = Array("kept".utf8)
+  #expect(setxattr(thought.file.path, "thoughts.test", tag, tag.count, 0, 0) == 0)
+  try "sentinel".write(
+    to: scratch.folder.appendingPathComponent("sentinel.md"), atomically: false, encoding: .utf8)
+  #expect(await eventually { deliveries.changes.contains { $0.added.contains("sentinel.md") } })
+  #expect(!deliveries.sawUpdate(of: name))
+  #expect(deliveries.failures.isEmpty)
+}
