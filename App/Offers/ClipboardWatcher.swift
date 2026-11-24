@@ -15,6 +15,7 @@ final class ClipboardWatcher {
   private let ownWindowIsKey: @MainActor () -> Bool
   private var lastCount: Int
   private var task: Task<Void, Never>?
+  private var classifying: Task<Void, Never>?
 
   private(set) var lastCopy: ClipboardCopy?
   var isPaused: @MainActor () -> Bool = { false }
@@ -58,19 +59,30 @@ final class ClipboardWatcher {
   }
 
   func poll() {
-    guard !isPaused() else { return }
+    guard !isPaused(), let change = record() else { return }
+    classifying = Task { await classify(change.copy, own: change.ownChange) }
+  }
+
+  func pollNow() async {
+    guard let change = record() else {
+      await classifying?.value
+      return
+    }
+    await classify(change.copy, own: change.ownChange)
+  }
+
+  private func record() -> (copy: ClipboardCopy, ownChange: Bool)? {
     let count = pasteboard.changeCount
-    guard count != lastCount else { return }
+    guard count != lastCount else { return nil }
     lastCount = count
-    let seen = now()
-    let own = isOwnChange(count)
+    let ownChange = isOwnChange(count)
     let copy = ClipboardCopy(
-      changeCount: count, seen: seen, kind: .unknown, app: frontmost(),
-      own: own || ownWindowIsKey())
+      changeCount: count, seen: now(), kind: .unknown, app: frontmost(),
+      own: ownChange || ownWindowIsKey())
     if accessBehavior() != .alwaysAllow {
       lastCopy = copy
     }
-    Task { await classify(copy, own: own) }
+    return (copy, ownChange)
   }
 
   func classify(_ copy: ClipboardCopy, own: Bool) async {

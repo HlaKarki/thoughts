@@ -263,6 +263,29 @@ struct ClipboardWatcherTests {
     #expect(rig.signals.all.count == 1)
   }
 
+  @Test func pollNowClassifiesANewChangeBeforeItReturns() async {
+    let rig = Self.rig(app: Self.terminal)
+    defer { rig.board.releaseGlobally() }
+    rig.board.clearContents()
+    rig.board.setString("just copied", forType: .string)
+    let count = rig.board.changeCount
+    await rig.watcher.pollNow()
+    #expect(
+      rig.watcher.lastCopy
+        == ClipboardCopy(changeCount: count, seen: Self.now, kind: .text, app: Self.terminal))
+  }
+
+  @Test func pollNowWaitsForTheTimedPollStillClassifyingTheSameChange() async throws {
+    let rig = Self.rig(type: .png)
+    defer { rig.board.releaseGlobally() }
+    let temp = try Self.copyFile(named: "example.png", to: rig.board)
+    let count = rig.board.changeCount
+    rig.watcher.poll()
+    await rig.watcher.pollNow()
+    #expect(rig.watcher.lastCopy == ClipboardCopy(changeCount: count, seen: Self.now, kind: .image))
+    withExtendedLifetime(temp) {}
+  }
+
   @Test func contentAlreadyOnTheClipboardAtStartIsNotOffered() async throws {
     let rig = Self.rig()
     defer { rig.board.releaseGlobally() }

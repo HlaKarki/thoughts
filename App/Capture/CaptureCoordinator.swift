@@ -25,6 +25,7 @@ final class CaptureCoordinator {
   private let currentOffer: (() -> OfferID?)?
   private let acceptOffer: (() async throws -> Thought)?
   private let clipboardCopy: (() -> ClipboardCopy?)?
+  private let pollClipboard: (@MainActor () async -> Void)?
   private let accessBehavior: @MainActor () -> NSPasteboard.AccessBehavior
   private(set) var isCapturing = false
 
@@ -42,6 +43,7 @@ final class CaptureCoordinator {
     currentOffer: (() -> OfferID?)? = nil,
     acceptOffer: (() async throws -> Thought)? = nil,
     clipboardCopy: (() -> ClipboardCopy?)? = nil,
+    pollClipboard: (@MainActor () async -> Void)? = nil,
     accessBehavior: (@MainActor () -> NSPasteboard.AccessBehavior)? = nil
   ) {
     self.frontmost = frontmost
@@ -57,6 +59,7 @@ final class CaptureCoordinator {
     self.currentOffer = currentOffer
     self.acceptOffer = acceptOffer
     self.clipboardCopy = clipboardCopy
+    self.pollClipboard = pollClipboard
     self.accessBehavior = accessBehavior ?? { [pasteboard] in pasteboard.accessBehavior }
   }
 
@@ -65,6 +68,7 @@ final class CaptureCoordinator {
     isCapturing = true
     defer { isCapturing = false }
     async let recorded = source()
+    await pollClipboard?()
     let app = frontmost()
     let offer = currentOffer?()
     let ownWindow = ownWindowIsKey()

@@ -73,7 +73,8 @@ struct EngineCopyCaptureTests {
         source: { EngineCopyCaptureTests.browserSource }, input: fixture.input, writer: writer,
         sound: SavedSound(preferences: Preferences(defaults: defaults), player: {}),
         pasteboard: board, now: { ListFixture.now.addingTimeInterval(captureDelay) },
-        clipboardCopy: { watcher.lastCopy }, accessBehavior: { behavior })
+        clipboardCopy: { watcher.lastCopy }, pollClipboard: { await watcher.pollNow() },
+        accessBehavior: { behavior })
       self.fixture = fixture
       self.board = board
       self.suite = suite
@@ -210,19 +211,20 @@ struct EngineCopyCaptureTests {
     }
   }
 
-  @Test func aCopyTheWatcherHasNotPolledYetIsSaved() async throws {
+  @Test func aCopyTheWatcherHasNotPolledYetIsSavedWithTheFrontApp() async throws {
     let rig = try Rig()
     defer { rig.close() }
     rig.copy(.writeText)
     rig.reader.probeResult = .unavailable
     rig.reader.copyResult = .copiedNothing
     #expect(rig.watcher.lastCopy == nil)
-    let outcome = await rig.coordinator.capture()
-    let stored = try rig.storedTexts
-    withKnownIssue("The capture reads only the copy the watcher last polled") {
-      #expect(Self.isSaved(outcome), "got \(outcome)")
-      #expect(stored == [Self.words])
+    guard case .saved(let thought) = await rig.coordinator.capture() else {
+      Issue.record("expected a save")
+      return
     }
+    #expect(thought.source == Self.browserSource)
+    #expect(try rig.storedTexts == [Self.words])
+    #expect(rig.watcher.lastCopy?.app == Self.browser)
   }
 
   @Test func aCopyMadeInAnotherAppWhileAThoughtsWindowIsKeyIsSaved() async throws {

@@ -134,7 +134,7 @@ final class AppState {
       writer: pasteboard, sound: sound,
       currentOffer: { offers.current?.id },
       acceptOffer: { try await offers.accept() },
-      clipboardCopy: { clipboard.lastCopy })
+      clipboardCopy: { clipboard.lastCopy }, pollClipboard: { await clipboard.pollNow() })
     self.capture = capture
     clipboard.isPaused = { [capture] in capture.isCapturing }
     let monitor = DragSessionMonitor()
