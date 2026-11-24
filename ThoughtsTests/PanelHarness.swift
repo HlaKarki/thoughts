@@ -315,6 +315,28 @@ final class PanelHarness {
     return panel.firstResponder === editor
   }
 
+  var listScroller: NSScrollView? {
+    Self.views(of: NSScrollView.self, in: hosting).max { $0.frame.height < $1.frame.height }
+  }
+
+  func isScrolledToBottom(_ scroller: NSScrollView) -> Bool {
+    guard let document = scroller.documentView else { return false }
+    let visible = scroller.documentVisibleRect
+    let bottom = document.isFlipped ? document.bounds.maxY - visible.maxY : visible.minY
+    return abs(bottom) < 1
+  }
+
+  func caretIsVisible() -> Bool {
+    guard let editor = panel.firstResponder as? NSTextView else { return false }
+    let screen = editor.firstRect(forCharacterRange: editor.selectedRange(), actualRange: nil)
+    let caret = editor.convert(panel.convertFromScreen(screen), from: nil)
+    guard let clip = editor.enclosingScrollView?.contentView ?? editor.superview else {
+      return false
+    }
+    let shown = editor.convert(clip.bounds, from: clip)
+    return shown.insetBy(dx: -1, dy: -1).contains(NSPoint(x: shown.midX, y: caret.midY))
+  }
+
   static func views<Found: NSView>(of type: Found.Type, in view: NSView) -> [Found] {
     view.subviews.flatMap { sub in
       (sub as? Found).map { [$0] + views(of: type, in: sub) } ?? views(of: type, in: sub)

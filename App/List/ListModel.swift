@@ -336,6 +336,7 @@ final class ListModel {
   func perform(_ command: KeyCommand) {
     switch command {
     case .move(let delta):
+      guard !visible.isEmpty else { return }
       if focus == .list, leavesList(by: delta) {
         selection = []
         focus = delta < 0 ? .search : .input

@@ -4,6 +4,7 @@ import SwiftUI
 class FocusableTextField: NSTextField {
   var onFocus: (() -> Void)?
   var onTextChange: ((String) -> Void)?
+  var takesLines: Bool { false }
   private var wantsFocus = false
 
   func setFocused(_ focused: Bool) {
@@ -45,28 +46,47 @@ class FocusableTextField: NSTextField {
   }
 }
 
-final class InputTextField: FocusableTextField {}
+final class InputTextField: FocusableTextField {
+  override var takesLines: Bool { true }
+}
 
 struct InputField: NSViewRepresentable {
   @Binding var text: String
   let isFocused: Bool
   let onFocus: () -> Void
 
+  static let font = NSFont.systemFont(ofSize: 13)
+  static let maxLines = 5
+  static let lineHeight = height(of: " ", width: .greatestFiniteMagnitude)
+
+  static func height(of text: String, width: CGFloat) -> CGFloat {
+    let measured = text.isEmpty || text.hasSuffix("\n") ? text + " " : text
+    let cell = NSTextFieldCell(textCell: measured)
+    cell.font = font
+    cell.wraps = true
+    cell.lineBreakMode = .byWordWrapping
+    let bounds = NSRect(x: 0, y: 0, width: width, height: .greatestFiniteMagnitude)
+    return cell.cellSize(forBounds: bounds).height
+  }
+
+  static func fieldHeight(of text: String, width: CGFloat) -> CGFloat {
+    min(height(of: text, width: width), lineHeight * CGFloat(maxLines))
+  }
+
   func makeNSView(context: Context) -> InputTextField {
     let field = InputTextField()
     field.isBordered = false
     field.drawsBackground = false
     field.focusRingType = .none
-    field.font = .systemFont(ofSize: 13)
+    field.font = Self.font
     field.textColor = .labelColor
     field.placeholderAttributedString = NSAttributedString(
       string: String(localized: "Add a thought"),
-      attributes: [
-        .font: NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor.tertiaryLabelColor,
-      ])
-    field.usesSingleLineMode = true
-    field.cell?.isScrollable = true
-    field.lineBreakMode = .byClipping
+      attributes: [.font: Self.font, .foregroundColor: NSColor.tertiaryLabelColor])
+    field.usesSingleLineMode = false
+    field.cell?.wraps = true
+    field.cell?.isScrollable = false
+    field.lineBreakMode = .byWordWrapping
     field.setAccessibilityLabel(String(localized: "Add a thought"))
     field.stringValue = text
     return field
@@ -85,6 +105,7 @@ struct InputField: NSViewRepresentable {
   func sizeThatFits(_ proposal: ProposedViewSize, nsView: InputTextField, context: Context)
     -> CGSize?
   {
-    CGSize(width: proposal.width ?? 200, height: nsView.intrinsicContentSize.height)
+    let width = proposal.width ?? 200
+    return CGSize(width: width, height: Self.fieldHeight(of: text, width: width))
   }
 }

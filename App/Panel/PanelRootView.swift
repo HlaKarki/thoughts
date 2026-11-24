@@ -5,6 +5,7 @@ struct PanelRootView: View {
   @Bindable var list: ListModel
   @Bindable var input: InputModel
   var shared = SharedMenuItems(updates: UpdateMenuItem(), openSettings: nil, checkForUpdates: nil)
+  @State private var inputBoxHeight = InputView.boxHeight
 
   var body: some View {
     VStack(spacing: 0) {
@@ -42,7 +43,7 @@ struct PanelRootView: View {
           .onTapGesture { list.closeMenu() }
         ActionsMenu(list: list)
           .padding(.trailing, 12)
-          .padding(.bottom, Self.menuBottomInset)
+          .padding(.bottom, Self.menuBottomInset + inputBoxHeight - InputView.boxHeight)
       }
       .transition(.opacity)
     }
@@ -90,6 +91,6 @@ struct PanelRootView: View {
   }
 
   private var composer: some View {
-    InputView(list: list, input: input)
+    InputView(list: list, input: input, boxHeight: $inputBoxHeight)
   }
 }

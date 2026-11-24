@@ -24,6 +24,9 @@ enum KeyRouterCases {
   static let input: [KeyRouterCase] = [
     KeyRouterCase(name: "Return in the input adds", key: .return, expected: .add),
     KeyRouterCase(
+      name: "Shift Return in the input is left to the field", key: .return, modifiers: .shift,
+      expected: nil),
+    KeyRouterCase(
       name: "Up in an empty input selects the newest", key: .upArrow, expected: .selectNewest),
     KeyRouterCase(
       name: "Up in a typed input stays in the field", key: .upArrow, inputIsEmpty: false,
@@ -55,6 +58,12 @@ enum KeyRouterCases {
     KeyRouterCase(
       name: "Down in search moves into the results", key: .downArrow, focus: .search,
       expected: .move(1)),
+    KeyRouterCase(
+      name: "Return in search moves into the results", key: .return, focus: .search,
+      expected: .move(1)),
+    KeyRouterCase(
+      name: "Shift Return in search moves into the results", key: .return, modifiers: .shift,
+      focus: .search, expected: .move(1)),
     KeyRouterCase(
       name: "Up in search is left to the field", key: .upArrow, focus: .search, expected: nil),
     KeyRouterCase(

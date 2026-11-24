@@ -42,7 +42,7 @@ enum KeyRouter {
 
   private static func search(_ press: KeyStroke) -> KeyCommand? {
     switch (press.key, press.modifiers) {
-    case (.downArrow, []): .move(1)
+    case (.downArrow, []), (.return, []), (.return, .shift): .move(1)
     default: nil
     }
   }

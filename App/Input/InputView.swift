@@ -4,7 +4,10 @@ import SwiftUI
 struct InputView: View {
   let list: ListModel
   @Bindable var input: InputModel
+  @Binding var boxHeight: CGFloat
   @Environment(\.colorScheme) private var colorScheme
+
+  static let boxHeight: CGFloat = 38
 
   var body: some View {
     VStack(spacing: 8) {
@@ -13,11 +16,13 @@ struct InputView: View {
         onFocus: { list.fieldDidTakeFocus(.input) }
       )
       .padding(.horizontal, 10)
-      .frame(height: 38)
-      .background(inputFill, in: FieldShape(cornerRadius: 10))
-      .overlay {
-        FieldShape(cornerRadius: 10)
-          .strokeBorder(Color.primary.opacity(0.13), lineWidth: 1)
+      .padding(.vertical, (Self.boxHeight - InputField.lineHeight) / 2)
+      .background(inputFill, in: shape)
+      .overlay { shape.strokeBorder(Color.primary.opacity(0.13), lineWidth: 1) }
+      .onGeometryChange(for: CGFloat.self) {
+        $0.size.height
+      } action: {
+        boxHeight = $0
       }
       ActionBar(
         focus: list.focus,
@@ -29,6 +34,10 @@ struct InputView: View {
     .padding(.top, 10)
     .padding(.bottom, 12)
     .padding(.horizontal, 12)
+  }
+
+  private var shape: FieldShape {
+    FieldShape(cornerRadius: 10, capsuleHeight: Self.boxHeight)
   }
 
   private var inputFill: Color {

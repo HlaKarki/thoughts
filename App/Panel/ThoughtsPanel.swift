@@ -23,6 +23,11 @@ final class PasteFieldEditor: NSTextView {
     field.onTextChange?(string)
   }
 
+  override func insertNewline(_ sender: Any?) {
+    guard (delegate as? FocusableTextField)?.takesLines == true else { return }
+    insertNewlineIgnoringFieldEditor(sender)
+  }
+
   override func paste(_ sender: Any?) {
     if onPaste?(pasteboard) == true { return }
     super.paste(sender)

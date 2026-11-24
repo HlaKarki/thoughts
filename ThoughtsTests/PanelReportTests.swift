@@ -112,6 +112,10 @@ struct PanelReportTests {
       #expect(harness.firstResponderText == "edit")
       #expect(harness.list.menuItems.map(\.command) == [.edit])
       #expect(harness.panel.firstResponder is PasteFieldEditor)
+      await harness.press(.returnKey, .shift)
+      #expect(harness.list.isMenuOpen)
+      #expect(harness.list.menuQuery == "edit")
+      #expect((harness.panel.firstResponder as? NSTextView)?.selectedRange().length == 0)
       await harness.press(.character("z"), .command)
       #expect(harness.list.menuQuery == "")
       #expect(harness.list.isMenuOpen)
@@ -124,17 +128,139 @@ struct PanelReportTests {
     }
   }
 
-  @Test func shiftReturnInTheInputAddsALineAndAddsNothing() async throws {
+  @Test func shiftReturnInTheInputAddsALineAtTheCaretAndAddsNothing() async throws {
+    try await PanelHarness.run { harness in
+      try await harness.show()
+      await harness.type("onetwo")
+      let editor = try #require(harness.panel.firstResponder as? NSTextView)
+      editor.setSelectedRange(NSRange(location: 3, length: 0))
+      await harness.press(.returnKey, .shift)
+      #expect(harness.input.text == "one\ntwo")
+      #expect(harness.firstResponderText == "one\ntwo")
+      #expect(editor.selectedRange() == NSRange(location: 4, length: 0))
+      #expect(harness.isEditing(harness.inputField))
+      await harness.submitted()
+      #expect(try harness.storedTexts.isEmpty)
+    }
+  }
+
+  @Test func returnAddsTheThoughtWithItsLineBreaks() async throws {
     try await PanelHarness.run { harness in
       try await harness.show()
       await harness.type("one")
       await harness.press(.returnKey, .shift)
       await harness.type("two")
-      withKnownIssue("Shift Return ends editing and selects the typed text") {
-        #expect(harness.input.text == "one\ntwo")
-      }
+      await harness.press(.returnKey)
       await harness.submitted()
-      #expect(try harness.storedTexts.isEmpty)
+      #expect(try harness.storedTexts == ["one\ntwo"])
+      #expect(harness.input.text == "")
+      #expect(harness.firstResponderText == "")
+    }
+  }
+
+  @Test func theInputGrowsALineAtATimeUpToFiveAndTheListGivesUpTheSpace() async throws {
+    try await PanelHarness.run { harness in
+      try harness.seed((1...15).map { "thought \($0)" })
+      try await harness.show()
+      let field = try #require(harness.inputField)
+      let list = try #require(harness.listScroller)
+      let panel = harness.panel.frame
+      let fieldStart = field.convert(field.bounds, to: nil)
+      let listStart = list.convert(list.bounds, to: nil)
+      let line = InputField.lineHeight
+      #expect(harness.isScrolledToBottom(list))
+      await harness.type("a")
+      for lines in 2...7 {
+        await harness.press(.returnKey, .shift)
+        await harness.type("a")
+        let shown = CGFloat(min(lines, InputField.maxLines))
+        let fieldNow = field.convert(field.bounds, to: nil)
+        let listNow = list.convert(list.bounds, to: nil)
+        #expect(harness.panel.frame == panel)
+        #expect(fieldNow.minY == fieldStart.minY, "the input moved at \(lines) lines")
+        #expect(fieldNow.height == fieldStart.height + (shown - 1) * line, "at \(lines) lines")
+        #expect(listNow.maxY == listStart.maxY, "the list top moved at \(lines) lines")
+        #expect(listNow.minY == listStart.minY + (shown - 1) * line, "at \(lines) lines")
+        #expect(harness.isScrolledToBottom(list), "the list left its bottom at \(lines) lines")
+        #expect(harness.caretIsVisible(), "the caret is out of view at \(lines) lines")
+      }
+      #expect(harness.input.text == Array(repeating: "a", count: 7).joined(separator: "\n"))
+      await harness.press(.returnKey)
+      await harness.submitted()
+      await harness.settle("after the add")
+      #expect(field.convert(field.bounds, to: nil) == fieldStart)
+      #expect(list.convert(list.bounds, to: nil) == listStart)
+    }
+  }
+
+  @Test func theActionsMenuStaysAboveAGrownInput() async throws {
+    try await PanelHarness.run { harness in
+      try harness.seed(["one", "two"])
+      try await harness.show()
+      let field = try #require(harness.inputField)
+      await harness.press(.up)
+      await harness.press(.character("k"), .command)
+      let menu = try #require(harness.field(MenuTextField.self))
+      let gap = menu.convert(menu.bounds, to: nil).minY - field.convert(field.bounds, to: nil).maxY
+      await harness.press(.escape)
+      await harness.press(.escape)
+      #expect(harness.list.focus == .input)
+      await harness.type("a")
+      await harness.press(.returnKey, .shift)
+      await harness.type("b")
+      await harness.press(.returnKey, .shift)
+      await harness.type("c")
+      await harness.press(.character("f"), .command)
+      await harness.press(.down)
+      await harness.press(.character("k"), .command)
+      #expect(harness.list.isMenuOpen)
+      #expect(harness.input.text == "a\nb\nc")
+      let grown = try #require(harness.field(MenuTextField.self))
+      let fieldTop = field.convert(field.bounds, to: nil).maxY
+      #expect(grown.convert(grown.bounds, to: nil).minY - fieldTop == gap)
+    }
+  }
+
+  @Test(arguments: [NSEvent.ModifierFlags(), .shift])
+  func returnInSearchMovesToTheFirstResultLikeDown(_ flags: NSEvent.ModifierFlags) async throws {
+    try await PanelHarness.run { harness in
+      try harness.seed(["apple", "apricot", "beta"])
+      try await harness.show()
+      await harness.press(.character("f"), .command)
+      await harness.type("zz")
+      #expect(harness.list.visible.isEmpty)
+      await harness.press(.returnKey, flags)
+      #expect(harness.list.focus == .search)
+      #expect(harness.list.query == "zz")
+      #expect(harness.isEditing(harness.field(SearchTextField.self)))
+      let editor = try #require(harness.panel.firstResponder as? NSTextView)
+      #expect(editor.string == "zz")
+      #expect(editor.selectedRange() == NSRange(location: 2, length: 0))
+      editor.setSelectedRange(NSRange(location: 0, length: 2))
+      await harness.press(.delete)
+      await harness.type("ap")
+      #expect(harness.list.visible.count == 2)
+      await harness.press(.returnKey, flags)
+      #expect(harness.list.focus == .list)
+      #expect(harness.list.selection == [try #require(harness.list.visible.first?.fileName)])
+      #expect(harness.list.query == "ap")
+    }
+  }
+
+  @Test func shiftReturnAndReturnInAnOpenEditAddALineThenSave() async throws {
+    try await PanelHarness.run { harness in
+      try harness.seed(["first"])
+      try await harness.show()
+      await harness.press(.up)
+      await harness.press(.returnKey)
+      #expect(harness.list.focus == .edit)
+      await harness.press(.returnKey, .shift)
+      await harness.type("two")
+      #expect(harness.list.editText == "first\ntwo")
+      await harness.press(.returnKey)
+      await harness.actions.pending?.value
+      #expect(harness.list.editing == nil)
+      #expect(try harness.storedTexts == ["first\ntwo"])
     }
   }
 

@@ -35,17 +35,19 @@ private struct TranslucentMaterial: NSViewRepresentable {
 struct FieldShape: InsettableShape {
   let cornerRadius: CGFloat
   var inset: CGFloat = 0
+  var capsuleHeight: CGFloat = .infinity
 
   func path(in rect: CGRect) -> Path {
     let rect = rect.insetBy(dx: inset, dy: inset)
     if #available(macOS 26, *) {
-      return Capsule().path(in: rect)
+      let radius = min(rect.height, capsuleHeight - 2 * inset) / 2
+      return RoundedRectangle(cornerRadius: radius).path(in: rect)
     }
     return RoundedRectangle(cornerRadius: max(cornerRadius - inset, 0), style: .continuous)
       .path(in: rect)
   }
 
   func inset(by amount: CGFloat) -> FieldShape {
-    FieldShape(cornerRadius: cornerRadius, inset: inset + amount)
+    FieldShape(cornerRadius: cornerRadius, inset: inset + amount, capsuleHeight: capsuleHeight)
   }
 }
