@@ -60,6 +60,7 @@ final class ThoughtsPanel: NSPanel {
 
   static func editAction(for event: NSEvent) -> Selector? {
     let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+      .subtracting([.capsLock, .numericPad, .function])
     guard let key = event.charactersIgnoringModifiers?.lowercased() else { return nil }
     switch (key, flags) {
     case ("x", .command): return Selector(("cut:"))

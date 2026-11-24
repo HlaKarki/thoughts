@@ -64,6 +64,17 @@ struct PanelKeyEquivalentTests {
     #expect(try action("v", []) == nil)
   }
 
+  @Test func theEditKeysIgnoreCapsLockAndTheKeypadAndFunctionFlags() throws {
+    func action(_ key: String, _ flags: NSEvent.ModifierFlags) throws -> Selector? {
+      ThoughtsPanel.editAction(for: try Self.event(key, flags, code: 0, window: 0))
+    }
+    for extra: NSEvent.ModifierFlags in [.capsLock, .numericPad, .function] {
+      #expect(try action("v", [.command, extra]) == Selector(("paste:")))
+      #expect(try action("z", [.command, .shift, extra]) == Selector(("redo:")))
+      #expect(try action("v", [.command, .option, extra]) == nil)
+    }
+  }
+
   @Test func commandZAndShiftCommandZUndoAndRedoTypingInTheEditField() throws {
     let edit = EditTextView()
     edit.frame = NSRect(x: 0, y: 0, width: 300, height: 40)
