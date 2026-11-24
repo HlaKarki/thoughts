@@ -25,7 +25,7 @@ export const keyboard: Keyboard = {
   anywhere: {
     title: 'Anywhere',
     shortcuts: [
-      { action: 'Show or hide the panel', keys: ['⌥Space'] },
+      { action: 'Show or hide the panel', keys: ['⌃⌥N'] },
       { action: 'Save the selected text or what you just copied', keys: ['⇧⇧'] },
     ],
   },

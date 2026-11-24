@@ -8,7 +8,7 @@ The first release. Thoughts needs macOS 15.4 or later.
 
 ### Added
 
-- A panel at the edge of the screen. Press ⌥Space in any app, or choose Show Thoughts from the menu bar icon, to show it.
+- A panel at the edge of the screen. Press ⌃⌥N in any app, or choose Show Thoughts from the menu bar icon, to show it.
 - Press Shift twice in any app to save the selected text, or what you copied in the last 2 minutes, as a thought. You can record your own shortcut instead.
 - When you copy an image or save a screenshot, an offer appears at the edge of the screen. Click it, or press your capture key, to keep the image.
 - Type a thought and press Return, paste an image with ⌘V, or drop text, images and files on the panel.
