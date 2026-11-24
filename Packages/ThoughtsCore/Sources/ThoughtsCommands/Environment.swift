@@ -7,7 +7,7 @@ public struct CommandEnvironment: Sendable {
   public var location: StorageLocation
   public var indexURL: URL
   public var recognizer: (any TextRecognizing)?
-  public var stdin: @Sendable () -> String?
+  public var stdin: @Sendable () throws -> String?
   public var out: @Sendable (String) -> Void
   public var err: @Sendable (String) -> Void
   public var version: String
@@ -16,7 +16,7 @@ public struct CommandEnvironment: Sendable {
     location: StorageLocation,
     indexURL: URL,
     recognizer: (any TextRecognizing)?,
-    stdin: @escaping @Sendable () -> String?,
+    stdin: @escaping @Sendable () throws -> String?,
     out: @escaping @Sendable (String) -> Void,
     err: @escaping @Sendable (String) -> Void,
     version: String = "dev"
@@ -36,15 +36,16 @@ public struct CommandEnvironment: Sendable {
       location: location,
       indexURL: location.indexURL,
       recognizer: VisionTextRecognizer(),
-      stdin: {
-        guard isatty(STDIN_FILENO) == 0 else { return nil }
-        let data = FileHandle.standardInput.readDataToEndOfFile()
-        return String(decoding: data, as: UTF8.self)
-      },
+      stdin: { try input(from: .standardInput) },
       out: { print($0) },
       err: { FileHandle.standardError.write(Data(($0 + "\n").utf8)) },
       version: appVersion(forExecutable: executable)
     )
+  }
+
+  static func input(from handle: FileHandle) throws -> String? {
+    guard isatty(handle.fileDescriptor) == 0 else { return nil }
+    return String(decoding: try handle.readToEnd() ?? Data(), as: UTF8.self)
   }
 
   static var executable: URL {

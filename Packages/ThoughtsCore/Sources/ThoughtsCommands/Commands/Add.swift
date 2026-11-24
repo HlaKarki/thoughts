@@ -35,7 +35,7 @@ struct AddCommand: EnvironmentCommand {
       new.content = .image(input, note: note ?? "")
     } else {
       guard note == nil else { throw ValidationError("--note needs --image") }
-      let body = text ?? environment.stdin() ?? ""
+      let body = try text ?? environment.stdin() ?? ""
       let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
       guard !trimmed.isEmpty else {
         throw ValidationError("Pass text or --image, or pipe text in")

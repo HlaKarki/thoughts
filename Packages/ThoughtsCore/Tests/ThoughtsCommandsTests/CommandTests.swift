@@ -281,6 +281,32 @@ private func decodeRecords(_ text: String) throws -> [ThoughtRecord] {
   #expect(errorMessage(for: ThoughtsError.io("one\ntwo")) == "one two")
 }
 
+@Test func stdinThatCantBeReadThrowsInsteadOfCrashing() throws {
+  let scratch = Scratch()
+  let notes = scratch.root.appendingPathComponent("notes.txt")
+  try Data("piped text\n".utf8).write(to: notes)
+  let empty = scratch.root.appendingPathComponent("empty.txt")
+  try Data().write(to: empty)
+  #expect(try CommandEnvironment.input(from: FileHandle(forReadingFrom: notes)) == "piped text\n")
+  #expect(try CommandEnvironment.input(from: FileHandle(forReadingFrom: empty)) == "")
+  let descriptor = open(scratch.folder.path, O_RDONLY)
+  try #require(descriptor >= 0)
+  let folder = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+  #expect(throws: (any Error).self) { try CommandEnvironment.input(from: folder) }
+}
+
+@Test func addExitsWithCodeFourWhenStdinCantBeRead() async throws {
+  let scratch = Scratch()
+  let base = scratch.environment()
+  let environment = CommandEnvironment(
+    location: base.location, indexURL: base.indexURL, recognizer: nil,
+    stdin: { throw CocoaError(.fileReadUnknown) }, out: base.out, err: base.err)
+  let command = try #require(try ThoughtsCommand.parseAsRoot(["add"]) as? any EnvironmentCommand)
+  await #expect(throws: ExitCode(4)) { try await command.perform(in: environment) }
+  #expect(scratch.err.all.count == 1)
+  #expect(try FileManager.default.contentsOfDirectory(atPath: scratch.folder.path).isEmpty)
+}
+
 @Test func versionComesFromTheEnclosingAppBundle() throws {
   let scratch = Scratch()
   let helpers = scratch.root.appendingPathComponent("Thoughts.app/Contents/Helpers")
