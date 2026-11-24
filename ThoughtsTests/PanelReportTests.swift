@@ -235,21 +235,21 @@ struct PanelReportTests {
   }
 
   @Test(arguments: [Focus.input, .list])
-  func aFieldTakingFocusOnItsOwnGivesItBackToTheModelsChoice(_ held: Focus) async throws {
+  func anAccessibilityFocusMoveToSearchMovesTheModelsFocus(_ held: Focus) async throws {
     try await PanelHarness.run { harness in
       try harness.seed(["one", "two"])
       try await harness.show()
       if held == .list { await harness.press(.up) }
-      let search = try #require(harness.field(SearchTextField.self))
-      #expect(harness.panel.makeFirstResponder(search))
-      await harness.settle("after the search field took focus")
       #expect(harness.list.focus == held)
-      #expect(!harness.isEditing(search))
-      #expect(harness.isEditing(harness.inputField) == (held == .input))
+      let search = try #require(harness.field(SearchTextField.self))
+      search.setAccessibilityFocused(true)
+      await harness.settle("after an accessibility focus move to search")
+      #expect(harness.list.focus == .search)
+      #expect(harness.isEditing(search))
+      #expect(!harness.isEditing(harness.inputField))
       await harness.type("x")
-      #expect(harness.list.focus == .input)
-      #expect(harness.list.query == "")
-      #expect(harness.input.text == "x")
+      #expect(harness.list.query == "x")
+      #expect(harness.input.text == "")
     }
   }
 

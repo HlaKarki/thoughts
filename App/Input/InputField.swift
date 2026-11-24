@@ -55,22 +55,12 @@ class FocusableTextField: NSTextField {
   override func becomeFirstResponder() -> Bool {
     let accepted = super.becomeFirstResponder()
     guard accepted, !wantsFocus else { return accepted }
-    if isPersonsMove(NSApp.currentEvent), onFocus?() != false { return accepted }
+    if !isPickBeforeTheWindowShows, onFocus?() != false { return accepted }
     DispatchQueue.main.async { [weak self] in self?.giveFocusBack() }
     return accepted
   }
 
-  private func isPersonsMove(_ event: NSEvent?) -> Bool {
-    guard let event, event.window === window else { return false }
-    switch event.type {
-    case .leftMouseDown, .rightMouseDown, .otherMouseDown:
-      return bounds.contains(convert(event.locationInWindow, from: nil))
-    case .keyDown:
-      return event.keyCode == 48
-    default:
-      return false
-    }
-  }
+  private var isPickBeforeTheWindowShows: Bool { window?.isVisible != true }
 
   private func giveFocusBack() {
     guard let window, !wantsFocus, currentEditor() != nil else { return }
