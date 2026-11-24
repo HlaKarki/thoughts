@@ -396,6 +396,8 @@ final class ListModel {
     case .menuClose:
       closeMenu()
       return
+    case .ignore:
+      return
     case .menuRun:
       runMenuItem()
       return
@@ -544,9 +546,11 @@ final class ListModel {
     pruneSelection()
   }
 
-  func fieldDidTakeFocus(_ field: Focus) {
-    guard !isMenuOpen || field == .menu else { return }
+  @discardableResult
+  func fieldDidTakeFocus(_ field: Focus) -> Bool {
+    guard !isMenuOpen || field == .menu else { return false }
     focus = field
+    return true
   }
 
   func closeMenu() {

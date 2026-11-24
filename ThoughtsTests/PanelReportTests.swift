@@ -84,19 +84,48 @@ struct PanelReportTests {
     }
   }
 
-  @Test func aFieldTakingFocusWhileTheMenuIsOpenLeavesTheMenuFocused() async throws {
+  @Test func aFieldTakingFocusWhileTheMenuIsOpenGivesItBackToTheMenuField() async throws {
     try await PanelHarness.run { harness in
       try harness.seed(["one", "two"])
       try await harness.show()
       await harness.press(.up)
+      let selected = harness.list.selection
       await harness.press(.character("k"), .command)
       let search = try #require(harness.field(SearchTextField.self))
       #expect(harness.panel.makeFirstResponder(search))
+      await harness.settle("after the search field took focus")
       #expect(harness.list.focus == .menu)
+      #expect(!harness.isEditing(search))
+      #expect(harness.isEditing(harness.field(MenuTextField.self)))
+      await harness.type("edit")
+      #expect(harness.list.menuQuery == "edit")
+      #expect(harness.list.query == "")
+      #expect(harness.list.selection == selected)
       await harness.press(.escape)
       #expect(!harness.list.isMenuOpen)
       #expect(harness.list.focus == .list)
       #expect(harness.hideRequests == 0)
+    }
+  }
+
+  @Test func tabAndShiftTabWithTheMenuOpenKeepTheMenuFieldTyping() async throws {
+    try await PanelHarness.run { harness in
+      try harness.seed(["one", "two"])
+      try await harness.show()
+      await harness.press(.up)
+      let selected = harness.list.selection
+      await harness.press(.character("k"), .command)
+      await harness.press(.tab)
+      await harness.press(.tab, .shift)
+      await harness.type("edit")
+      #expect(harness.list.isMenuOpen)
+      #expect(harness.list.focus == .menu)
+      #expect(harness.list.menuQuery == "edit")
+      #expect(harness.list.query == "")
+      #expect(harness.list.selection == selected)
+      #expect(harness.isEditing(harness.field(MenuTextField.self)))
+      #expect(!harness.isEditing(harness.field(SearchTextField.self)))
+      #expect(!harness.isEditing(harness.inputField))
     }
   }
 

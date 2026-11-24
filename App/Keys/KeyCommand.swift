@@ -34,6 +34,7 @@ enum KeyCommand: Equatable {
   case menuMove(Int)
   case menuRun
   case menuClose
+  case ignore
 }
 
 struct KeyStroke: Equatable {

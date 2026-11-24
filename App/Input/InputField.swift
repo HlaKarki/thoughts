@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 class FocusableTextField: NSTextField {
-  var onFocus: (() -> Void)?
+  var onFocus: (() -> Bool)?
   var onTextChange: ((String) -> Void)?
   var takesLines: Bool { false }
   private var wantsFocus = false
@@ -55,11 +55,8 @@ class FocusableTextField: NSTextField {
   override func becomeFirstResponder() -> Bool {
     let accepted = super.becomeFirstResponder()
     guard accepted, !wantsFocus else { return accepted }
-    if isPersonsMove(NSApp.currentEvent) {
-      onFocus?()
-    } else {
-      DispatchQueue.main.async { [weak self] in self?.giveFocusBack() }
-    }
+    if isPersonsMove(NSApp.currentEvent), onFocus?() != false { return accepted }
+    DispatchQueue.main.async { [weak self] in self?.giveFocusBack() }
     return accepted
   }
 
@@ -95,7 +92,7 @@ final class InputTextField: FocusableTextField {
 struct InputField: NSViewRepresentable {
   @Binding var text: String
   let isFocused: Bool
-  let onFocus: () -> Void
+  let onFocus: () -> Bool
 
   static let font = NSFont.systemFont(ofSize: 13)
   static let maxLines = 5

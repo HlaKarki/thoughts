@@ -5,7 +5,7 @@ struct LineField: NSViewRepresentable {
   @Binding var text: String
   let placeholder: String
   let isFocused: Bool
-  let onFocus: () -> Void
+  let onFocus: () -> Bool
   let make: () -> FocusableTextField
 
   func makeNSView(context: Context) -> FocusableTextField {

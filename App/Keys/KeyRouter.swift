@@ -60,6 +60,7 @@ enum KeyRouter {
     case (.downArrow, []): .menuMove(1)
     case (.return, []): .menuRun
     case (KeyEquivalent("k"), .command): .menuClose
+    case (.tab, []), (.tab, .shift): .ignore
     default: nil
     }
   }

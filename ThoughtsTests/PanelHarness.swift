@@ -14,6 +14,7 @@ final class PanelHarness {
     case escape
     case delete
     case space
+    case tab
     case character(Character)
 
     var code: UInt16? {
@@ -24,6 +25,7 @@ final class PanelHarness {
       case .escape: 53
       case .delete: 51
       case .space: 49
+      case .tab: 48
       case .character(let character): Self.letterCodes[Character(character.lowercased())]
       }
     }
@@ -43,6 +45,7 @@ final class PanelHarness {
       case .escape: "\u{1B}"
       case .delete: "\u{7F}"
       case .space: " "
+      case .tab: "\t"
       case .character(let character): String(character)
       }
     }

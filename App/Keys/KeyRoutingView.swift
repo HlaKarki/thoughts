@@ -16,6 +16,7 @@ extension KeyStroke {
     case 125: key = .downArrow
     case 36, 76: key = .return
     case 53: key = .escape
+    case 48: key = .tab
     case 49: key = .space
     case 51: key = .delete
     default:

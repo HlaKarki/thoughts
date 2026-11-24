@@ -195,6 +195,10 @@ enum KeyRouterCases {
       characters: "m", expected: nil),
     KeyRouterCase(
       name: "Space in the menu is left to the field", key: .space, focus: .menu, expected: nil),
+    KeyRouterCase(name: "Tab in the menu does nothing", key: .tab, focus: .menu, expected: .ignore),
+    KeyRouterCase(
+      name: "Shift Tab in the menu does nothing", key: .tab, modifiers: .shift, focus: .menu,
+      expected: .ignore),
   ]
 
   static let openMenu: [KeyRouterCase] = [Focus.search, .list, .input, .edit].flatMap { focus in
@@ -219,6 +223,12 @@ enum KeyRouterCases {
         name: "Command F with the menu open and \(focus) focused is left to the field",
         key: KeyEquivalent("f"), modifiers: .command, focus: focus, menuIsOpen: true,
         expected: nil),
+      KeyRouterCase(
+        name: "Tab with the menu open and \(focus) focused does nothing", key: .tab,
+        focus: focus, menuIsOpen: true, expected: .ignore),
+      KeyRouterCase(
+        name: "Shift Tab with the menu open and \(focus) focused does nothing", key: .tab,
+        modifiers: .shift, focus: focus, menuIsOpen: true, expected: .ignore),
     ]
   }
 }
@@ -248,5 +258,7 @@ struct KeyRouterTests {
     #expect(up == KeyStroke(key: .upArrow, modifiers: [], characters: "\u{F700}"))
     let enter = try #require(KeyStroke(event: event(76, "\u{3}", [.numericPad])))
     #expect(enter == KeyStroke(key: .return, modifiers: [], characters: "\u{3}"))
+    let backTab = try #require(KeyStroke(event: event(48, "\u{19}", [.shift])))
+    #expect(backTab == KeyStroke(key: .tab, modifiers: .shift, characters: "\u{19}"))
   }
 }
