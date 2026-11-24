@@ -71,7 +71,8 @@ struct HintChipTests {
     for (visible, edge) in [
       (Self.visible, PanelEdge.right), (Self.visible, .left), (Self.tall, .right),
     ] {
-      let chip = EdgeChipPanel(edge: { edge }, visibleFrame: { visible }, orderFront: { _ in })
+      let chip = EdgeChipPanel(
+        edge: { edge }, visibleFrame: { _ in visible }, orderFront: { _ in })
       chip.show(Text("one"))
       let first = chip.shownFrame
       chip.show(Text("two"))
@@ -80,5 +81,31 @@ struct HintChipTests {
       chip.hide()
       #expect(chip.shownFrame == nil)
     }
+  }
+
+  @Test func theChipPicksThePanelsScreenWhenThePanelIsShownAndThePointersOtherwise() {
+    let panel = CGRect(x: 2000, y: 100, width: 360, height: 700)
+    let pointer = CGPoint(x: 50, y: 50)
+    #expect(EdgeChipPanel.screenPoint(panel: panel, pointer: pointer) == CGPoint(x: 2180, y: 450))
+    #expect(EdgeChipPanel.screenPoint(panel: nil, pointer: pointer) == pointer)
+  }
+
+  @Test func theScreenIsReadOnceWhenTheChipShows() {
+    var panel: CGRect?
+    var asked: [CGPoint] = []
+    let chip = EdgeChipPanel(
+      edge: { .right }, shownPanelFrame: { panel }, pointer: { CGPoint(x: 5, y: 5) },
+      visibleFrame: {
+        asked.append($0)
+        return Self.visible
+      }, orderFront: { _ in })
+    chip.show(Text("one"))
+    let shown = chip.shownFrame
+    panel = CGRect(x: 1000, y: 100, width: 360, height: 700)
+    #expect(asked == [CGPoint(x: 5, y: 5)])
+    #expect(chip.shownFrame == shown)
+    chip.hide()
+    chip.show(Text("two"))
+    #expect(asked.last == CGPoint(x: 1180, y: 450))
   }
 }

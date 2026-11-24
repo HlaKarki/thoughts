@@ -99,7 +99,9 @@ final class AppState {
       list.now = Date()
       list.panelDidShow()
     }
-    let chip = EdgeChipPanel(edge: { [panel] in panel.edge })
+    let chip = EdgeChipPanel(
+      edge: { [panel] in panel.edge },
+      shownPanelFrame: { [panel] in panel.isShown ? panel.restingFrame : nil })
     self.chip = chip
     let sound = SavedSound(preferences: preferences)
     let clipboard = ClipboardWatcher(

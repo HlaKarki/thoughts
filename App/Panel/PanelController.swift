@@ -48,6 +48,7 @@ final class PanelController {
   private var lostKey = LostKeyTracker()
   var onWillShow: (() -> Void)?
   var onWillHide: (() -> Void)?
+  private(set) var restingFrame: CGRect?
 
   init(content: NSView, preferences: Preferences) {
     self.panel = ThoughtsPanel(content: content)
@@ -140,6 +141,7 @@ final class PanelController {
     hiding = false
     let target = Self.frame(
       in: (screen ?? screenUnderPointer()).visibleFrame, edge: preferences.edge)
+    restingFrame = target
     if reduceMotion {
       panel.setFrame(target, display: false)
       panel.alphaValue = 0
@@ -162,6 +164,7 @@ final class PanelController {
     onWillShow?()
     panel.makeKeyAndOrderFront(nil)
     guard case .moveAndRefocus(let target) = plan else { return }
+    restingFrame = target
     animate(frame: target, alpha: 1, completion: nil)
   }
 
@@ -188,6 +191,7 @@ final class PanelController {
     lostKey.clear()
     onWillHide?()
     hiding = true
+    restingFrame = nil
     transition += 1
     let current = transition
     let target =

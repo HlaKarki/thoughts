@@ -46,7 +46,9 @@ final class EdgeChipPanel {
   private let window = ChipWindow()
   private let hosting: ChipHostingView
   private let edge: () -> PanelEdge
-  private let visibleFrame: @MainActor () -> CGRect
+  private let shownPanelFrame: @MainActor () -> CGRect?
+  private let pointer: @MainActor () -> CGPoint
+  private let visibleFrame: @MainActor (CGPoint) -> CGRect
   private let orderFront: @MainActor (NSWindow) -> Void
   private var transition = 0
   private var hideTask: Task<Void, Never>?
@@ -55,10 +57,15 @@ final class EdgeChipPanel {
 
   init(
     edge: @escaping () -> PanelEdge,
-    visibleFrame: @escaping @MainActor () -> CGRect = EdgeChipPanel.screenUnderPointer,
+    shownPanelFrame: @escaping @MainActor () -> CGRect? = { nil },
+    pointer: @escaping @MainActor () -> CGPoint = { NSEvent.mouseLocation },
+    visibleFrame: @escaping @MainActor (CGPoint) -> CGRect = EdgeChipPanel.visibleFrame(
+      containing:),
     orderFront: @escaping @MainActor (NSWindow) -> Void = { $0.orderFrontRegardless() }
   ) {
     self.edge = edge
+    self.shownPanelFrame = shownPanelFrame
+    self.pointer = pointer
     self.visibleFrame = visibleFrame
     self.orderFront = orderFront
     hosting = ChipHostingView(rootView: AnyView(EmptyView()))
@@ -133,15 +140,21 @@ final class EdgeChipPanel {
   }
 
   private func placement() -> CGRect {
-    Self.chipFrame(size: ChipSurface<EmptyView>.size, visible: visibleFrame(), edge: edge())
+    Self.chipFrame(
+      size: ChipSurface<EmptyView>.size,
+      visible: visibleFrame(Self.screenPoint(panel: shownPanelFrame(), pointer: pointer())),
+      edge: edge())
   }
 
   private static func window(around chip: CGRect) -> CGRect {
     chip.insetBy(dx: -shadowMargin, dy: -shadowMargin)
   }
 
-  static func screenUnderPointer() -> CGRect {
-    let point = NSEvent.mouseLocation
+  static func screenPoint(panel: CGRect?, pointer: CGPoint) -> CGPoint {
+    panel.map { CGPoint(x: $0.midX, y: $0.midY) } ?? pointer
+  }
+
+  static func visibleFrame(containing point: CGPoint) -> CGRect {
     let screen =
       NSScreen.screens.first { NSMouseInRect(point, $0.frame, false) }
       ?? NSScreen.main ?? NSScreen.screens[0]
