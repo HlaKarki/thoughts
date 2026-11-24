@@ -73,6 +73,11 @@ final class PanelController {
     set { panel.onNothingToDo = newValue }
   }
 
+  var defersHistory: ((HistoryDirection) -> Bool)? {
+    get { panel.defersHistory }
+    set { panel.defersHistory = newValue }
+  }
+
   var frame: CGRect { panel.frame }
   var edge: PanelEdge { preferences.edge }
 

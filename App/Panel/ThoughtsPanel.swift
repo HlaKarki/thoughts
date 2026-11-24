@@ -27,6 +27,7 @@ final class ThoughtsPanel: NSPanel {
   var pasteboard: NSPasteboard = .general
   var onPaste: ((NSPasteboard) -> Bool)?
   var onNothingToDo: ((HistoryDirection) -> Void)?
+  var defersHistory: ((HistoryDirection) -> Bool)?
   let sharedUndoManager = UndoManager()
   private var pasteEditor: PasteFieldEditor?
 
@@ -86,6 +87,7 @@ final class ThoughtsPanel: NSPanel {
   }
 
   private func step(_ direction: HistoryDirection) -> Bool {
+    if defersHistory?(direction) == true { return true }
     let manager = sharedUndoManager
     let typing = firstResponder is NSTextView && manager.groupingLevel > 0
     let available = direction == .undo ? manager.canUndo : manager.canRedo

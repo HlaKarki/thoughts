@@ -68,10 +68,11 @@ extension ThoughtActions {
   }
 
   func nothingToDo(_ direction: HistoryDirection) {
-    guard busy > 0 else {
-      tellNothing(direction)
-      return
-    }
+    tellNothing(direction)
+  }
+
+  func deferIfBusy(_ direction: HistoryDirection) -> Bool {
+    guard busy > 0 else { return false }
     enqueue { [self] in
       switch direction {
       case .undo where undoManager.canUndo: undoManager.undo()
@@ -79,6 +80,7 @@ extension ThoughtActions {
       default: tellNothing(direction)
       }
     }
+    return true
   }
 
   private func tellNothing(_ direction: HistoryDirection) {

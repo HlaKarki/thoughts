@@ -90,6 +90,7 @@ final class AppState {
       list: list, location: location, pasteboard: pasteboard, undoManager: panel.undoManager)
     self.actions = actions
     panel.onNothingToDo = { [actions] in actions.nothingToDo($0) }
+    panel.defersHistory = { [actions] in actions.deferIfBusy($0) }
     let preview = PreviewWindowController(list: list) { [panel] in
       panel.isShown ? (panel.frame, panel.edge) : nil
     }

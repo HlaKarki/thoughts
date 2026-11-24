@@ -5,6 +5,10 @@ import ThoughtsCore
 
 @testable import Thoughts
 
+final class HoldFlag: @unchecked Sendable {
+  var value = false
+}
+
 @MainActor
 struct UndoTests {
   static let deleteNote = "Moved to the Trash. Press ⌘Z to put it back."
@@ -326,6 +330,7 @@ struct UndoTests {
         pasteboard: NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))),
       trash: { try trash.move($0) }, undoManager: panel.sharedUndoManager)
     panel.onNothingToDo = { actions.nothingToDo($0) }
+    panel.defersHistory = { actions.deferIfBusy($0) }
     let only = try fixture.addText("only", daysAgo: 1)
     try fixture.reload()
     fixture.model.select(only.file.lastPathComponent, extend: false)
@@ -514,6 +519,47 @@ struct UndoTests {
     #expect(model.feedback?.text == "Couldn't undo. The thought changed since then.")
     #expect(try Self.stored(rig).first?.content == .text("outside"))
     #expect(try Self.stored(rig).first?.done == nil)
+  }
+
+  @Test func commandZWhileANewDeleteIsRunningUndoesThatDeleteNotTheOlderStep() async throws {
+    let fixture = try ListFixture()
+    fixture.model.panelDidShow()
+    let panel = ThoughtsPanel(content: NSView())
+    panel.sharedUndoManager.groupsByEvent = false
+    let release = DispatchSemaphore(value: 0)
+    let hold = HoldFlag()
+    let trash = FakeTrash(folder: fixture.root.appendingPathComponent("Trash"))
+    let actions = ThoughtActions(
+      list: fixture.model, location: fixture.location,
+      pasteboard: PasteboardWriter(
+        pasteboard: NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))),
+      trash: { url in
+        if hold.value { release.wait() }
+        return try trash.move(url)
+      }, undoManager: panel.sharedUndoManager,
+      now: { ListFixture.now })
+    panel.onNothingToDo = { actions.nothingToDo($0) }
+    panel.defersHistory = { actions.deferIfBusy($0) }
+    let older = try fixture.addText("older", daysAgo: 3)
+    let newer = try fixture.addText("newer", daysAgo: 1)
+    try fixture.reload()
+    fixture.model.select(older.file.lastPathComponent, extend: false)
+    actions.perform(.toggleDone)
+    await actions.pending?.value
+    #expect(panel.sharedUndoManager.canUndo)
+
+    hold.value = true
+    fixture.model.select(newer.file.lastPathComponent, extend: false)
+    actions.perform(.delete)
+    let undo = try PanelKeyEquivalentTests.event("z", .command, code: 6, window: panel.windowNumber)
+    #expect(panel.performKeyEquivalent(with: undo))
+    #expect(
+      try fixture.store.entries().compactMap(\.thought).first { $0.id == older.id }?.done != nil)
+    release.signal()
+    await actions.pending?.value
+    #expect(FileManager.default.fileExists(atPath: newer.file.path))
+    #expect(
+      try fixture.store.entries().compactMap(\.thought).first { $0.id == older.id }?.done != nil)
   }
 
   @Test func typingInAFieldJoinsTheSameStackAndUndoesFirstWhenItIsOnTop() async throws {
