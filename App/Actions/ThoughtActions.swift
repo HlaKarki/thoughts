@@ -12,6 +12,7 @@ final class ThoughtActions {
   private let now: () -> Date
   private(set) var pending: Task<Void, Never>?
   private(set) var busy = 0
+  var written: [URL: FileVersion] = [:]
 
   init(
     list: ListModel,

@@ -56,6 +56,9 @@ extension ThoughtActions {
   }
 
   func record(_ step: HistoryStep) {
+    if case .amend(let reversals) = step {
+      for reversal in reversals { written[reversal.file] = reversal.version }
+    }
     let grouping = !undoManager.isUndoing && !undoManager.isRedoing
     if grouping { undoManager.beginUndoGrouping() }
     undoManager.registerUndo(withTarget: self) { target in
@@ -109,13 +112,19 @@ extension ThoughtActions {
         list.selection = neighbor.map { [$0] } ?? []
         if neighbor == nil { list.focus = .input }
       case .amend(let reversals):
-        let applied = try store.amend(reversals.map(\.amendment))
+        let current = reversals.map { reversal in
+          Reversal(
+            id: reversal.id, file: reversal.file,
+            version: written[reversal.file] ?? reversal.version,
+            applied: reversal.current, previous: reversal.restore)
+        }
+        let applied = try store.amend(current.map(\.amendment))
         for (reversal, thought) in zip(reversals, applied) {
           if case .mark(let mark) = reversal.restore {
             list.holdDone(mark.done != nil, for: [thought.file.lastPathComponent])
           }
         }
-        record(.amend(zip(reversals, applied).map { $0.flipped(at: $1.version) }))
+        record(.amend(zip(current, applied).map { $0.flipped(at: $1.version) }))
         list.reveal(applied.map { $0.file.lastPathComponent })
       }
     } catch {

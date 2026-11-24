@@ -427,6 +427,95 @@ struct UndoTests {
     #expect(await gate.requests().last == .seconds(4))
   }
 
+  @Test func twoSavedEditsOnOneThoughtUndoAndRedoInOrder() async throws {
+    let rig = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    let model = rig.fixture.model
+    let thought = try rig.fixture.addText("zero", daysAgo: 1)
+    try rig.fixture.reload()
+    EditInPlaceTests.begin(rig, thought)
+    model.editText = "one"
+    rig.actions.perform(.saveEdit)
+    await rig.actions.pending?.value
+    model.perform(.edit)
+    model.editText = "two"
+    rig.actions.perform(.saveEdit)
+    await rig.actions.pending?.value
+    #expect(try Self.stored(rig).first?.content == .text("two"))
+
+    rig.actions.undoManager.undo()
+    #expect(try Self.stored(rig).first?.content == .text("one"))
+    rig.actions.undoManager.undo()
+    #expect(try Self.stored(rig).first?.content == .text("zero"))
+    rig.actions.undoManager.redo()
+    rig.actions.undoManager.redo()
+    #expect(try Self.stored(rig).first?.content == .text("two"))
+    #expect(model.feedback?.kind != .message)
+  }
+
+  @Test func markDoneThenClearDoneUndoTwiceRestoresBoth() async throws {
+    let rig = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    let model = rig.fixture.model
+    let thought = try rig.fixture.addText("one", daysAgo: 1)
+    try rig.fixture.reload()
+    model.select(thought.file.lastPathComponent, extend: false)
+    rig.actions.perform(.toggleDone)
+    await rig.actions.pending?.value
+    rig.actions.perform(.clearDone)
+    await rig.actions.pending?.value
+    #expect(try Self.stored(rig).first?.cleared == true)
+
+    rig.actions.undoManager.undo()
+    #expect(try Self.stored(rig).first?.cleared == false)
+    #expect(try Self.stored(rig).first?.done != nil)
+    rig.actions.undoManager.undo()
+    #expect(try Self.stored(rig).first?.done == nil)
+    #expect(model.feedback?.kind != .message)
+    rig.actions.undoManager.redo()
+    rig.actions.undoManager.redo()
+    #expect(try Self.stored(rig).first?.cleared == true)
+  }
+
+  @Test func editThenMarkDoneThenMarkNotDoneUndoThreeTimes() async throws {
+    let rig = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    let model = rig.fixture.model
+    let thought = try rig.fixture.addText("zero", daysAgo: 1)
+    try rig.fixture.reload()
+    EditInPlaceTests.begin(rig, thought)
+    model.editText = "one"
+    rig.actions.perform(.saveEdit)
+    await rig.actions.pending?.value
+    rig.actions.perform(.toggleDone)
+    await rig.actions.pending?.value
+    rig.actions.perform(.toggleDone)
+    await rig.actions.pending?.value
+    for _ in 0..<3 { rig.actions.undoManager.undo() }
+    let stored = try #require(try Self.stored(rig).first)
+    #expect(stored.content == .text("zero") && stored.done == nil)
+    #expect(model.feedback?.kind != .message)
+  }
+
+  @Test func anOutsideEditAfterTwoPanelChangesIsStillRefused() async throws {
+    let rig = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    let model = rig.fixture.model
+    let thought = try rig.fixture.addText("one", daysAgo: 1)
+    try rig.fixture.reload()
+    model.select(thought.file.lastPathComponent, extend: false)
+    rig.actions.perform(.toggleDone)
+    await rig.actions.pending?.value
+    rig.actions.perform(.toggleDone)
+    await rig.actions.pending?.value
+    let latest = try #require(try Self.stored(rig).first)
+    _ = try rig.fixture.store.setText("outside", of: latest.id, expected: latest.version)
+    rig.actions.undoManager.undo()
+    #expect(model.feedback?.text == "Couldn't undo. The thought changed since then.")
+    #expect(try Self.stored(rig).first?.content == .text("outside"))
+    #expect(try Self.stored(rig).first?.done == nil)
+  }
+
   @Test func typingInAFieldJoinsTheSameStackAndUndoesFirstWhenItIsOnTop() async throws {
     let fixture = try ListFixture()
     fixture.model.panelDidShow()
