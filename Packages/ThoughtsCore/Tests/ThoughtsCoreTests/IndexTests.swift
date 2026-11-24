@@ -715,3 +715,36 @@ private func onlyName(in fx: Fixture) throws -> String? {
     #expect(plan.remove == [stored])
   }
 }
+
+@Test func concurrentOpensOfAFreshIndexAllSucceed() throws {
+  let scratch = FileManager.default.temporaryDirectory
+    .appendingPathComponent("index-open-\(UUID().uuidString)")
+  let folder = scratch.appendingPathComponent("Thoughts")
+  try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+  defer { try? FileManager.default.removeItem(at: scratch) }
+  let openers = 4
+  let failures = Mutex<[String]>([])
+  for round in 0..<20 {
+    let url = scratch.appendingPathComponent("Support-\(round)/index.sqlite")
+    let opened = Mutex<[SearchIndex]>([])
+    let gate = DispatchSemaphore(value: 0)
+    let finished = DispatchGroup()
+    for _ in 0..<openers {
+      finished.enter()
+      Thread.detachNewThread {
+        gate.wait()
+        do {
+          let index = try SearchIndex(url: url, folder: folder)
+          opened.withLock { $0.append(index) }
+        } catch {
+          failures.withLock { $0.append(String(describing: error)) }
+        }
+        finished.leave()
+      }
+    }
+    for _ in 0..<openers { gate.signal() }
+    finished.wait()
+    for index in opened.withLock({ $0 }) { try index.close() }
+  }
+  #expect(failures.withLock { $0 } == [])
+}

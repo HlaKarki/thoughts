@@ -345,11 +345,13 @@ extension SearchIndex {
     folder.standardizedFileURL.path
   }
 
+  private static let busyTimeout: TimeInterval = 5
+
   private static func openPool(_ url: URL) throws -> DatabasePool {
     var configuration = Configuration()
-    configuration.busyMode = .timeout(5)
+    configuration.busyMode = .timeout(busyTimeout)
     do {
-      let pool = try DatabasePool(path: url.path, configuration: configuration)
+      let pool = try openRetryingWhileBusy(url, configuration)
       let version = try pool.read { try Int.fetchOne($0, sql: "PRAGMA user_version") ?? 0 }
       guard version == 0 || version == schemaVersion else {
         try pool.close()
@@ -368,7 +370,22 @@ extension SearchIndex {
     for suffix in ["", "-wal", "-shm"] {
       try? FileManager.default.removeItem(atPath: url.path + suffix)
     }
-    return try DatabasePool(path: url.path, configuration: configuration)
+    return try openRetryingWhileBusy(url, configuration)
+  }
+
+  private static func openRetryingWhileBusy(
+    _ url: URL, _ configuration: Configuration
+  ) throws -> DatabasePool {
+    let deadline = Date().addingTimeInterval(busyTimeout)
+    while true {
+      do {
+        return try DatabasePool(path: url.path, configuration: configuration)
+      } catch let error as DatabaseError
+        where error.resultCode.primaryResultCode == .SQLITE_BUSY && Date() < deadline
+      {
+        Thread.sleep(forTimeInterval: .random(in: 0.005...0.05))
+      }
+    }
   }
 
   private static func prepare(_ pool: DatabasePool, folder: URL) throws {
