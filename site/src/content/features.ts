@@ -83,7 +83,7 @@ export const features: Features = {
   selection: {
     heading: 'Press Shift twice to keep a selection',
     body: [
-      'Select text in any app and press Shift twice. Thoughts saves it with the app and window it came from, and a note at the edge of the screen shows what it saved.',
+      'Select or copy text in any app and press Shift twice. Thoughts saves it with the app and window it came from, and a note at the edge of the screen shows what it saved.',
     ],
     tile: {
       label: 'A selected sentence on a docs page becomes the newest thought in the panel.',
@@ -94,12 +94,12 @@ export const features: Features = {
     },
   },
   screenshot: {
-    heading: 'Keep a screenshot with a click',
+    heading: 'Keep a copied image with a click',
     body: [
       'Copy an image or take a screenshot, and a small offer slides in at the edge of the screen. Click it or press Shift twice to keep the image as a thought.',
     ],
     tile: {
-      label: 'A screenshot of a cat photo becomes a thought with a note in the panel.',
+      label: 'A copied cat photo becomes a thought with a note in the panel.',
       windowTitle: 'IMG_0412.jpeg',
       photo: site.photos.cat,
       offerTitle: 'Image copied',
@@ -110,9 +110,9 @@ export const features: Features = {
     },
   },
   search: {
-    heading: 'Find any thought by a word in it',
+    heading: 'Press ⌘F to search your thoughts',
     body: [
-      'Press ⌘F in the panel and start typing. The list narrows to the thoughts that match, including the text inside screenshots. Esc clears the search.',
+      'Start typing and the list narrows to the thoughts that match, including the text inside screenshots. Esc clears the search.',
     ],
     tile: {
       label: `A search for ${searchQuery} finds a message from Slack and one from Messages.`,
@@ -135,7 +135,7 @@ export const features: Features = {
   markdown: {
     heading: 'Every thought is a Markdown file',
     body: [
-      'Each thought is one Markdown file in a folder you choose, and its front matter records where it came from. Edit the file in any editor and the panel shows the change.',
+      'Each thought is one Markdown file in a folder you choose. Edit the file in any editor and the panel shows the change.',
     ],
     tile: {
       label: 'A line typed into the Markdown file shows up in the panel.',
@@ -166,7 +166,7 @@ export const features: Features = {
       ' to an MCP client and your agent can list, add and search thoughts.',
     ],
     tile: {
-      label: 'After an agent reads a report, a command in Terminal adds a thought to the panel.',
+      label: 'A thoughts add command in Terminal adds a thought to the panel.',
       title: 'Terminal',
       prompt: '$ ',
       command: `thoughts add "${thoughts.signups.text}"`,
@@ -176,15 +176,15 @@ export const features: Features = {
     },
   },
   privacy: {
-    heading: 'Thoughts asks for Accessibility, paste access and a folder only if needed',
+    heading: 'What Thoughts asks macOS for',
     body: [
-      'Accessibility, called Device Control and Data Access on macOS 27, lets Thoughts read what you select and the window title. Paste access lets the offer for a copied image show a preview, and macOS asks for it the first time you keep one. Thoughts asks for your screenshot folder, the Desktop by default, only if macOS guards it. It goes online only to check for updates.',
+      'Accessibility lets Thoughts read what you select and the window title. macOS 27 calls it Device Control and Data Access. Paste access lets Thoughts read what you copy, so Shift twice can save it and an offer can show a preview. macOS asks for it the first time Thoughts needs it. Thoughts asks for your screenshot folder, the Desktop by default, only if macOS guards it. It goes online only to check for updates.',
     ],
     tile: {
-      label: 'Thoughts turned on in the Accessibility list (Device Control and Data Access on macOS 27), the Paste from Other Apps list and the Files and Folders list of System Settings.',
+      label: 'Thoughts turned on in the Accessibility list (Device Control and Data Access on macOS 27), set to Allow in the Paste from Other Apps list, and turned on in the Files and Folders list of System Settings.',
       accessibility: 'Accessibility',
       paste: 'Paste from Other Apps',
-      pasteValue: 'Always Allow',
+      pasteValue: 'Allow',
       files: 'Files and Folders',
       app: 'Thoughts',
       folder: 'Desktop Folder',

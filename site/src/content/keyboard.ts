@@ -21,12 +21,12 @@ type Keyboard = {
 export const keyboard: Keyboard = {
   heading: 'Thoughts works from the keyboard.',
   headingMuted: 'Two keys work in any app, and the rest work in the panel.',
-  body: 'Thoughts runs with no Dock icon and waits until you call it. Press ⌘K with a thought selected to see every action you can take on it.',
+  body: 'Thoughts lives in the menu bar with no Dock icon and waits until you call it. Press ⌘K with a thought selected to see every action you can take on it.',
   anywhere: {
     title: 'Anywhere',
     shortcuts: [
       { action: 'Show or hide the panel', keys: ['⌥Space'] },
-      { action: 'Save the selected text or a copied image', keys: ['⇧⇧'] },
+      { action: 'Save the selected text or what you just copied', keys: ['⇧⇧'] },
     ],
   },
   panel: {
