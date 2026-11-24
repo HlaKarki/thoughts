@@ -327,12 +327,18 @@ struct PanelReportTests {
     try await PanelHarness.run { harness in
       try await harness.show()
       await harness.type("hello")
+      harness.endEventUndoGroup()
       await harness.press(.returnKey)
       await harness.submitted()
       await harness.settle("after the add")
       await harness.press(.character("z"), .command)
       #expect(harness.input.text == "")
       #expect(harness.firstResponderText == "")
+      #expect(harness.list.feedback?.text == "Nothing to undo")
+      #expect(try harness.storedTexts == ["hello"])
+      await harness.type("abc")
+      await harness.press(.character("z"), .command)
+      #expect(harness.input.text == "")
       #expect(try harness.storedTexts == ["hello"])
     }
   }
@@ -405,6 +411,33 @@ struct PanelReportTests {
       await harness.press(.character("z"), .command)
       await harness.actions.pending?.value
       #expect(try harness.storedTexts.sorted() == ["one", "two"])
+    }
+  }
+
+  @Test(arguments: [false, true])
+  func commandZAfterTypingInTheMenuAndClosingItBringsBackADeletedThought(_ eventGroups: Bool)
+    async throws
+  {
+    try await PanelHarness.run { harness in
+      try harness.seed(["one", "two", "three"])
+      try await harness.show()
+      await harness.press(.up)
+      await harness.press(.delete, .command)
+      await harness.actions.pending?.value
+      #expect(try harness.storedTexts.sorted() == ["one", "two"])
+      #expect(!harness.list.selection.isEmpty)
+      if eventGroups { harness.endEventUndoGroup() }
+      await harness.press(.character("k"), .command)
+      #expect(harness.list.isMenuOpen)
+      await harness.type("x")
+      #expect(harness.list.menuQuery == "x")
+      if eventGroups { harness.endEventUndoGroup() }
+      await harness.press(.escape)
+      #expect(!harness.list.isMenuOpen)
+      await harness.press(.character("z"), .command)
+      await harness.actions.pending?.value
+      let texts = try harness.storedTexts.sorted()
+      #expect(texts == ["one", "three", "two"])
     }
   }
 }

@@ -227,6 +227,11 @@ final class PanelHarness {
     await drain("after typing \(text)")
   }
 
+  func endEventUndoGroup() {
+    _ = (UndoManager.self as AnyObject).perform(Selector(("_endTopLevelGroupings")))
+    #expect(panel.sharedUndoManager.groupingLevel == 0, "an undo group stayed open")
+  }
+
   func post(_ key: Key, _ flags: NSEvent.ModifierFlags = []) {
     for kind in [NSEvent.EventType.keyDown, .keyUp] {
       guard let event = keyEvent(key, flags, kind: kind) else { return }

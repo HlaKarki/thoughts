@@ -7,6 +7,19 @@ class FocusableTextField: NSTextField {
   var takesLines: Bool { false }
   private var wantsFocus = false
 
+  func setText(_ text: String) {
+    guard let editor = currentEditor() as? NSTextView, let storage = editor.textStorage else {
+      if stringValue != text { stringValue = text }
+      return
+    }
+    guard editor.string != text else { return }
+    editor.undoManager?.removeAllActions(withTarget: storage)
+    let range = NSRange(location: 0, length: storage.length)
+    storage.replaceCharacters(
+      in: range, with: NSAttributedString(string: text, attributes: editor.typingAttributes))
+    editor.setSelectedRange(NSRange(location: storage.length, length: 0))
+  }
+
   func setFocused(_ focused: Bool) {
     let changed = focused != wantsFocus
     wantsFocus = focused
@@ -126,8 +139,7 @@ struct InputField: NSViewRepresentable {
     field.onTextChange = { [text = $text] in
       if text.wrappedValue != $0 { text.wrappedValue = $0 }
     }
-    let current = field.currentEditor()?.string ?? field.stringValue
-    if current != text { field.stringValue = text }
+    field.setText(text)
     field.setFocused(isFocused)
   }
 

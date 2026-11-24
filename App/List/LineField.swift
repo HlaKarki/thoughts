@@ -33,8 +33,7 @@ struct LineField: NSViewRepresentable {
     field.onTextChange = { [text = $text] in
       if text.wrappedValue != $0 { text.wrappedValue = $0 }
     }
-    let current = field.currentEditor()?.string ?? field.stringValue
-    if current != text { field.stringValue = text }
+    field.setText(text)
     field.setFocused(isFocused)
   }
 
