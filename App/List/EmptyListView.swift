@@ -9,7 +9,7 @@ struct EmptyListView: View {
       return Text("Type below and press Return to add one.")
     }
     return Text(
-      "Type below and press Return to add one. In any app, press \(keycap.inline) to save the selected text or a copied image."
+      "Type below and press Return to add one. In any app, press \(keycap.inline) to save the selected text or what you just copied."
     )
   }
 

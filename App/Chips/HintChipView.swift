@@ -118,7 +118,7 @@ struct HintChipView: View {
   var line: String? {
     switch kind {
     case .saved(let preview), .alreadySaved(let preview): preview.line
-    case .nothingToSave: String(localized: "Select text or copy an image first")
+    case .nothingToSave: String(localized: "Select or copy something first")
     case .failed(let message): message
     }
   }

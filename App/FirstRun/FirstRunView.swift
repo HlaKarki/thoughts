@@ -175,7 +175,7 @@ private struct GestureStep: View {
     VStack(alignment: .leading, spacing: 0) {
       StepHeader(
         step: .gesture, title: "Pick how to save from any app",
-        message: Text("Press it to save the selected text or a copied image as a thought."))
+        message: Text("Press it to save the selected text, or what you just copied, as a thought."))
       Button {
         preferences.captureMethod = .doubleTap(.shift)
         model.captureChanged()

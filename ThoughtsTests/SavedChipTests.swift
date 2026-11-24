@@ -94,7 +94,7 @@ struct SavedChipTests {
   @Test func theChipsWithNothingToShowCarryWordsOnly() {
     let nothing = HintChipView(kind: .nothingToSave)
     #expect(nothing.thumbnail == nil)
-    #expect(nothing.spokenText == "Nothing to save, Select text or copy an image first")
+    #expect(nothing.spokenText == "Nothing to save, Select or copy something first")
     let failed = HintChipView(kind: .failed("The thoughts folder isn't available."))
     #expect(failed.thumbnail == nil)
     #expect(failed.spokenText == "Couldn't save, The thoughts folder isn't available.")
