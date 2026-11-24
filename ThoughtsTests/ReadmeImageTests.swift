@@ -41,13 +41,30 @@ struct ReadmeImageTests {
         preferences: Preferences(defaults: defaults), list: fixture.model, input: fixture.input),
       size: Self.panelSize, appearance: appearance, name: "readme-panel-\(suffix)")
     let image = try #require(NSBitmapImageRep(data: Data(contentsOf: rendered)))
+    Self.removeFieldEdgeArtifacts(from: image)
     #expect(image.pixelsWide == Int(Self.panelSize.width) * SnapshotRenderer.scale)
     #expect(SnapshotTests.colorCount(of: image) > 1)
 
     try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
-    try Data(contentsOf: rendered).write(
+    try #require(image.representation(using: .png, properties: [:])).write(
       to: output.appendingPathComponent("panel-\(suffix).png"), options: .atomic)
     await ListFixture.settle()
+  }
+
+  static func removeFieldEdgeArtifacts(from image: NSBitmapImageRep) {
+    let scale = SnapshotRenderer.scale
+    let inset = 12 * scale
+    let rows = (Int(panelSize.height) - 74) * scale..<(Int(panelSize.height) - 36) * scale
+    let leftEdge = inset..<inset + scale
+    let rightEdge = image.pixelsWide - inset - scale..<image.pixelsWide - inset
+    for y in rows {
+      for (edge, source) in [
+        (leftEdge, inset - 2 * scale), (rightEdge, image.pixelsWide - inset + 2 * scale - 1),
+      ] {
+        guard let clean = image.colorAt(x: source, y: y) else { continue }
+        for x in edge { image.setColor(clean, atX: x, y: y) }
+      }
+    }
   }
 
   static func screenshot() throws -> Data {
