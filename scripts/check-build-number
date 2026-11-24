@@ -1,0 +1,55 @@
+#!/bin/zsh
+setopt err_exit pipe_fail no_unset extended_glob
+
+fail() {
+  print -u2 "check-build-number: $*"
+  exit 1
+}
+
+unreachable() {
+  if $dry_run; then
+    print -u2 "check-build-number: warning: $*, so the build number was not checked"
+    exit 0
+  fi
+  fail "$*"
+}
+
+dry_run=false
+if [[ ${1-} == --dry-run ]]; then
+  dry_run=true
+  shift
+fi
+(( $# == 2 )) || { print -u2 "usage: scripts/check-build-number [--dry-run] <build> <appcast url>"; exit 2 }
+build=$1
+feed=$2
+[[ $build == <-> ]] || fail "$build is not a build number"
+
+scratch=$(mktemp -d -t thoughts-appcast)
+trap 'rm -rf $scratch' EXIT
+curl_code=0
+http_code=$(curl -sS -L --max-time 30 -o $scratch/appcast.xml -w '%{http_code}' $feed 2>$scratch/errors) || curl_code=$?
+if (( curl_code != 0 )); then
+  unreachable "can't fetch $feed: $(<$scratch/errors)"
+fi
+if [[ $http_code == 404 ]]; then
+  print "Nothing is published at $feed yet, so build $build is the first"
+  exit 0
+fi
+[[ $http_code == 200 ]] || unreachable "$feed answered HTTP $http_code"
+
+rest=$(<$scratch/appcast.xml)
+builds=()
+while [[ $rest =~ '<sparkle:version>([^<]*)</sparkle:version>|sparkle:version="([^"]*)"' ]]; do
+  builds+=(${match[1]:-${match[2]}})
+  rest=${rest[MEND+1,-1]}
+done
+(( ${#builds} > 0 )) || fail "the appcast at $feed lists no builds"
+highest=0
+for published in $builds; do
+  [[ $published == <-> ]] || fail "the appcast at $feed lists build $published, which is not a number"
+  if (( published > highest )); then
+    highest=$published
+  fi
+done
+(( build > highest )) || fail "Build $build is not above the published build $highest"
+print "Build $build is above the published build $highest"

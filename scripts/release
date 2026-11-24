@@ -146,6 +146,11 @@ if ! $dry_run; then
   [[ -z $(git -C $tap status --porcelain) ]] || fail "the tap at $tap has uncommitted changes"
 fi
 build_number=$(git rev-list --count HEAD)
+feed=$(plutil -extract SUFeedURL raw -o - App/Info.plist 2>/dev/null) || fail "App/Info.plist has no SUFeedURL"
+check_args=(--dry-run $build_number $feed)
+$dry_run || check_args=($build_number $feed)
+checked=$(scripts/check-build-number $check_args 2>&1) || fail "$checked"
+print -r -- $checked
 print "Version $version, build $build_number, tag $tag"
 rm -rf $release
 mkdir -p $logs $updates
