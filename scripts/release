@@ -203,6 +203,9 @@ run_logged staple xcrun stapler staple $app
 xcrun stapler validate $app || fail "the staple does not validate"
 zip=$updates/Thoughts-$version.zip
 ditto -c -k --keepParent $app $zip
+latest_zip=$release/latest/Thoughts.zip
+mkdir -p ${latest_zip:h}
+cp $zip $latest_zip
 
 step 6 "Checking Gatekeeper"
 assessment=$(spctl -a -t exec -vv $app 2>&1) || fail "spctl rejected the app: $assessment"
@@ -222,7 +225,7 @@ print "Wrote ${updates#$repo/}/appcast.xml and build/release/thoughts.rb (sha256
 
 step 8 "Stopping for a dry run"
 if $dry_run; then
-  print "Dry run finished. The stapled app, ${zip#$repo/}, the appcast and the cask are in build/release."
+  print "Dry run finished. The stapled app, ${zip#$repo/}, ${latest_zip#$repo/} for the site's download link, the appcast and the cask are in build/release."
   exit 0
 fi
 print "Not a dry run, so publishing $tag"
@@ -230,7 +233,7 @@ print "Not a dry run, so publishing $tag"
 step 9 "Tagging and publishing the GitHub release"
 git tag $tag
 git push origin refs/tags/$tag
-gh release create $tag $zip $updates/appcast.xml --repo $github_repo --verify-tag \
+gh release create $tag $zip $latest_zip $updates/appcast.xml --repo $github_repo --verify-tag \
   --title "Thoughts $version" --notes-file $release/notes.md
 
 step 10 "Updating the cask in $tap_name"

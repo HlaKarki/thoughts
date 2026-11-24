@@ -4,7 +4,21 @@ enum CommentChecker {
   private static let toolsVersionPrefix = "// swift-tools-version:"
 
   static func hits(path: String, contents: String) -> [Hit] {
-    lines(path: path, contents: contents).map { Hit(path: path, line: $0) }
+    if let jsx = scriptJSX(path: path) {
+      let result = ScriptComments.scan(contents, jsx: jsx)
+      let comments = result.lines.map { Hit(path: path, line: $0) }
+      let unparsed = result.unparsedLine.map { [Hit(path: path, line: $0, kind: .unparsed)] } ?? []
+      return comments + unparsed
+    }
+    return lines(path: path, contents: contents).map { Hit(path: path, line: $0) }
+  }
+
+  private static func scriptJSX(path: String) -> Bool? {
+    switch (path as NSString).pathExtension {
+    case "ts", "js", "mjs": false
+    case "tsx": true
+    default: nil
+    }
   }
 
   static func check(root: URL) throws -> [Hit] {
