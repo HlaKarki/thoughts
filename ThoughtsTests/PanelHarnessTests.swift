@@ -67,6 +67,30 @@ struct PanelHarnessTests {
     }
   }
 
+  @Test func postedArrowsCarryTheFlagsOfARealArrowPress() async throws {
+    try await PanelHarness.run { harness in
+      try await harness.show()
+      let device: NSEvent.ModifierFlags = [.function, .numericPad]
+      for key in [PanelHarness.Key.up, .down] {
+        let event = try #require(harness.keyEvent(key, .shift))
+        #expect(event.modifierFlags.isSuperset(of: device.union(.shift)))
+      }
+      let escape = try #require(harness.keyEvent(.escape))
+      #expect(escape.modifierFlags.isDisjoint(with: device))
+    }
+  }
+
+  @Test func aCharacterWithNoKeyCodeFailsInsteadOfTypingA() async throws {
+    try await PanelHarness.run { harness in
+      try await harness.show()
+      await withKnownIssue("the harness records an issue for a character it cannot type") {
+        await harness.type("1")
+      }
+      #expect(harness.seenKeyDowns == 0)
+      #expect(harness.input.text == "")
+    }
+  }
+
   @Test func thePanelRendersToAPNG() async throws {
     try await PanelHarness.run { harness in
       try harness.seed(["one", "two"])

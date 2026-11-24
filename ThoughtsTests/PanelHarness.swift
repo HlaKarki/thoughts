@@ -5,58 +5,6 @@ import ThoughtsCore
 
 @testable import Thoughts
 
-enum KeyWindowSeam {
-  private static let selector = NSSelectorFromString("_keyWindow")
-  private static let activeSelector = NSSelectorFromString("_hasActiveAppearance")
-  nonisolated(unsafe) private static var original: IMP?
-  nonisolated(unsafe) private static var originalActive: IMP?
-  nonisolated(unsafe) private static var window: NSWindow?
-
-  private typealias Getter = @convention(c) (AnyObject, Selector) -> Unmanaged<NSWindow>?
-  private typealias Flag = @convention(c) (AnyObject, Selector) -> Bool
-
-  @MainActor
-  static func install(_ target: NSWindow) throws {
-    let method = try #require(class_getInstanceMethod(NSApplication.self, selector))
-    let active = try #require(class_getInstanceMethod(type(of: target), activeSelector))
-    window = target
-    guard original == nil else { return }
-    original = method_getImplementation(method)
-    let block: @convention(block) (AnyObject) -> AnyObject? = { _ in window }
-    method_setImplementation(method, imp_implementationWithBlock(block))
-    let activeOriginal = method_getImplementation(active)
-    originalActive = activeOriginal
-    let flag = unsafeBitCast(activeOriginal, to: Flag.self)
-    let activeBlock: @convention(block) (AnyObject) -> Bool = { this in
-      this === window || flag(this, activeSelector)
-    }
-    method_setImplementation(active, imp_implementationWithBlock(activeBlock))
-  }
-
-  @MainActor
-  static func remove() {
-    let target = window
-    window = nil
-    if let originalActive, let target,
-      let active = class_getInstanceMethod(type(of: target), activeSelector)
-    {
-      method_setImplementation(active, originalActive)
-      self.originalActive = nil
-    }
-    guard let original, let method = class_getInstanceMethod(NSApplication.self, selector)
-    else { return }
-    method_setImplementation(method, original)
-    self.original = nil
-  }
-
-  @MainActor
-  static var appKitKeyWindow: NSWindow? {
-    guard let method = class_getInstanceMethod(NSApplication.self, selector) else { return nil }
-    let getter = unsafeBitCast(original ?? method_getImplementation(method), to: Getter.self)
-    return getter(NSApp, selector)?.takeUnretainedValue()
-  }
-}
-
 @MainActor
 final class PanelHarness {
   enum Key {
@@ -68,7 +16,7 @@ final class PanelHarness {
     case space
     case character(Character)
 
-    var code: UInt16 {
+    var code: UInt16? {
       switch self {
       case .up: 126
       case .down: 125
@@ -76,8 +24,14 @@ final class PanelHarness {
       case .escape: 53
       case .delete: 51
       case .space: 49
-      case .character(let character):
-        Self.letterCodes[Character(character.lowercased())] ?? 0
+      case .character(let character): Self.letterCodes[Character(character.lowercased())]
+      }
+    }
+
+    var deviceFlags: NSEvent.ModifierFlags {
+      switch self {
+      case .up, .down: [.function, .numericPad]
+      default: []
       }
     }
 
@@ -174,6 +128,7 @@ final class PanelHarness {
     startedFront =
       NSWorkspace.shared.frontmostApplication?.processIdentifier
       == ProcessInfo.processInfo.processIdentifier
+    panel.onCancel = { [weak self] in self?.hideRequests += 1 }
     panel.onNothingToDo = { [actions] in actions.nothingToDo($0) }
     panel.defersHistory = { [weak self, actions] direction in
       self?.historySteps.append(direction)
@@ -269,21 +224,23 @@ final class PanelHarness {
 
   func post(_ key: Key, _ flags: NSEvent.ModifierFlags = []) {
     for kind in [NSEvent.EventType.keyDown, .keyUp] {
-      guard
-        let event = NSEvent.keyEvent(
-          with: kind, location: .zero, modifierFlags: flags, timestamp: nextStamp(),
-          windowNumber: panel.windowNumber, context: nil, characters: key.characters,
-          charactersIgnoringModifiers: key.characters, isARepeat: false, keyCode: key.code)
-      else { continue }
+      guard let event = keyEvent(key, flags, kind: kind) else { return }
       NSApp.postEvent(event, atStart: false)
     }
   }
 
-  func keyEvent(_ key: Key, _ flags: NSEvent.ModifierFlags = []) -> NSEvent? {
-    NSEvent.keyEvent(
-      with: .keyDown, location: .zero, modifierFlags: flags, timestamp: nextStamp(),
-      windowNumber: panel.windowNumber, context: nil, characters: key.characters,
-      charactersIgnoringModifiers: key.characters, isARepeat: false, keyCode: key.code)
+  func keyEvent(
+    _ key: Key, _ flags: NSEvent.ModifierFlags = [], kind: NSEvent.EventType = .keyDown
+  ) -> NSEvent? {
+    guard let code = key.code else {
+      Issue.record("the harness has no key code for \(key)")
+      return nil
+    }
+    return NSEvent.keyEvent(
+      with: kind, location: .zero, modifierFlags: flags.union(key.deviceFlags),
+      timestamp: nextStamp(), windowNumber: panel.windowNumber, context: nil,
+      characters: key.characters, charactersIgnoringModifiers: key.characters, isARepeat: false,
+      keyCode: code)
   }
 
   private func nextStamp() -> TimeInterval {
@@ -347,6 +304,21 @@ final class PanelHarness {
 
   var inputField: InputTextField? {
     PasteFieldTests.inputFields(in: hosting).first
+  }
+
+  func field<Field: NSTextField>(_ type: Field.Type) -> Field? {
+    Self.views(of: type, in: hosting).first
+  }
+
+  func isEditing(_ field: NSTextField?) -> Bool {
+    guard let editor = field?.currentEditor() else { return false }
+    return panel.firstResponder === editor
+  }
+
+  static func views<Found: NSView>(of type: Found.Type, in view: NSView) -> [Found] {
+    view.subviews.flatMap { sub in
+      (sub as? Found).map { [$0] + views(of: type, in: sub) } ?? views(of: type, in: sub)
+    }
   }
 
   var firstResponderText: String? {
