@@ -30,28 +30,51 @@ enum PreviewImageLoader {
 
 struct PreviewHost: View {
   let list: ListModel
+  var layout = PreviewCardLayout.full
+  var size: CGSize?
   @State private var image: CGImage?
 
   var body: some View {
-    if let thought = list.previewThought {
-      PreviewView(thought: thought, image: image)
-        .task(id: thought.imageFileURL) {
-          image = nil
-          guard let url = thought.imageFileURL else { return }
-          image = await PreviewImageLoader.load(url)
-        }
+    Group {
+      if let thought = list.previewThought {
+        PreviewView(thought: thought, image: image, layout: layout)
+          .task(id: thought.imageFileURL) {
+            image = nil
+            guard let url = thought.imageFileURL else { return }
+            image = await PreviewImageLoader.load(url)
+          }
+      }
     }
+    .frame(width: size?.width, height: size?.height, alignment: .top)
   }
+}
+
+struct PreviewCardLayout: Equatable {
+  static let fullWidth: CGFloat = 620
+  static let minimumWidth: CGFloat = 336
+  static let padding: CGFloat = 12
+  static let area = CGSize(width: 596, height: 372)
+  static let full = PreviewCardLayout(width: fullWidth)
+  static let narrowest = PreviewCardLayout(width: minimumWidth)
+
+  let width: CGFloat
+  var mediaHeight: CGFloat
+
+  init(width: CGFloat) {
+    self.width = width
+    let media = width - 2 * Self.padding
+    mediaHeight = (Self.area.height * media / Self.area.width).rounded()
+  }
+
+  var mediaWidth: CGFloat { width - 2 * Self.padding }
 }
 
 struct PreviewView: View {
   let thought: Thought
   let image: CGImage?
+  var layout = PreviewCardLayout.full
   @Environment(\.colorScheme) private var colorScheme
 
-  static let width: CGFloat = 620
-  static let areaSize = CGSize(width: 596, height: 372)
-  static let padding: CGFloat = 12
   static let labelWidth: CGFloat = 74
 
   var body: some View {
@@ -96,9 +119,9 @@ struct PreviewView: View {
       .padding(.top, 10)
       .padding(.horizontal, 2)
     }
-    .padding(Self.padding)
+    .padding(PreviewCardLayout.padding)
     .padding(.bottom, 2)
-    .frame(width: Self.width)
+    .frame(width: layout.width)
     .background(
       colorScheme == .dark ? Color(white: 0.12) : Color.white,
       in: RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -122,8 +145,8 @@ struct PreviewView: View {
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(14)
       }
-      .frame(width: Self.areaSize.width)
-      .frame(maxHeight: Self.areaSize.height)
+      .frame(width: layout.mediaWidth)
+      .frame(maxHeight: layout.mediaHeight)
       .fixedSize(horizontal: false, vertical: true)
       .background(
         Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -138,7 +161,7 @@ struct PreviewView: View {
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
       }
-      .frame(width: Self.areaSize.width, height: Self.areaSize.height)
+      .frame(width: layout.mediaWidth, height: layout.mediaHeight)
       .overlay {
         RoundedRectangle(cornerRadius: 10, style: .continuous)
           .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)

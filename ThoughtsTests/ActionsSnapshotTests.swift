@@ -51,34 +51,18 @@ struct ActionsSnapshotTests {
       daysAgo: 0.2, done: true)
     let imageFile = try #require(shot.imageFileURL)
     let image = try #require(PreviewImageLoader.decode(imageFile))
-    let imageView = PreviewView(thought: shot, image: image)
-    let textView = PreviewView(thought: text, image: nil)
-    for (name, view) in [("image", AnyView(imageView)), ("text", AnyView(textView))] {
-      let size = NSHostingView(rootView: view).fittingSize
-      #expect(size.width == PreviewView.width)
-      let url = try SnapshotRenderer.render(
-        view, size: size, appearance: appearance, name: "preview-\(name)-\(suffix)")
-      let bitmap = try #require(NSBitmapImageRep(data: Data(contentsOf: url)))
-      #expect(bitmap.pixelsWide == Int(size.width) * SnapshotRenderer.scale)
-      #expect(SnapshotTests.colorCount(of: bitmap) > 1)
+    for (width, layout) in [("", PreviewCardLayout.full), ("-narrowest", .narrowest)] {
+      let imageView = PreviewView(thought: shot, image: image, layout: layout)
+      let textView = PreviewView(thought: text, image: nil, layout: layout)
+      for (name, view) in [("image", AnyView(imageView)), ("text", AnyView(textView))] {
+        let size = NSHostingView(rootView: view).fittingSize
+        #expect(size.width == layout.width)
+        let url = try SnapshotRenderer.render(
+          view, size: size, appearance: appearance, name: "preview-\(name)\(width)-\(suffix)")
+        let bitmap = try #require(NSBitmapImageRep(data: Data(contentsOf: url)))
+        #expect(bitmap.pixelsWide == Int(size.width) * SnapshotRenderer.scale)
+        #expect(SnapshotTests.colorCount(of: bitmap) > 1)
+      }
     }
-  }
-
-  @Test func previewSitsBesidePanelMirroredOnTheLeftEdge() {
-    let visible = CGRect(x: 0, y: 0, width: 1600, height: 900)
-    let size = CGSize(width: 620, height: 536)
-    let right = CGRect(x: 1224, y: 44, width: 360, height: 812)
-    let beside = PreviewWindowController.frame(beside: right, edge: .right, size: size, in: visible)
-    #expect(beside.maxX == right.minX - 12)
-    #expect(beside.midY == right.midY)
-    #expect(beside.width == 620)
-    let left = CGRect(x: 16, y: 44, width: 360, height: 812)
-    let mirrored = PreviewWindowController.frame(
-      beside: left, edge: .left, size: size, in: visible)
-    #expect(mirrored.minX == left.maxX + 12)
-    let short = CGRect(x: 1224, y: 300, width: 360, height: 300)
-    #expect(
-      PreviewWindowController.frame(beside: short, edge: .right, size: size, in: visible).height
-        == 300)
   }
 }

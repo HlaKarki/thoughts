@@ -99,11 +99,13 @@ final class ListFixture {
 
   @discardableResult
   func addScreenshot(
-    note: String, daysAgo: Double, done: Bool = false, source: Source? = nil
+    note: String, daysAgo: Double, done: Bool = false, source: Source? = nil,
+    pixels: (width: Int, height: Int) = (328, 208)
   ) throws -> Thought {
+    let png = try Self.png(width: pixels.width, height: pixels.height)
     var thought = try store.add(
       NewThought(
-        content: .image(.data(try Self.png(), .png), note: note), source: source,
+        content: .image(.data(png, .png), note: note), source: source,
         created: Self.now.addingTimeInterval(-daysAgo * 86400)))
     if done { thought = try store.setDone(true, for: thought.id, at: Self.now) }
     return thought
@@ -116,9 +118,7 @@ final class ListFixture {
       [.creationDate: Self.now.addingTimeInterval(-daysAgo * 86400)], ofItemAtPath: file.path)
   }
 
-  static func png() throws -> Data {
-    let width = 328
-    let height = 208
+  static func png(width: Int = 328, height: Int = 208) throws -> Data {
     let context = try #require(
       CGContext(
         data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
