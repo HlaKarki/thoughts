@@ -40,25 +40,45 @@ struct HintChipTests {
     }
   }
 
-  @Test func chipSitsInFromTheEdgeAndUpFromTheBottom() {
-    let right = EdgeChipPanel.chipFrame(
-      size: Self.size, visible: Self.visible, edge: .right, openPanel: nil)
-    #expect(right == CGRect(x: 1440 - 12 - 300, y: 25 + 32, width: 300, height: 60))
-    let left = EdgeChipPanel.chipFrame(
-      size: Self.size, visible: Self.visible, edge: .left, openPanel: nil)
+  static let tall = CGRect(x: 0, y: 25, width: 2560, height: 1415)
+
+  @Test func chipSitsAtTheEdgeOnATallScreenWhateverTheEdge() {
+    let right = EdgeChipPanel.chipFrame(size: Self.size, visible: Self.tall, edge: .right)
+    #expect(right == CGRect(x: 2560 - 12 - 300, y: 25 + 32, width: 300, height: 60))
+    let left = EdgeChipPanel.chipFrame(size: Self.size, visible: Self.tall, edge: .left)
     #expect(left == CGRect(x: 12, y: 25 + 32, width: 300, height: 60))
+    for edge in [PanelEdge.left, .right] {
+      let panel = PanelController.frame(in: Self.tall, edge: edge)
+      let chip = EdgeChipPanel.chipFrame(size: Self.size, visible: Self.tall, edge: edge)
+      #expect(
+        chip.insetBy(dx: -EdgeChipPanel.panelGap, dy: -EdgeChipPanel.panelGap).intersects(panel)
+          == false)
+    }
   }
 
-  @Test func chipMovesBesideTheOpenPanelKeepingItsBottomOffset() {
+  @Test func chipSitsBesideThePanelsRestingFrameOnAShortScreen() {
     let rightPanel = PanelController.frame(in: Self.visible, edge: .right)
-    let right = EdgeChipPanel.chipFrame(
-      size: Self.size, visible: Self.visible, edge: .right, openPanel: rightPanel)
+    let right = EdgeChipPanel.chipFrame(size: Self.size, visible: Self.visible, edge: .right)
     #expect(right.maxX == rightPanel.minX - 12)
     #expect(right.minY == Self.bottom)
     let leftPanel = PanelController.frame(in: Self.visible, edge: .left)
-    let left = EdgeChipPanel.chipFrame(
-      size: Self.size, visible: Self.visible, edge: .left, openPanel: leftPanel)
+    let left = EdgeChipPanel.chipFrame(size: Self.size, visible: Self.visible, edge: .left)
     #expect(left.minX == leftPanel.maxX + 12)
     #expect(left.minY == Self.bottom)
+  }
+
+  @Test func aShownChipKeepsItsFrameWhateverThePanelDoes() {
+    for (visible, edge) in [
+      (Self.visible, PanelEdge.right), (Self.visible, .left), (Self.tall, .right),
+    ] {
+      let chip = EdgeChipPanel(edge: { edge }, visibleFrame: { visible }, orderFront: { _ in })
+      chip.show(Text("one"))
+      let first = chip.shownFrame
+      chip.show(Text("two"))
+      #expect(first == EdgeChipPanel.chipFrame(size: Self.size, visible: visible, edge: edge))
+      #expect(chip.shownFrame == first)
+      chip.hide()
+      #expect(chip.shownFrame == nil)
+    }
   }
 }

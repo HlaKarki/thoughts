@@ -46,31 +46,42 @@ final class EdgeChipPanel {
   private let window = ChipWindow()
   private let hosting: ChipHostingView
   private let edge: () -> PanelEdge
-  private let openPanelFrame: () -> CGRect?
+  private let visibleFrame: @MainActor () -> CGRect
+  private let orderFront: @MainActor (NSWindow) -> Void
   private var transition = 0
   private var hideTask: Task<Void, Never>?
   private(set) var isShown = false
+  private(set) var shownFrame: CGRect?
 
-  init(edge: @escaping () -> PanelEdge, openPanelFrame: @escaping () -> CGRect?) {
+  init(
+    edge: @escaping () -> PanelEdge,
+    visibleFrame: @escaping @MainActor () -> CGRect = EdgeChipPanel.screenUnderPointer,
+    orderFront: @escaping @MainActor (NSWindow) -> Void = { $0.orderFrontRegardless() }
+  ) {
     self.edge = edge
-    self.openPanelFrame = openPanelFrame
+    self.visibleFrame = visibleFrame
+    self.orderFront = orderFront
     hosting = ChipHostingView(rootView: AnyView(EmptyView()))
     hosting.sizingOptions = []
     window.contentView = hosting
   }
 
-  static func chipFrame(
-    size: CGSize, visible: CGRect, edge: PanelEdge, openPanel: CGRect?
-  ) -> CGRect {
+  static func chipFrame(size: CGSize, visible: CGRect, edge: PanelEdge) -> CGRect {
     let y = visible.minY + bottomInset
-    let x: CGFloat
-    switch (edge, openPanel) {
-    case (.right, nil): x = visible.maxX - edgeInset - size.width
-    case (.left, nil): x = visible.minX + edgeInset
-    case (.right, let panel?): x = panel.minX - panelGap - size.width
-    case (.left, let panel?): x = panel.maxX + panelGap
-    }
-    return CGRect(x: x, y: y, width: size.width, height: size.height)
+    let atEdge: CGFloat =
+      switch edge {
+      case .right: visible.maxX - edgeInset - size.width
+      case .left: visible.minX + edgeInset
+      }
+    let chip = CGRect(x: atEdge, y: y, width: size.width, height: size.height)
+    let panel = PanelController.frame(in: visible, edge: edge)
+    guard chip.insetBy(dx: -panelGap, dy: -panelGap).intersects(panel) else { return chip }
+    let beside: CGFloat =
+      switch edge {
+      case .right: panel.minX - panelGap - size.width
+      case .left: panel.maxX + panelGap
+      }
+    return CGRect(x: beside, y: y, width: size.width, height: size.height)
   }
 
   func show(
@@ -80,7 +91,9 @@ final class EdgeChipPanel {
     hosting.rootView = AnyView(content.padding(Self.shadowMargin))
     hosting.onClick = onClick
     window.ignoresMouseEvents = onClick == nil
-    let target = windowFrame()
+    let chip = placement()
+    shownFrame = chip
+    let target = Self.window(around: chip)
     transition += 1
     if isShown {
       window.setFrame(target, display: true)
@@ -89,7 +102,7 @@ final class EdgeChipPanel {
       let start = reduceMotion ? target : target.offsetBy(dx: slideOffset, dy: 0)
       window.setFrame(start, display: false)
       window.alphaValue = 0
-      window.orderFrontRegardless()
+      orderFront(window)
       animate(frame: target, alpha: 1, completion: nil)
     }
     if let lifetime {
@@ -101,15 +114,11 @@ final class EdgeChipPanel {
     }
   }
 
-  func reposition() {
-    guard isShown else { return }
-    animate(frame: windowFrame(), alpha: 1, completion: nil)
-  }
-
   func hide() {
     hideTask?.cancel()
     guard isShown else { return }
     isShown = false
+    shownFrame = nil
     transition += 1
     let current = transition
     let target = reduceMotion ? window.frame : window.frame.offsetBy(dx: slideOffset, dy: 0)
@@ -123,16 +132,16 @@ final class EdgeChipPanel {
     edge() == .right ? Self.slide : -Self.slide
   }
 
-  private func windowFrame() -> CGRect {
-    let openPanel = openPanelFrame()
-    let visible = Self.visibleFrame(containing: openPanel)
-    let size = ChipSurface<EmptyView>.size
-    let chip = Self.chipFrame(size: size, visible: visible, edge: edge(), openPanel: openPanel)
-    return chip.insetBy(dx: -Self.shadowMargin, dy: -Self.shadowMargin)
+  private func placement() -> CGRect {
+    Self.chipFrame(size: ChipSurface<EmptyView>.size, visible: visibleFrame(), edge: edge())
   }
 
-  private static func visibleFrame(containing panel: CGRect?) -> CGRect {
-    let point = panel.map { CGPoint(x: $0.midX, y: $0.midY) } ?? NSEvent.mouseLocation
+  private static func window(around chip: CGRect) -> CGRect {
+    chip.insetBy(dx: -shadowMargin, dy: -shadowMargin)
+  }
+
+  static func screenUnderPointer() -> CGRect {
+    let point = NSEvent.mouseLocation
     let screen =
       NSScreen.screens.first { NSMouseInRect(point, $0.frame, false) }
       ?? NSScreen.main ?? NSScreen.screens[0]
