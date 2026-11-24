@@ -4,6 +4,25 @@ final class PasteFieldEditor: NSTextView {
   var pasteboard: NSPasteboard = .general
   var onPaste: ((NSPasteboard) -> Bool)?
 
+  func followTextChanges() {
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(storageDidProcessEditing(_:)),
+      name: NSTextStorage.didProcessEditingNotification, object: textStorage)
+  }
+
+  override func resignFirstResponder() -> Bool {
+    let resigned = super.resignFirstResponder()
+    if resigned, let textStorage { undoManager?.removeAllActions(withTarget: textStorage) }
+    return resigned
+  }
+
+  @objc private func storageDidProcessEditing(_ notification: Notification) {
+    guard textStorage?.editedMask.contains(.editedCharacters) == true,
+      let field = delegate as? FocusableTextField, field.currentEditor() === self
+    else { return }
+    field.onTextChange?(string)
+  }
+
   override func paste(_ sender: Any?) {
     if onPaste?(pasteboard) == true { return }
     super.paste(sender)
@@ -115,7 +134,7 @@ final class ThoughtsPanel: NSPanel {
   }
 
   override func fieldEditor(_ createFlag: Bool, for object: Any?) -> NSText? {
-    guard object is InputTextField else {
+    guard object is FocusableTextField else {
       return super.fieldEditor(createFlag, for: object)
     }
     if let pasteEditor { return configured(pasteEditor) }
@@ -123,6 +142,7 @@ final class ThoughtsPanel: NSPanel {
     let editor = PasteFieldEditor()
     editor.isFieldEditor = true
     editor.allowsUndo = true
+    editor.followTextChanges()
     pasteEditor = editor
     return configured(editor)
   }

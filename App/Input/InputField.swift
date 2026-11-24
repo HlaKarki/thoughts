@@ -3,6 +3,7 @@ import SwiftUI
 
 class FocusableTextField: NSTextField {
   var onFocus: (() -> Void)?
+  var onTextChange: ((String) -> Void)?
   private var wantsFocus = false
 
   func setFocused(_ focused: Bool) {
@@ -51,10 +52,6 @@ struct InputField: NSViewRepresentable {
   let isFocused: Bool
   let onFocus: () -> Void
 
-  func makeCoordinator() -> Coordinator {
-    Coordinator(text: $text)
-  }
-
   func makeNSView(context: Context) -> InputTextField {
     let field = InputTextField()
     field.isBordered = false
@@ -70,15 +67,16 @@ struct InputField: NSViewRepresentable {
     field.usesSingleLineMode = true
     field.cell?.isScrollable = true
     field.lineBreakMode = .byClipping
-    field.delegate = context.coordinator
     field.setAccessibilityLabel(String(localized: "Add a thought"))
     field.stringValue = text
     return field
   }
 
   func updateNSView(_ field: InputTextField, context: Context) {
-    context.coordinator.text = $text
     field.onFocus = onFocus
+    field.onTextChange = { [text = $text] in
+      if text.wrappedValue != $0 { text.wrappedValue = $0 }
+    }
     let current = field.currentEditor()?.string ?? field.stringValue
     if current != text { field.stringValue = text }
     field.setFocused(isFocused)
@@ -88,18 +86,5 @@ struct InputField: NSViewRepresentable {
     -> CGSize?
   {
     CGSize(width: proposal.width ?? 200, height: nsView.intrinsicContentSize.height)
-  }
-
-  final class Coordinator: NSObject, NSTextFieldDelegate {
-    var text: Binding<String>
-
-    init(text: Binding<String>) {
-      self.text = text
-    }
-
-    func controlTextDidChange(_ notification: Notification) {
-      guard let field = notification.object as? NSTextField else { return }
-      text.wrappedValue = field.stringValue
-    }
   }
 }

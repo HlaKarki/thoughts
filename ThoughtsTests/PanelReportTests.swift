@@ -111,6 +111,12 @@ struct PanelReportTests {
       #expect(harness.list.query == "")
       #expect(harness.firstResponderText == "edit")
       #expect(harness.list.menuItems.map(\.command) == [.edit])
+      #expect(harness.panel.firstResponder is PasteFieldEditor)
+      await harness.press(.character("z"), .command)
+      #expect(harness.list.menuQuery == "")
+      #expect(harness.list.isMenuOpen)
+      await harness.press(.character("z"), [.command, .shift])
+      #expect(harness.list.menuQuery == "edit")
       await harness.press(.returnKey)
       #expect(!harness.list.isMenuOpen)
       #expect(harness.list.focus == .edit)
@@ -137,15 +143,40 @@ struct PanelReportTests {
       try await harness.show()
       await harness.type("hello")
       await harness.press(.character("z"), .command)
-      withKnownIssue("The undo clears the field editor but the model keeps the text") {
-        #expect(harness.input.text == "")
-      }
+      #expect(harness.input.text == "")
+      #expect(harness.firstResponderText == "")
+      #expect(harness.list.feedback?.text != "Nothing to undo")
       await harness.press(.returnKey)
       await harness.submitted()
-      let stored = try harness.storedTexts
-      withKnownIssue("Return after the undo still saves the undone text") {
-        #expect(stored.isEmpty)
-      }
+      #expect(try harness.storedTexts.isEmpty)
+    }
+  }
+
+  @Test func commandShiftZRedoesTypingInTheInput() async throws {
+    try await PanelHarness.run { harness in
+      try await harness.show()
+      await harness.type("hello")
+      await harness.press(.character("z"), .command)
+      await harness.press(.character("z"), [.command, .shift])
+      #expect(harness.input.text == "hello")
+      #expect(harness.firstResponderText == "hello")
+      await harness.press(.returnKey)
+      await harness.submitted()
+      #expect(try harness.storedTexts == ["hello"])
+    }
+  }
+
+  @Test func commandZAfterAnAddLeavesTheInputEmptyAndTheThoughtSaved() async throws {
+    try await PanelHarness.run { harness in
+      try await harness.show()
+      await harness.type("hello")
+      await harness.press(.returnKey)
+      await harness.submitted()
+      await harness.settle("after the add")
+      await harness.press(.character("z"), .command)
+      #expect(harness.input.text == "")
+      #expect(harness.firstResponderText == "")
+      #expect(try harness.storedTexts == ["hello"])
     }
   }
 
@@ -157,11 +188,38 @@ struct PanelReportTests {
       #expect(harness.list.focus == .search)
       await harness.type("al")
       #expect(harness.list.query == "al")
+      #expect(harness.list.visible.count == 1)
       await harness.press(.character("z"), .command)
-      withKnownIssue("The panel checks only its own undo manager and says Nothing to undo") {
-        #expect(harness.list.query == "")
-        #expect(harness.list.feedback?.text != "Nothing to undo")
-      }
+      #expect(harness.list.query == "")
+      #expect(harness.firstResponderText == "")
+      #expect(harness.list.feedback?.text != "Nothing to undo")
+      #expect(harness.list.visible.count == 2)
+      await harness.press(.character("z"), [.command, .shift])
+      #expect(harness.list.query == "al")
+      #expect(harness.list.visible.count == 1)
+    }
+  }
+
+  @Test func undoInOneFieldNeverReachesTheTextOfAnother() async throws {
+    try await PanelHarness.run { harness in
+      try harness.seed(["alpha", "beta"])
+      try await harness.show()
+      await harness.type("hello")
+      await harness.press(.character("f"), .command)
+      #expect(harness.input.text == "hello")
+      await harness.type("al")
+      #expect(harness.list.query == "al")
+      #expect(harness.input.text == "hello")
+      await harness.press(.character("z"), .command)
+      #expect(harness.list.query == "")
+      await harness.press(.character("z"), .command)
+      #expect(harness.list.feedback?.text == "Nothing to undo")
+      #expect(harness.list.query == "")
+      #expect(harness.firstResponderText == "")
+      #expect(harness.input.text == "hello")
+      #expect(harness.inputField?.stringValue == "hello")
+      await harness.press(.character("z"), [.command, .shift])
+      #expect(harness.list.query == "al")
     }
   }
 
