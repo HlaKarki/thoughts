@@ -50,10 +50,12 @@ struct EngineCopyCaptureTests {
     let writer: PasteboardWriter
     let watcher: ClipboardWatcher
     let coordinator: CaptureCoordinator
+    let keys = ClipboardWatcherTests.Keys()
+    let panel = NSObject()
     let suite: String
 
     init(
-      behavior: NSPasteboard.AccessBehavior = .alwaysAllow, ownWindowIsKey: Bool = false,
+      behavior: NSPasteboard.AccessBehavior = .alwaysAllow,
       captureDelay: TimeInterval = 0, front: AppSnapshot = EngineCopyCaptureTests.browser,
       selectionReader: (@MainActor (NSPasteboard) -> any SelectionReading)? = nil
     ) throws {
@@ -66,10 +68,12 @@ struct EngineCopyCaptureTests {
       let watcher = ClipboardWatcher(
         pasteboard: board, accessBehavior: { behavior },
         isOwnChange: { writer.ownChangeCounts.contains($0) }, contentType: { nil },
-        now: { ListFixture.now }, frontmost: { front }, ownWindowIsKey: { ownWindowIsKey })
+        now: { ListFixture.now }, frontmost: { front },
+        ownWindowIsKey: { [keys] in keys.ownWindowIsKey }, notifications: keys.center)
       coordinator = CaptureCoordinator(
         frontmost: { front }, ownBundleID: "dev.example.thoughts",
-        ownWindowIsKey: { false }, reader: selectionReader?(board) ?? reader,
+        ownWindowIsKey: { [keys] in keys.ownWindowIsKey },
+        reader: selectionReader?(board) ?? reader,
         source: { EngineCopyCaptureTests.browserSource }, input: fixture.input, writer: writer,
         sound: SavedSound(preferences: Preferences(defaults: defaults), player: {}),
         pasteboard: board, now: { ListFixture.now.addingTimeInterval(captureDelay) },
@@ -81,6 +85,7 @@ struct EngineCopyCaptureTests {
       self.reader = reader
       self.writer = writer
       self.watcher = watcher
+      watcher.watchKeyWindows()
     }
 
     func copy(_ copy: Copy) {
@@ -89,6 +94,10 @@ struct EngineCopyCaptureTests {
 
     func poll() async {
       watcher.poll()
+      await classified()
+    }
+
+    func classified() async {
       var waits = 0
       while watcher.lastCopy?.changeCount != board.changeCount, waits < 100 {
         waits += 1
@@ -106,6 +115,7 @@ struct EngineCopyCaptureTests {
     }
 
     func close() {
+      watcher.stop()
       board.releaseGlobally()
       UserDefaults().removePersistentDomain(forName: suite)
     }
@@ -227,22 +237,32 @@ struct EngineCopyCaptureTests {
     #expect(rig.watcher.lastCopy?.app == Self.browser)
   }
 
-  @Test func aCopyMadeInAnotherAppWhileAThoughtsWindowIsKeyIsSaved() async throws {
-    let rig = try Rig(ownWindowIsKey: true)
+  @Test func aCopyMadeInAnotherAppJustBeforeThePanelBecomesKeyIsSaved() async throws {
+    let rig = try Rig()
     defer { rig.close() }
     rig.copy(.writeText)
-    await rig.poll()
+    rig.keys.becomeKey(rig.panel)
+    await rig.classified()
+    #expect(rig.watcher.lastCopy?.own == false)
+    let outcome = await rig.coordinator.capture()
+    #expect(Self.isSaved(outcome), "got \(outcome)")
+    #expect(try rig.storedTexts == [Self.words])
+  }
+
+  @Test func aCopyMadeWhileThePanelIsKeyIsOwnEvenWhenThePanelHidesBeforeTheNextPoll()
+    async throws
+  {
+    let rig = try Rig()
+    defer { rig.close() }
+    rig.keys.becomeKey(rig.panel)
+    rig.copy(.writeText)
+    rig.keys.resignKey(rig.panel)
+    await rig.classified()
+    #expect(rig.watcher.lastCopy?.own == true)
     rig.reader.probeResult = .unavailable
     rig.reader.copyResult = .copiedNothing
-    let own = rig.watcher.lastCopy?.own
-    let outcome = await rig.coordinator.capture()
-    let stored = try rig.storedTexts
-    withKnownIssue("The watcher marks every copy polled while a Thoughts window is key as its own")
-    {
-      #expect(own == false)
-      #expect(Self.isSaved(outcome), "got \(outcome)")
-      #expect(stored == [Self.words])
-    }
+    #expect(await rig.coordinator.capture() == .nothingToSave)
+    #expect(try rig.storedTexts.isEmpty)
   }
 
   @Test func aCopyOlderThanTwoMinutesSaysNothingToSave() async throws {

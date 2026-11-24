@@ -127,6 +127,113 @@ struct ClipboardWatcherTests {
     #expect(rig.watcher.lastCopy?.own == true)
   }
 
+  @MainActor
+  final class Keys {
+    let center = NotificationCenter()
+    var ownWindowIsKey = false
+
+    func becomeKey(_ window: NSObject) {
+      ownWindowIsKey = true
+      center.post(name: NSWindow.didBecomeKeyNotification, object: window)
+    }
+
+    func resignKey(_ window: NSObject, stillKey: Bool = false) {
+      ownWindowIsKey = stillKey
+      center.post(name: NSWindow.didResignKeyNotification, object: window)
+    }
+
+    func switchKey(from old: NSObject, to new: NSObject, resignFirst: Bool) {
+      if resignFirst {
+        resignKey(old)
+        becomeKey(new)
+      } else {
+        becomeKey(new)
+        resignKey(old, stillKey: true)
+      }
+    }
+
+    func watcher(on board: NSPasteboard) -> ClipboardWatcher {
+      let watcher = ClipboardWatcher(
+        pasteboard: board, accessBehavior: { .alwaysAllow }, contentType: { nil },
+        now: { ClipboardWatcherTests.now }, ownWindowIsKey: { [unowned self] in ownWindowIsKey },
+        notifications: center)
+      watcher.watchKeyWindows()
+      return watcher
+    }
+  }
+
+  static func copyText(_ text: String, to board: NSPasteboard) {
+    board.clearContents()
+    board.setString(text, forType: .string)
+  }
+
+  @Test func aCopyAlreadyThereWhenAThoughtsWindowBecomesKeyIsNeverItsOwn() async {
+    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    defer { board.releaseGlobally() }
+    let keys = Keys()
+    let watcher = keys.watcher(on: board)
+    defer { watcher.stop() }
+    Self.copyText("from another app", to: board)
+    keys.becomeKey(NSObject())
+    await Self.settle()
+    #expect(watcher.lastCopy?.changeCount == board.changeCount)
+    #expect(watcher.lastCopy?.own == false)
+  }
+
+  @Test func aCopyMadeWhileAThoughtsWindowIsKeyStaysItsOwnWhenTheWindowResignsBeforeThePoll()
+    async
+  {
+    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    defer { board.releaseGlobally() }
+    let keys = Keys()
+    let watcher = keys.watcher(on: board)
+    defer { watcher.stop() }
+    let panel = NSObject()
+    keys.becomeKey(panel)
+    Self.copyText("typed in the panel", to: board)
+    keys.resignKey(panel)
+    Self.copyText("from another app", to: board)
+    watcher.poll()
+    await Self.settle()
+    #expect(watcher.lastCopy?.own == false)
+    keys.becomeKey(panel)
+    Self.copyText("typed in the panel again", to: board)
+    keys.resignKey(panel)
+    await Self.settle()
+    #expect(watcher.lastCopy?.changeCount == board.changeCount)
+    #expect(watcher.lastCopy?.own == true)
+  }
+
+  @Test(arguments: [true, false])
+  func aCopyInOneThoughtsWindowIsItsOwnWhicheverOrderTheKeySwitchArrivesIn(resignFirst: Bool)
+    async
+  {
+    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    defer { board.releaseGlobally() }
+    let keys = Keys()
+    let watcher = keys.watcher(on: board)
+    defer { watcher.stop() }
+    let panel = NSObject()
+    let settings = NSObject()
+    keys.becomeKey(panel)
+    Self.copyText("typed in the panel", to: board)
+    keys.switchKey(from: panel, to: settings, resignFirst: resignFirst)
+    await Self.settle()
+    #expect(watcher.lastCopy?.changeCount == board.changeCount)
+    #expect(watcher.lastCopy?.own == true)
+    Self.copyText("typed in settings", to: board)
+    keys.switchKey(from: settings, to: panel, resignFirst: resignFirst)
+    await Self.settle()
+    #expect(watcher.lastCopy?.changeCount == board.changeCount)
+    #expect(watcher.lastCopy?.own == true)
+    keys.resignKey(panel)
+    Self.copyText("from another app", to: board)
+    keys.becomeKey(panel)
+    await Self.settle()
+    #expect(watcher.lastCopy?.changeCount == board.changeCount)
+    #expect(watcher.lastCopy?.own == false)
+  }
+
   @Test func copiedImageFileOffersWhenItsContentTypeIsAnImage() async throws {
     let rig = Self.rig(type: .png)
     defer { rig.board.releaseGlobally() }

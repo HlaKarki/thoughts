@@ -13,9 +13,13 @@ final class ClipboardWatcher {
   private let now: () -> Date
   private let frontmost: @MainActor () -> AppSnapshot?
   private let ownWindowIsKey: @MainActor () -> Bool
+  private let notifications: NotificationCenter
   private var lastCount: Int
   private var task: Task<Void, Never>?
   private var classifying: Task<Void, Never>?
+  private var keyObservers: [NSObjectProtocol] = []
+  private var ownWindowKey = false
+  private var lastKeyWindow: ObjectIdentifier?
 
   private(set) var lastCopy: ClipboardCopy?
   var isPaused: @MainActor () -> Bool = { false }
@@ -28,7 +32,8 @@ final class ClipboardWatcher {
     contentType: (@MainActor () async -> UTType?)? = nil,
     now: @escaping () -> Date = Date.init,
     frontmost: @escaping @MainActor () -> AppSnapshot? = { nil },
-    ownWindowIsKey: @escaping @MainActor () -> Bool = { false }
+    ownWindowIsKey: @escaping @MainActor () -> Bool = { false },
+    notifications: NotificationCenter = .default
   ) {
     self.pasteboard = pasteboard
     self.accessBehavior = accessBehavior ?? { [pasteboard] in pasteboard.accessBehavior }
@@ -38,10 +43,12 @@ final class ClipboardWatcher {
     self.now = now
     self.frontmost = frontmost
     self.ownWindowIsKey = ownWindowIsKey
+    self.notifications = notifications
     self.lastCount = pasteboard.changeCount
   }
 
   func start() {
+    watchKeyWindows()
     guard task == nil else { return }
     lastCount = pasteboard.changeCount
     task = Task { [weak self] in
@@ -56,29 +63,60 @@ final class ClipboardWatcher {
   func stop() {
     task?.cancel()
     task = nil
+    for observer in keyObservers { notifications.removeObserver(observer) }
+    keyObservers = []
+  }
+
+  func watchKeyWindows() {
+    guard keyObservers.isEmpty else { return }
+    ownWindowKey = ownWindowIsKey()
+    lastKeyWindow = nil
+    keyObservers = [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification].map {
+      name in
+      notifications.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+        let window = note.object.map { ObjectIdentifier($0 as AnyObject) }
+        MainActor.assumeIsolated { self?.keyWindowChanged(name, window: window) }
+      }
+    }
+  }
+
+  private func keyWindowChanged(_ name: Notification.Name, window: ObjectIdentifier?) {
+    let becameKey = name == NSWindow.didBecomeKeyNotification
+    poll(ownWindowWasKey: becameKey ? ownWindowKey : true)
+    if becameKey {
+      ownWindowKey = true
+      lastKeyWindow = window
+    } else if lastKeyWindow == nil || lastKeyWindow == window {
+      ownWindowKey = false
+      lastKeyWindow = nil
+    }
   }
 
   func poll() {
-    guard !isPaused(), let change = record() else { return }
+    poll(ownWindowWasKey: ownWindowIsKey())
+  }
+
+  private func poll(ownWindowWasKey: Bool) {
+    guard !isPaused(), let change = record(ownWindowWasKey: ownWindowWasKey) else { return }
     classifying = Task { await classify(change.copy, own: change.ownChange) }
   }
 
   func pollNow() async {
-    guard let change = record() else {
+    guard let change = record(ownWindowWasKey: ownWindowIsKey()) else {
       await classifying?.value
       return
     }
     await classify(change.copy, own: change.ownChange)
   }
 
-  private func record() -> (copy: ClipboardCopy, ownChange: Bool)? {
+  private func record(ownWindowWasKey: Bool) -> (copy: ClipboardCopy, ownChange: Bool)? {
     let count = pasteboard.changeCount
     guard count != lastCount else { return nil }
     lastCount = count
     let ownChange = isOwnChange(count)
     let copy = ClipboardCopy(
       changeCount: count, seen: now(), kind: .unknown, app: frontmost(),
-      own: ownChange || ownWindowIsKey())
+      own: ownChange || ownWindowWasKey)
     if accessBehavior() != .alwaysAllow {
       lastCopy = copy
     }
