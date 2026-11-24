@@ -8,17 +8,23 @@ actor DrainingTransport: Transport {
   private let inner: any Transport
   private let stream: AsyncThrowingStream<Data, any Error>
   private let continuation: AsyncThrowingStream<Data, any Error>.Continuation
+  private let onInitialize: @Sendable (String) -> Void
   private var pending: [ID: Int] = [:]
   private var inputEnded = false
   private var pump: Task<Void, Never>?
 
-  static func wrapping(_ inner: any Transport) async -> DrainingTransport {
-    DrainingTransport(inner, logger: await inner.logger)
+  static func wrapping(
+    _ inner: any Transport, onInitialize: @escaping @Sendable (String) -> Void
+  ) async -> DrainingTransport {
+    DrainingTransport(inner, logger: await inner.logger, onInitialize: onInitialize)
   }
 
-  private init(_ inner: any Transport, logger: Logger) {
+  private init(
+    _ inner: any Transport, logger: Logger, onInitialize: @escaping @Sendable (String) -> Void
+  ) {
     self.inner = inner
     self.logger = logger
+    self.onInitialize = onInitialize
     (stream, continuation) = AsyncThrowingStream.makeStream()
   }
 
@@ -60,6 +66,11 @@ actor DrainingTransport: Transport {
     if (try? decoder.decode(Response<Probe>.self, from: data)) != nil { return }
     if let request = try? decoder.decode(Request<Probe>.self, from: data) {
       pending[request.id, default: 0] += 1
+      if request.method == Initialize.name,
+        let name = request.params.objectValue?["clientInfo"]?.objectValue?["name"]?.stringValue
+      {
+        onInitialize(name)
+      }
     } else if let cancelled = cancelledID(in: data) {
       pending[cancelled] = nil
       finishIfDrained()

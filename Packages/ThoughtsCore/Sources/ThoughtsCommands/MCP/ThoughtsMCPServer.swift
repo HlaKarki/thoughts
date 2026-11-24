@@ -113,9 +113,10 @@ public struct ThoughtsMCPServer: Sendable {
       await self.call(
         parameters.name, arguments: parameters.arguments ?? [:], clientName: client.value)
     }
-    try await server.start(transport: await DrainingTransport.wrapping(transport)) { info, _ in
-      client.value = info.name
+    let ordered = await DrainingTransport.wrapping(transport) { name in
+      if client.value == nil { client.value = name }
     }
+    try await server.start(transport: ordered)
     await server.waitUntilCompleted()
     await server.stop()
   }
