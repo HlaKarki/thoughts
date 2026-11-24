@@ -1,8 +1,9 @@
 import SwiftUI
 
+final class MenuTextField: FocusableTextField {}
+
 struct ActionsMenu: View {
   @Bindable var list: ListModel
-  var field: FocusState<Focus?>.Binding
 
   static let width: CGFloat = 252
   static let rowHeight: CGFloat = 30
@@ -31,14 +32,11 @@ struct ActionsMenu: View {
       }
       .padding(6)
       Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 1)
-      TextField(
-        "", text: $list.menuQuery,
-        prompt: Text("Search actions").foregroundStyle(Color(nsColor: .tertiaryLabelColor))
+      LineField(
+        text: $list.menuQuery, placeholder: String(localized: "Search actions"),
+        isFocused: list.focus == .menu, onFocus: { list.fieldDidTakeFocus(.menu) },
+        make: { MenuTextField() }
       )
-      .textFieldStyle(.plain)
-      .font(.system(size: 13))
-      .focusEffectDisabled()
-      .focused(field, equals: .menu)
       .padding(.horizontal, 14)
       .frame(height: 36)
     }
@@ -50,7 +48,6 @@ struct ActionsMenu: View {
     }
     .shadow(color: .black.opacity(0.06), radius: 1, y: 1)
     .shadow(color: .black.opacity(0.16), radius: 15, y: 10)
-    .onAppear { field.wrappedValue = .menu }
   }
 
   private var fill: Color {

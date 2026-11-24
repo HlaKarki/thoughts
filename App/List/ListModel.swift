@@ -543,6 +543,11 @@ final class ListModel {
     pruneSelection()
   }
 
+  func fieldDidTakeFocus(_ field: Focus) {
+    guard !isMenuOpen || field == .menu else { return }
+    focus = field
+  }
+
   func closeMenu() {
     guard isMenuOpen else { return }
     isMenuOpen = false

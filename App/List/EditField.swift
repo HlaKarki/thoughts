@@ -149,7 +149,8 @@ struct EditRow: View {
       VStack(alignment: .leading, spacing: 6) {
         if let url = thought.imageFileURL { RowThumbnail(url: url) }
         EditField(
-          text: $list.editText, isFocused: list.focus == .edit, onFocus: { list.focus = .edit }
+          text: $list.editText, isFocused: list.focus == .edit,
+          onFocus: { list.fieldDidTakeFocus(.edit) }
         )
         .padding(.vertical, 1)
       }

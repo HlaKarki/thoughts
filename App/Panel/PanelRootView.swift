@@ -5,7 +5,6 @@ struct PanelRootView: View {
   @Bindable var list: ListModel
   @Bindable var input: InputModel
   var shared = SharedMenuItems(updates: UpdateMenuItem(), openSettings: nil, checkForUpdates: nil)
-  @FocusState private var field: Focus?
 
   var body: some View {
     VStack(spacing: 0) {
@@ -22,23 +21,16 @@ struct PanelRootView: View {
       KeyRoutingView { stroke in
         guard
           let command = KeyRouter.command(
-            for: stroke, focus: list.focus, inputIsEmpty: input.text.isEmpty,
-            hasAttachment: input.attachment != nil)
+            for: stroke, focus: list.focus, menuIsOpen: list.isMenuOpen,
+            inputIsEmpty: input.text.isEmpty, hasAttachment: input.attachment != nil)
         else { return false }
         list.perform(command)
         return true
       }
     }
-    .onChange(of: list.focus) { _, focus in
-      field = Self.fieldTarget(for: focus)
-    }
-    .onChange(of: field) { _, focus in
-      if let focus, list.focus != focus { list.focus = focus }
-    }
     .animation(.easeOut(duration: PanelController.duration), value: list.isMenuOpen)
     .animation(.easeOut(duration: PanelController.duration), value: input.attachment != nil)
     .animation(.easeOut(duration: PanelController.duration), value: input.isDropTargeted)
-    .onAppear { field = Self.fieldTarget(for: list.focus) }
   }
 
   @ViewBuilder
@@ -48,7 +40,7 @@ struct PanelRootView: View {
         Color.clear
           .contentShape(Rectangle())
           .onTapGesture { list.closeMenu() }
-        ActionsMenu(list: list, field: $field)
+        ActionsMenu(list: list)
           .padding(.trailing, 12)
           .padding(.bottom, Self.menuBottomInset)
       }
@@ -57,10 +49,6 @@ struct PanelRootView: View {
   }
 
   static let menuBottomInset: CGFloat = 74
-
-  private static func fieldTarget(for focus: Focus) -> Focus? {
-    focus == .menu ? focus : nil
-  }
 
   private var header: some View {
     HStack(spacing: 8) {

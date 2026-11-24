@@ -11,25 +11,110 @@ struct PanelReportTests {
       try harness.seed(["one", "two", "three"])
       try await harness.show()
       await harness.press(.up)
-      let selected = harness.list.selection
-      #expect(selected.count == 1)
+      await harness.press(.up)
+      let middle = try #require(harness.list.visible.dropFirst().first?.fileName)
+      #expect(harness.list.selection == [middle])
       await harness.press(.character("k"), .command)
       #expect(harness.list.isMenuOpen)
-      withKnownIssue("Opening the menu hands focus to the search field") {
-        #expect(harness.list.focus == .menu)
-      }
+      #expect(harness.list.focus == .menu)
+      #expect(harness.isEditing(harness.field(MenuTextField.self)))
       await harness.press(.down)
-      withKnownIssue("Down moves the list instead of the menu highlight") {
-        #expect(harness.list.isMenuOpen)
-        #expect(harness.list.menuHighlight == 1)
-        #expect(harness.list.selection == selected)
-      }
+      #expect(harness.list.isMenuOpen)
+      #expect(harness.list.menuHighlight == 1)
+      #expect(harness.list.selection == [middle])
       await harness.press(.up)
-      withKnownIssue("Up moves the list selection") {
-        #expect(harness.list.isMenuOpen)
-        #expect(harness.list.menuHighlight == 0)
-        #expect(harness.list.selection == selected)
+      #expect(harness.list.isMenuOpen)
+      #expect(harness.list.menuHighlight == 0)
+      #expect(harness.list.selection == [middle])
+    }
+  }
+
+  enum Row: String, Sendable {
+    case newest
+    case oldest
+  }
+
+  @Test(arguments: [
+    (Row.newest, Focus.menu), (.newest, .list), (.newest, .search), (.oldest, .menu),
+  ])
+  func upFiveTimesInTheMenuKeepsItOpenAndTheSelection(_ row: Row, _ held: Focus) async throws {
+    try await PanelHarness.run { harness in
+      try harness.seed(["one", "two", "three"])
+      try await harness.show()
+      await harness.press(.up)
+      if row == .oldest {
+        await harness.press(.up)
+        await harness.press(.up)
       }
+      let names = harness.list.visible.map(\.fileName)
+      let selected = try #require(row == .newest ? names.last : names.first)
+      #expect(harness.list.selection == [selected])
+      await harness.press(.character("k"), .command)
+      #expect(harness.list.focus == .menu)
+      harness.list.focus = held
+      await harness.settle("after \(held) took focus")
+      #expect(harness.list.menuHighlight == 0)
+      for _ in 0..<5 { await harness.press(.up) }
+      #expect(harness.list.isMenuOpen)
+      #expect(harness.list.menuHighlight == 0)
+      #expect(harness.list.selection == [selected])
+    }
+  }
+
+  @Test func theOpenMenuTakesItsKeysWhileTheSearchFieldHoldsFocus() async throws {
+    try await PanelHarness.run { harness in
+      try harness.seed(["one", "two", "three"])
+      try await harness.show()
+      await harness.press(.up)
+      let selected = harness.list.selection
+      await harness.press(.character("k"), .command)
+      harness.list.focus = .search
+      await harness.settle("after search took focus")
+      #expect(harness.isEditing(harness.field(SearchTextField.self)))
+      await harness.press(.down)
+      #expect(harness.list.menuHighlight == 1)
+      await harness.press(.up)
+      #expect(harness.list.menuHighlight == 0)
+      #expect(harness.list.isMenuOpen)
+      #expect(harness.list.selection == selected)
+      await harness.press(.character("k"), .command)
+      #expect(!harness.list.isMenuOpen)
+      #expect(harness.list.selection == selected)
+      #expect(harness.list.query == "")
+    }
+  }
+
+  @Test func aFieldTakingFocusWhileTheMenuIsOpenLeavesTheMenuFocused() async throws {
+    try await PanelHarness.run { harness in
+      try harness.seed(["one", "two"])
+      try await harness.show()
+      await harness.press(.up)
+      await harness.press(.character("k"), .command)
+      let search = try #require(harness.field(SearchTextField.self))
+      #expect(harness.panel.makeFirstResponder(search))
+      #expect(harness.list.focus == .menu)
+      await harness.press(.escape)
+      #expect(!harness.list.isMenuOpen)
+      #expect(harness.list.focus == .list)
+      #expect(harness.hideRequests == 0)
+    }
+  }
+
+  @Test func typingWithTheMenuOpenFiltersItsSearchField() async throws {
+    try await PanelHarness.run { harness in
+      try harness.seed(["one", "two"])
+      try await harness.show()
+      await harness.press(.up)
+      await harness.press(.character("k"), .command)
+      await harness.type("edit")
+      #expect(harness.list.menuQuery == "edit")
+      #expect(harness.list.query == "")
+      #expect(harness.firstResponderText == "edit")
+      #expect(harness.list.menuItems.map(\.command) == [.edit])
+      await harness.press(.returnKey)
+      #expect(!harness.list.isMenuOpen)
+      #expect(harness.list.focus == .edit)
+      #expect(harness.list.editText == "two")
     }
   }
 

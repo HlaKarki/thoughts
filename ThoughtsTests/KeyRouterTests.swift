@@ -9,6 +9,7 @@ struct KeyRouterCase: Sendable, CustomTestStringConvertible {
   let key: KeyEquivalent
   var modifiers: EventModifiers = []
   var focus: Focus = .input
+  var menuIsOpen = false
   var inputIsEmpty = true
   var hasAttachment = false
   var characters = ""
@@ -18,7 +19,7 @@ struct KeyRouterCase: Sendable, CustomTestStringConvertible {
 }
 
 enum KeyRouterCases {
-  static let all: [KeyRouterCase] = input + search + list + menu + edit
+  static let all: [KeyRouterCase] = input + search + list + menu + edit + openMenu
 
   static let input: [KeyRouterCase] = [
     KeyRouterCase(name: "Return in the input adds", key: .return, expected: .add),
@@ -186,6 +187,31 @@ enum KeyRouterCases {
     KeyRouterCase(
       name: "Space in the menu is left to the field", key: .space, focus: .menu, expected: nil),
   ]
+
+  static let openMenu: [KeyRouterCase] = [Focus.search, .list, .input, .edit].flatMap { focus in
+    [
+      KeyRouterCase(
+        name: "Up with the menu open and \(focus) focused moves the highlight", key: .upArrow,
+        focus: focus, menuIsOpen: true, expected: .menuMove(-1)),
+      KeyRouterCase(
+        name: "Down with the menu open and \(focus) focused moves the highlight",
+        key: .downArrow, focus: focus, menuIsOpen: true, expected: .menuMove(1)),
+      KeyRouterCase(
+        name: "Return with the menu open and \(focus) focused runs the item", key: .return,
+        focus: focus, menuIsOpen: true, expected: .menuRun),
+      KeyRouterCase(
+        name: "Esc with the menu open and \(focus) focused closes it", key: .escape,
+        focus: focus, menuIsOpen: true, expected: .menuClose),
+      KeyRouterCase(
+        name: "Command K with the menu open and \(focus) focused closes it",
+        key: KeyEquivalent("k"), modifiers: .command, focus: focus, menuIsOpen: true,
+        expected: .menuClose),
+      KeyRouterCase(
+        name: "Command F with the menu open and \(focus) focused is left to the field",
+        key: KeyEquivalent("f"), modifiers: .command, focus: focus, menuIsOpen: true,
+        expected: nil),
+    ]
+  }
 }
 
 struct KeyRouterTests {
@@ -193,7 +219,7 @@ struct KeyRouterTests {
   func mapsKey(_ c: KeyRouterCase) {
     let command = KeyRouter.command(
       for: KeyStroke(key: c.key, modifiers: c.modifiers, characters: c.characters), focus: c.focus,
-      inputIsEmpty: c.inputIsEmpty, hasAttachment: c.hasAttachment)
+      menuIsOpen: c.menuIsOpen, inputIsEmpty: c.inputIsEmpty, hasAttachment: c.hasAttachment)
     #expect(command == c.expected)
   }
 

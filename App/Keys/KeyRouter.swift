@@ -2,8 +2,10 @@ import SwiftUI
 
 enum KeyRouter {
   static func command(
-    for press: KeyStroke, focus: Focus, inputIsEmpty: Bool, hasAttachment: Bool
+    for press: KeyStroke, focus: Focus, menuIsOpen: Bool, inputIsEmpty: Bool,
+    hasAttachment: Bool
   ) -> KeyCommand? {
+    let focus = menuIsOpen ? .menu : focus
     let modifiers = press.modifiers
     if press.key == .escape, modifiers.isEmpty {
       return escape(focus: focus, hasAttachment: hasAttachment)

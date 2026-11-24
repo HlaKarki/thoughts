@@ -9,7 +9,8 @@ struct InputView: View {
   var body: some View {
     VStack(spacing: 8) {
       InputField(
-        text: $input.text, isFocused: list.focus == .input, onFocus: { list.focus = .input }
+        text: $input.text, isFocused: list.focus == .input,
+        onFocus: { list.fieldDidTakeFocus(.input) }
       )
       .padding(.horizontal, 10)
       .frame(height: 38)
