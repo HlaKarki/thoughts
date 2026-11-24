@@ -48,7 +48,7 @@ final class ThoughtActions {
     }
     let thoughts = entries.compactMap(\.thought)
     guard !thoughts.isEmpty else {
-      list.tell(String(localized: "That file can't be read, so this doesn't work on it"))
+      list.tell(String(localized: "That file can't be read"))
       return nil
     }
     return thoughts

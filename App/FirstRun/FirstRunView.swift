@@ -227,7 +227,7 @@ private struct AccessibilityStep: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       StepHeader(
-        step: .accessibility, title: "Allow one permission",
+        step: .accessibility, title: "Allow Accessibility",
         message: Text("macOS asks for this so the capture gesture works in other apps."))
       HStack(alignment: .center, spacing: 12) {
         RoundedRectangle(cornerRadius: 7, style: .continuous)
@@ -363,7 +363,7 @@ private struct ClipboardStep: View {
       } else if model.showsClipboardPromptNote {
         InfoNote(
           text:
-            "The first time you keep one, macOS asks if Thoughts can paste from other apps. Choose Always Allow and the offer shows a preview of the image. You can change this later in Settings."
+            "If macOS asks if Thoughts can paste from other apps, choose Allow Paste, and offers show a preview of the image. You can change this later in System Settings under Privacy & Security, Paste from Other Apps."
         )
         .padding(.top, 12)
       }

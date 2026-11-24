@@ -8,7 +8,7 @@ struct SavedPreview: Equatable {
   let thumbnail: NSImage?
 
   static var withoutThought: SavedPreview {
-    SavedPreview(line: String(localized: "It is already in your thoughts"), thumbnail: nil)
+    SavedPreview(line: String(localized: "It's already in your thoughts"), thumbnail: nil)
   }
 
   init(line: String?, thumbnail: NSImage?) {

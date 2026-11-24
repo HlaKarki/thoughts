@@ -87,7 +87,7 @@ struct SavedChipTests {
 
   @Test func alreadySavedWithoutAReadableThoughtKeepsItsOldLine() {
     let chip = HintChipView(kind: .alreadySaved(.withoutThought))
-    #expect(chip.line == "It is already in your thoughts")
+    #expect(chip.line == "It's already in your thoughts")
     #expect(chip.thumbnail == nil)
   }
 

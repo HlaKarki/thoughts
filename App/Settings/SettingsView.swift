@@ -126,9 +126,9 @@ private struct OffersSettings: View {
     case .alwaysAllow:
       "A small offer appears when you copy an image."
     case .alwaysDeny:
-      "A small offer appears when you copy an image. It shows no preview because Paste from Other Apps is off in System Settings under Privacy & Security."
+      "A small offer appears when you copy an image. It shows no preview because Thoughts is set to Deny in System Settings under Privacy & Security, Paste from Other Apps."
     default:
-      "A small offer appears when you copy an image. It shows a preview only if Thoughts may paste from other apps: choose Always Allow when macOS asks, or turn it on in System Settings under Privacy & Security, Paste from Other Apps."
+      "A small offer appears when you copy an image. It shows a preview only if Thoughts may paste from other apps: choose Allow Paste when macOS asks, or set Thoughts to Allow in System Settings under Privacy & Security, Paste from Other Apps."
     }
   }
 
