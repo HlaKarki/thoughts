@@ -61,6 +61,7 @@ In the panel:
 | Return | Add what you typed as a thought. |
 | ↑ | Select the newest thought, when the field is empty. |
 | ⌘F | Search thoughts. Esc clears the search. |
+| ⌘Z, ⇧⌘Z | Undo or redo your last change: a delete, Clear done, done or not done, or a saved edit. Typing in a field counts too. |
 | Esc | Hide the panel, or remove an attached image first. |
 
 With a thought selected:
@@ -75,7 +76,7 @@ With a thought selected:
 | ⇧⌘C | Copy the file path. |
 | ⌘O | Open the original: the page or app it came from. |
 | ⌘R | Show in Finder. |
-| ⌘⌫ | Delete. The file goes to the Trash. |
+| ⌘⌫ | Delete. The file goes to the Trash, and ⌘Z puts it back. |
 | ⌘K | Show every action for the selection. |
 | Esc | Go back to the text field. |
 
