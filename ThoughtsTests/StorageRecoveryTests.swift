@@ -304,3 +304,37 @@ struct StorageProblemTests {
     #expect(rig.fixture.model.storageProblem == nil)
   }
 }
+
+@MainActor
+struct LaunchStorageTests {
+  @Test func aLaunchWithTheFolderMissingShowsTheStorageWarning() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("ThoughtsLaunchTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let location = StorageLocation(appName: "ThoughtsTests", environment: [:], home: root)
+    let missing = root.appendingPathComponent("Dropbox/Thoughts", isDirectory: true)
+    try location.setFolder(missing)
+    let index = try AppState.index(for: location)
+    defer { try? index.close() }
+    let live = LiveIndex(location: location, index: index, recognizer: nil)
+    defer { live.stop() }
+    let model = ListModel(
+      index: index, live: live, location: location, mounts: MountSignal { _ in })
+    model.start()
+    #expect(model.storageProblem == StorageProblemTests.message)
+    #expect(!FileManager.default.fileExists(atPath: missing.path))
+  }
+
+  @Test func anAlertReadsEveryErrorTheWayThePanelDoes() throws {
+    let id = try #require(ThoughtID(rawValue: "abcd1234"))
+    let errors: [ThoughtsError] = [
+      .storageUnavailable("/Volumes/Notes/Thoughts"), .notFound("abcd"), .ambiguous("ab", [id]),
+      .changedOnDisk(id), .deletedOnDisk(id), .folderNotEmpty(["notes.txt"]), .clipboardChanged,
+      .io("The disk is full"),
+    ]
+    for error in errors {
+      #expect(error.localizedDescription == ListModel.message(for: error))
+    }
+  }
+}

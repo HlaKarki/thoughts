@@ -42,9 +42,8 @@ final class AppState {
   init(preferences: Preferences = Preferences()) throws {
     let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Thoughts"
     let location = StorageLocation(appName: appName)
-    let folder = try location.resolve()
     self.location = location
-    self.index = try SearchIndex(url: location.indexURL, folder: folder)
+    self.index = try Self.index(for: location)
     self.live = LiveIndex(location: location, index: index, recognizer: VisionTextRecognizer())
     self.preferences = preferences
     let list = ListModel(index: index, live: live, location: location)
@@ -217,6 +216,10 @@ final class AppState {
     clipboard.start()
     gate.launch()
     summon = SummonShortcut.listen { entry.summon() }
+  }
+
+  static func index(for location: StorageLocation) throws -> SearchIndex {
+    try SearchIndex(url: location.indexURL, folder: location.configuredFolder())
   }
 
   private func gestureFired() {
