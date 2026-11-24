@@ -514,6 +514,16 @@ struct CaptureCoordinatorTests {
     #expect(try rig.fixture.store.entries().isEmpty)
   }
 
+  @Test(arguments: [ClipboardCopy.Kind.text, .unknown, .image])
+  func aCopyMarkedConcealedNeverSaves(_ kind: ClipboardCopy.Kind) async throws {
+    let rig = try Self.textRig(text: "hunter2", kind: kind)
+    defer { rig.board.releaseGlobally() }
+    rig.board.setData(try ListFixture.png(), forType: .png)
+    rig.board.setData(Data(), forType: NSPasteboard.PasteboardType(ClipboardTypes.concealed))
+    #expect(await rig.coordinator.capture() == .nothingToSave)
+    #expect(try rig.fixture.store.entries().isEmpty)
+  }
+
   @Test func anEmptyOrBlankClipboardSavesNothing() async throws {
     for text in [nil, "  \n"] {
       let rig = try Self.textRig(text: text, kind: .unknown)

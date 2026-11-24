@@ -131,7 +131,12 @@ final class CaptureCoordinator {
     return (after, CaptureDecision.decide(after))
   }
 
+  private func holdsExcludedCopy() -> Bool {
+    ClipboardWatcher.isExcluded(pasteboard.types ?? [])
+  }
+
   private func readClipboard() -> (content: ClipboardContent, image: ImageInput?) {
+    if holdsExcludedCopy() { return (.nothing, nil) }
     if let image = Self.image(in: pasteboard) { return (.image, image) }
     if !PasteboardReader.fileURLs(in: pasteboard).isEmpty { return (.nothing, nil) }
     guard let text = pasteboard.string(forType: .string) else { return (.nothing, nil) }
@@ -154,6 +159,7 @@ final class CaptureCoordinator {
     guard pasteboard.changeCount == changeCount else {
       return .failed(Self.message(for: ThoughtsError.clipboardChanged))
     }
+    if held == nil, holdsExcludedCopy() { return .nothingToSave }
     guard let image = held ?? Self.image(in: pasteboard) else { return .nothingToSave }
     var source = recorded
     if case .file(let file) = image { source.file = file.path }

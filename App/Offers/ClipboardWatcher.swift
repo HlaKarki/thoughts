@@ -79,7 +79,9 @@ final class ClipboardWatcher {
     var kind: ClipboardCopy.Kind?
     if allowed {
       let types = pasteboard.types ?? []
-      if types.contains(.fileURL) {
+      if Self.isExcluded(types) {
+        kind = nil
+      } else if types.contains(.fileURL) {
         let type = await contentType()
         isImage =
           type.map { $0.conforms(to: .image) } ?? (Self.imageFile(in: pasteboard) != nil)
@@ -109,6 +111,10 @@ final class ClipboardWatcher {
     if isImage, !own {
       onSignal(.clipboard(changeCount: copy.changeCount, file: nil, at: copy.seen))
     }
+  }
+
+  static func isExcluded(_ types: [NSPasteboard.PasteboardType]) -> Bool {
+    ClipboardTypes.isExcluded(types.map(\.rawValue))
   }
 
   static func isImageType(_ type: NSPasteboard.PasteboardType) -> Bool {

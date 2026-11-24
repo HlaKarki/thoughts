@@ -103,9 +103,11 @@ final class SelectionReader: SelectionReading {
       if pasteboard.changeCount == seen { break }
     }
     let copied = pasteboard.changeCount
-    let text = pasteboard.string(forType: .string)
+    let concealed = ClipboardTypes.isConcealed((pasteboard.types ?? []).map(\.rawValue))
+    let text = concealed ? nil : pasteboard.string(forType: .string)
     let restored = snapshot.restore(to: pasteboard)
     let counts = [copied, restored]
+    if concealed { return (.secureField, counts) }
     guard let text, !text.allSatisfy(\.isWhitespace) else { return (.copiedNothing, counts) }
     return (.text(text), counts)
   }

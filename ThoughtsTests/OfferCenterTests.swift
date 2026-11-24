@@ -82,6 +82,20 @@ struct OfferCenterTests {
     #expect(rig.center.current == nil)
   }
 
+  @Test func acceptNeverReadsAnImageMarkedConcealed() async throws {
+    let rig = try Self.rig()
+    defer { rig.board.releaseGlobally() }
+    rig.board.clearContents()
+    rig.board.setData(try ListFixture.png(), forType: .png)
+    rig.board.setData(Data(), forType: NSPasteboard.PasteboardType(ClipboardTypes.concealed))
+    rig.center.receive(.clipboard(changeCount: rig.board.changeCount, file: nil, at: Date()))
+    await Self.wait { rig.center.current != nil }
+    await #expect(throws: ThoughtsError.self) {
+      _ = try await rig.center.accept()
+    }
+    #expect(try rig.fixture.store.entries().isEmpty)
+  }
+
   @Test func acceptThrowsWhenTheClipboardMoved() async throws {
     let rig = try Self.rig()
     defer { rig.board.releaseGlobally() }

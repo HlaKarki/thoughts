@@ -1,5 +1,6 @@
 import AppKit
 import Testing
+import ThoughtsCore
 
 @testable import Thoughts
 
@@ -121,6 +122,25 @@ struct PasteboardSnapshotTests {
       secureInput: { false })
     let (probe, counts) = await reader.copySelection()
     #expect(probe == .copiedNothing)
+    #expect(Self.contents(of: board) == before)
+    #expect(counts.last == board.changeCount)
+  }
+
+  @Test func aConcealedCopyIsRestoredAndNeverRead() async {
+    let board = Self.privateBoard()
+    defer { board.releaseGlobally() }
+    Self.fill(board)
+    let before = Self.contents(of: board)
+    let reader = SelectionReader(
+      pasteboard: board,
+      postCopy: {
+        board.clearContents()
+        board.setString("hunter2", forType: .string)
+        board.setData(Data(), forType: NSPasteboard.PasteboardType(ClipboardTypes.concealed))
+      },
+      secureInput: { false })
+    let (probe, counts) = await reader.copySelection()
+    #expect(probe == .secureField)
     #expect(Self.contents(of: board) == before)
     #expect(counts.last == board.changeCount)
   }
