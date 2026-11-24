@@ -706,3 +706,12 @@ private func onlyName(in fx: Fixture) throws -> String? {
   #expect(try fx.index.states()[ExactName(name)]?.recognized == "screenshot of an invoice")
   #expect(try fx.index.search("invoice") == [image.id])
 }
+
+@Test func reconcileScopeMatchesNamesTheDiskTreatsAsOne() {
+  let pairs = [("STRASSE.md", "Straße.md"), ("FILE.md", "ﬁle.md"), ("ΟΔΟΣ.md", "οδος.md")]
+  for (listed, stored) in pairs {
+    let plan = IndexSync.ReconcilePlan(listed: [listed], stored: [stored], scope: [listed])
+    #expect(plan.load == [listed])
+    #expect(plan.remove == [stored])
+  }
+}

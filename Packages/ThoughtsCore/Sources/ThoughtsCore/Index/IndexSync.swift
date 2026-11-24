@@ -94,7 +94,7 @@ public struct IndexSync: Sendable {
     }
 
     static func folded(_ name: String) -> String {
-      name.precomposedStringWithCanonicalMapping.lowercased()
+      name.folding(options: .caseInsensitive, locale: nil).precomposedStringWithCanonicalMapping
     }
   }
 
