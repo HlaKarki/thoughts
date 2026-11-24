@@ -630,6 +630,19 @@ struct GesturePreferencesTests {
     #expect(
       GestureMonitor.event(type: .flagsChanged, flags: [.shift], at: 1)
         == .modifiers([.shift], at: 1))
-    #expect(GestureMonitor.event(type: .leftMouseDown, flags: [], at: 1) == nil)
+    #expect(GestureMonitor.event(type: .scrollWheel, flags: [], at: 1) == nil)
+  }
+
+  @Test func shiftClicksDoNotFireTheGesture() {
+    for button in [NSEvent.EventType.leftMouseDown, .rightMouseDown, .otherMouseDown] {
+      var detector = DoubleTapDetector(modifier: .shift)
+      let events: [(NSEvent.EventType, NSEvent.ModifierFlags, TimeInterval)] = [
+        (.flagsChanged, [.shift], 0), (button, [.shift], 0.05), (.flagsChanged, [], 0.10),
+        (.flagsChanged, [.shift], 0.30), (button, [.shift], 0.33), (.flagsChanged, [], 0.38),
+      ]
+      let fired = events.compactMap { GestureMonitor.event(type: $0.0, flags: $0.1, at: $0.2) }
+        .map { detector.feed($0) }
+      #expect(!fired.contains(true), "\(button.rawValue)")
+    }
   }
 }

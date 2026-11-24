@@ -22,7 +22,7 @@ public struct DoubleTapDetector: Sendable {
 
   public mutating func feed(_ event: ModifierEvent) -> Bool {
     switch event {
-    case .key:
+    case .key, .mouseDown:
       phase = .idle
       return false
     case .modifiers(let now, let time):

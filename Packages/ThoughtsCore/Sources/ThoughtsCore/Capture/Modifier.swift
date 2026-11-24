@@ -7,4 +7,5 @@ public enum Modifier: String, Codable, Sendable, CaseIterable {
 public enum ModifierEvent: Sendable, Equatable {
   case modifiers(Set<Modifier>, at: TimeInterval)
   case key(at: TimeInterval)
+  case mouseDown(at: TimeInterval)
 }

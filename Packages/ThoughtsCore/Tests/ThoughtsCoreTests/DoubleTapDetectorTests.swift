@@ -62,6 +62,18 @@ struct DoubleTapDetectorTests {
     #expect(!fired.contains(true))
   }
 
+  @Test func mouseDownCancelsLikeAKey() {
+    let shiftClicks = Self.run([
+      Self.press(0), .mouseDown(at: 0.05), Self.release(0.10),
+      Self.press(0.30), .mouseDown(at: 0.33), Self.release(0.38),
+    ])
+    #expect(!shiftClicks.contains(true))
+    let clickBetween = Self.run([
+      Self.press(0), Self.release(0.10), .mouseDown(at: 0.15), Self.press(0.30), Self.release(0.38),
+    ])
+    #expect(!clickBetween.contains(true))
+  }
+
   @Test func otherModifierTapsAreIgnored() {
     var detector = DoubleTapDetector(modifier: .option)
     let events: [ModifierEvent] = [

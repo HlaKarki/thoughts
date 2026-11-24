@@ -30,6 +30,7 @@ final class GestureMonitor {
     switch type {
     case .flagsChanged: .modifiers(modifiers(from: flags), at: time)
     case .keyDown: .key(at: time)
+    case .leftMouseDown, .rightMouseDown, .otherMouseDown: .mouseDown(at: time)
     default: nil
     }
   }
@@ -67,7 +68,9 @@ final class GestureMonitor {
     uninstall()
     guard let modifier = preferences.captureMethod.modifier else { return }
     detector = DoubleTapDetector(modifier: modifier)
-    let mask: NSEvent.EventTypeMask = [.flagsChanged, .keyDown]
+    let mask: NSEvent.EventTypeMask = [
+      .flagsChanged, .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown,
+    ]
     global = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
       let fed = Self.event(type: event.type, flags: event.modifierFlags, at: event.timestamp)
       MainActor.assumeIsolated { self?.feed(fed) }
