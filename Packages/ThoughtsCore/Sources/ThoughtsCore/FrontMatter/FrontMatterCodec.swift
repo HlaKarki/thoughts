@@ -58,8 +58,11 @@ public enum FrontMatterCodec {
     }
 
     let root: Node?
+    let anchored: Bool
     do {
-      root = try compose(yaml: yaml)
+      let parser = try Parser(yaml: yaml)
+      root = try parser.singleRoot()
+      anchored = withExtendedLifetime(parser) { root.map(anchorsOutsideOwnFields) ?? false }
     } catch {
       return .malformed(file: file, reason: "Front matter is not valid YAML: \(error)")
     }
@@ -79,6 +82,10 @@ public enum FrontMatterCodec {
       } else {
         extra.append((keyNode, valueNode))
       }
+    }
+
+    if anchored {
+      return .malformed(file: file, reason: "Front matter uses a YAML anchor or alias")
     }
 
     switch fields(values, stem: stem, fallbackCreated: fallbackCreated) {
@@ -272,6 +279,34 @@ extension FrontMatterCodec {
       }
     }
     return (source == Source() ? nil : source, extra.isEmpty ? "" : emit(Node(extra)))
+  }
+
+  fileprivate static func anchorsOutsideOwnFields(_ root: Node) -> Bool {
+    guard case .mapping(let mapping) = root else { return false }
+    return mapping.contains { keyNode, valueNode in
+      guard let name = keyNode.scalar?.string, ownKeys.contains(name) else {
+        return usesAnchor(keyNode) || usesAnchor(valueNode)
+      }
+      guard name == "source", case .mapping(let source) = valueNode else { return false }
+      return source.contains { sourceKey, sourceValue in
+        guard let field = sourceKey.scalar?.string, sourceKeys.contains(field) else {
+          return usesAnchor(sourceKey) || usesAnchor(sourceValue)
+        }
+        return false
+      }
+    }
+  }
+
+  fileprivate static func usesAnchor(_ node: Node) -> Bool {
+    if node.anchor != nil { return true }
+    switch node {
+    case .mapping(let mapping):
+      return mapping.contains { usesAnchor($0.key) || usesAnchor($0.value) }
+    case .sequence(let sequence):
+      return sequence.contains(where: usesAnchor)
+    case .scalar, .alias:
+      return false
+    }
   }
 
   fileprivate static func trimmingOpeningLine(_ text: String) -> String {

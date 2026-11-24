@@ -323,3 +323,38 @@ private func thought(from text: String) -> Thought? {
     #expect(thought(from: encoded) == decoded)
   }
 }
+
+@Test func anchorsAndAliasesInUnknownKeysAreMalformed() {
+  let texts = [
+    "---\nid: a1b2c3d4\nlol: &a [x, x]\nlols: [*a, *a]\n---\nx\n",
+    "---\nid: a1b2c3d4\ntags: &t [a]\n---\nx\n",
+    "---\nid: &i a1b2c3d4\ncopy: *i\n---\nx\n",
+    "---\nid: a1b2c3d4\n? &k key\n: value\n---\nx\n",
+    "---\nid: a1b2c3d4\nsource: {app: Code, a: &x [1, 1], b: [*x, *x]}\n---\nx\n",
+  ]
+  for text in texts {
+    guard case .malformed(_, let reason) = decode(text) else {
+      Issue.record("expected malformed for \(text)")
+      continue
+    }
+    #expect(reason == "Front matter uses a YAML anchor or alias")
+  }
+}
+
+@Test func anAnchorOnAKnownKeyIsStillRead() {
+  let decoded = thought(from: "---\nid: a1b2c3d4\ncleared: &c true\n---\nx\n")
+  #expect(decoded?.cleared == true)
+}
+
+@Test(.timeLimit(.minutes(1))) func nestedAliasesAreRejectedWithoutExpandingThem() {
+  var yaml = "---\nid: a1b2c3d4\nl0: &l0 [lol, lol, lol, lol, lol, lol, lol, lol, lol, lol]\n"
+  for level in 1...9 {
+    let previous = Array(repeating: "*l\(level - 1)", count: 10).joined(separator: ", ")
+    yaml += "l\(level): &l\(level) [\(previous)]\n"
+  }
+  guard case .malformed(_, let reason) = decode(yaml + "---\nx\n") else {
+    Issue.record("expected malformed")
+    return
+  }
+  #expect(reason == "Front matter uses a YAML anchor or alias")
+}
