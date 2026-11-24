@@ -358,3 +358,22 @@ private func thought(from text: String) -> Thought? {
   }
   #expect(reason == "Front matter uses a YAML anchor or alias")
 }
+
+@Test func aClosingLineWithTrailingSpacesEndsFrontMatter() {
+  let fields = "id: a1b2c3d4\ncreated: 2026-11-22T18:14:03.120-05:00\ncleared: true\n"
+  let markers = [("---", "--- "), ("---", "---\t "), ("--- ", "--- "), ("---\t", "---  \t")]
+  for (opening, closing) in markers {
+    guard let decoded = thought(from: "\(opening)\n\(fields)\(closing)\nbody\n") else {
+      Issue.record("expected thought for \(opening.debugDescription) \(closing.debugDescription)")
+      continue
+    }
+    #expect(decoded.cleared)
+    #expect(decoded.content == .text("body"))
+    let encoded = FrontMatterCodec.encode(decoded)
+    #expect(encoded.components(separatedBy: "\n").filter { $0.hasPrefix("---") } == ["---", "---"])
+    #expect(thought(from: encoded) == decoded)
+  }
+  let atEnd = thought(from: "---\n\(fields)--- ")
+  #expect(atEnd?.cleared == true)
+  #expect(atEnd?.content == .text(""))
+}

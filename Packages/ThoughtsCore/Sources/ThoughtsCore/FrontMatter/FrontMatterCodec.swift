@@ -310,10 +310,12 @@ extension FrontMatterCodec {
   }
 
   fileprivate static func trimmingOpeningLine(_ text: String) -> String {
-    guard text.hasPrefix("---"), let end = text.firstIndex(of: "\n") else { return text }
-    let tail = text[text.index(text.startIndex, offsetBy: 3)..<end]
-    guard !tail.isEmpty, tail.allSatisfy({ $0 == " " || $0 == "\t" }) else { return text }
+    guard let end = text.firstIndex(of: "\n"), isMarker(text[..<end]) else { return text }
     return "---" + text[end...]
+  }
+
+  fileprivate static func isMarker(_ line: Substring) -> Bool {
+    line.hasPrefix("---") && line.dropFirst(3).allSatisfy { $0 == " " || $0 == "\t" }
   }
 
   fileprivate static func sourceNode(_ source: Source?, extra: String) -> Node? {
@@ -343,15 +345,16 @@ extension FrontMatterCodec {
 
   fileprivate static func split(_ text: String) -> (yaml: String, body: String)? {
     let rest = text.dropFirst(4)
-    if rest.hasPrefix("---\n") { return ("", String(rest.dropFirst(4))) }
-    if rest == "---" { return ("", "") }
-    if let range = rest.range(of: "\n---\n") {
-      return (String(rest[..<range.lowerBound]) + "\n", String(rest[range.upperBound...]))
+    var start = rest.startIndex
+    while true {
+      let end = rest[start...].firstIndex(of: "\n") ?? rest.endIndex
+      if isMarker(rest[start..<end]) {
+        let body = end == rest.endIndex ? "" : String(rest[rest.index(after: end)...])
+        return (String(rest[..<start]), body)
+      }
+      guard end < rest.endIndex else { return nil }
+      start = rest.index(after: end)
     }
-    if rest.hasSuffix("\n---") {
-      return (String(rest.dropLast(3)), "")
-    }
-    return nil
   }
 
   fileprivate static func stripTrailingNewline(_ text: String) -> String {
