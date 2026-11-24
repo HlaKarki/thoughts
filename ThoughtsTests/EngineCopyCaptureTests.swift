@@ -9,6 +9,9 @@ import ThoughtsCore
 @Suite(.serialized)
 struct EngineCopyCaptureTests {
   static let browser = AppSnapshot(pid: 51, bundleID: "dev.example.browser", name: "Browser")
+  static let hostInFront = AppSnapshot(
+    pid: ProcessInfo.processInfo.processIdentifier, bundleID: "dev.example.browser",
+    name: "Browser")
   static let browserSource = Source(app: "Browser", bundleID: "dev.example.browser")
   static let words = "copied words"
   static let smartPaste = NSPasteboard.PasteboardType(
@@ -35,6 +38,10 @@ struct EngineCopyCaptureTests {
     board.setString("https://example.com/page", forType: sourceURL)
   }
 
+  static func isSaved(_ outcome: CaptureOutcome) -> Bool {
+    if case .saved = outcome { true } else { false }
+  }
+
   @MainActor
   final class Rig {
     let fixture: ListFixture
@@ -47,7 +54,8 @@ struct EngineCopyCaptureTests {
 
     init(
       behavior: NSPasteboard.AccessBehavior = .alwaysAllow, ownWindowIsKey: Bool = false,
-      captureDelay: TimeInterval = 0
+      captureDelay: TimeInterval = 0, front: AppSnapshot = EngineCopyCaptureTests.browser,
+      selectionReader: (@MainActor (NSPasteboard) -> any SelectionReading)? = nil
     ) throws {
       let fixture = try ListFixture()
       let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
@@ -58,11 +66,10 @@ struct EngineCopyCaptureTests {
       let watcher = ClipboardWatcher(
         pasteboard: board, accessBehavior: { behavior },
         isOwnChange: { writer.ownChangeCounts.contains($0) }, contentType: { nil },
-        now: { ListFixture.now }, frontmost: { EngineCopyCaptureTests.browser },
-        ownWindowIsKey: { ownWindowIsKey })
+        now: { ListFixture.now }, frontmost: { front }, ownWindowIsKey: { ownWindowIsKey })
       coordinator = CaptureCoordinator(
-        frontmost: { EngineCopyCaptureTests.browser }, ownBundleID: "dev.example.thoughts",
-        ownWindowIsKey: { false }, reader: reader,
+        frontmost: { front }, ownBundleID: "dev.example.thoughts",
+        ownWindowIsKey: { false }, reader: selectionReader?(board) ?? reader,
         source: { EngineCopyCaptureTests.browserSource }, input: fixture.input, writer: writer,
         sound: SavedSound(preferences: Preferences(defaults: defaults), player: {}),
         pasteboard: board, now: { ListFixture.now.addingTimeInterval(captureDelay) },
@@ -159,57 +166,60 @@ struct EngineCopyCaptureTests {
     }
   }
 
-  @Test func secureInputHeldByAnyAppSaysNothingToSaveOverAFreshCopy() async throws {
-    #expect(AXReader(secureInput: { true }).selection(pid: 0) == .secureField)
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
-    final class Posts { var count = 0 }
-    let posts = Posts()
-    let reader = SelectionReader(
-      pasteboard: board, postCopy: { posts.count += 1 }, secureInput: { true })
-    let (copied, counts) = await reader.copySelection()
-    #expect(copied == .secureField)
-    #expect(counts.isEmpty)
-    #expect(posts.count == 0)
-
+  @Test func aFreshCopyIsSavedWhileAnotherProcessHoldsSecureInputAndNothingIsSelected()
+    async throws
+  {
+    let axReader = AXReader(secureInput: { true })
     for copy in [Copy.selection, .writeText] {
-      let rig = try Rig()
+      let rig = try Rig(front: Self.hostInFront) { board in
+        SelectionReader(
+          pasteboard: board, readSelection: { axReader.selection(pid: $0) }, postCopy: {},
+          secureInput: { true })
+      }
       defer { rig.close() }
       rig.copy(copy)
       await rig.poll()
       #expect(rig.watcher.lastCopy?.kind == .text)
-      rig.reader.probeResult = .secureField
-      #expect(await rig.coordinator.capture() == .nothingToSave)
-      #expect(try rig.storedTexts.isEmpty)
-      #expect(rig.reader.copies == 0)
+      let outcome = await rig.coordinator.capture()
+      let stored = try rig.storedTexts
+      withKnownIssue("Secure input held by any process reads as a secure field in the front app") {
+        #expect(Self.isSaved(outcome), "got \(outcome)")
+        #expect(stored == [Self.words])
+      }
     }
   }
 
-  @Test func aCopyTheWatcherHasNotPolledYetSaysNothingToSave() async throws {
+  @Test func aCopyTheWatcherHasNotPolledYetIsSaved() async throws {
     let rig = try Rig()
     defer { rig.close() }
     rig.copy(.writeText)
     rig.reader.probeResult = .unavailable
     rig.reader.copyResult = .copiedNothing
     #expect(rig.watcher.lastCopy == nil)
-    #expect(await rig.coordinator.capture() == .nothingToSave)
-    await rig.poll()
-    guard case .saved = await rig.coordinator.capture() else {
-      Issue.record("expected a save once the watcher polled")
-      return
+    let outcome = await rig.coordinator.capture()
+    let stored = try rig.storedTexts
+    withKnownIssue("The capture reads only the copy the watcher last polled") {
+      #expect(Self.isSaved(outcome), "got \(outcome)")
+      #expect(stored == [Self.words])
     }
-    #expect(try rig.storedTexts == [Self.words])
   }
 
-  @Test func aCopyPolledWhileAThoughtsWindowWasKeyCountsAsOwn() async throws {
+  @Test func aCopyMadeInAnotherAppWhileAThoughtsWindowIsKeyIsSaved() async throws {
     let rig = try Rig(ownWindowIsKey: true)
     defer { rig.close() }
     rig.copy(.writeText)
     await rig.poll()
-    #expect(rig.watcher.lastCopy?.own == true)
     rig.reader.probeResult = .unavailable
     rig.reader.copyResult = .copiedNothing
-    #expect(await rig.coordinator.capture() == .nothingToSave)
+    let own = rig.watcher.lastCopy?.own
+    let outcome = await rig.coordinator.capture()
+    let stored = try rig.storedTexts
+    withKnownIssue("The watcher marks every copy polled while a Thoughts window is key as its own")
+    {
+      #expect(own == false)
+      #expect(Self.isSaved(outcome), "got \(outcome)")
+      #expect(stored == [Self.words])
+    }
   }
 
   @Test func aCopyOlderThanTwoMinutesSaysNothingToSave() async throws {
