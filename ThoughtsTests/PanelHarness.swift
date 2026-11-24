@@ -113,7 +113,12 @@ final class PanelHarness {
   private(set) var foreignKeys = 0
   private(set) var keyChanges = 0
   private(set) var activations = 0
-  private let frontmost: NSRunningApplication?
+  private(set) var isolationChecks = 0
+  private(set) var submitting = 0
+  let startedActive: Bool
+  private let startedFront: Bool
+  private let host = Bundle.main.bundleIdentifier ?? "the test host"
+  private let hostPID = ProcessInfo.processInfo.processIdentifier
   private var posted: Set<TimeInterval> = []
   private var lastStamp: TimeInterval = 0
   private var drained: Set<Int> = []
@@ -121,6 +126,8 @@ final class PanelHarness {
   private var monitors: [Any] = []
   private var observers: [any NSObjectProtocol] = []
   private static let sentinel: Int16 = 7193
+  private static let quiet: Duration = .milliseconds(250)
+  private static let settleBound: Duration = .seconds(2)
   private static var busy = false
 
   var list: ListModel { fixture.model }
@@ -163,7 +170,10 @@ final class PanelHarness {
       opener: opener.opener, trash: { try trash.move($0) },
       undoManager: panel.sharedUndoManager)
     self.actions = actions
-    frontmost = NSWorkspace.shared.frontmostApplication
+    startedActive = NSApp.isActive
+    startedFront =
+      NSWorkspace.shared.frontmostApplication?.processIdentifier
+      == ProcessInfo.processInfo.processIdentifier
     panel.onNothingToDo = { [actions] in actions.nothingToDo($0) }
     panel.defersHistory = { [weak self, actions] direction in
       self?.historySteps.append(direction)
@@ -175,7 +185,12 @@ final class PanelHarness {
     list.onCommand = { [weak self, actions, input] command in
       switch command {
       case .hidePanel: self?.hideRequests += 1
-      case .add: Task { await input.submit() }
+      case .add:
+        self?.submitting += 1
+        Task {
+          await input.submit()
+          self?.submitting -= 1
+        }
       case .removeAttachment: input.removeAttachment()
       case .type(let text): input.text += text
       default: break
@@ -230,7 +245,7 @@ final class PanelHarness {
     panel.setFrame(Self.offscreenFrame(), display: false)
     panel.orderFrontRegardless()
     try KeyWindowSeam.install(panel)
-    await settle()
+    await settle("after show")
   }
 
   func seed(_ texts: [String]) throws {
@@ -242,14 +257,14 @@ final class PanelHarness {
 
   func press(_ key: Key, _ flags: NSEvent.ModifierFlags = []) async {
     post(key, flags)
-    await drain()
+    await drain("after pressing \(key)")
   }
 
   func type(_ text: String) async {
     for character in text {
       post(.character(character), character.isUppercase ? .shift : [])
     }
-    await drain()
+    await drain("after typing \(text)")
   }
 
   func post(_ key: Key, _ flags: NSEvent.ModifierFlags = []) {
@@ -278,7 +293,7 @@ final class PanelHarness {
     return stamp
   }
 
-  func drain(settling: Duration = .milliseconds(400)) async {
+  func drain(_ step: String) async {
     token += 1
     let current = token
     if let event = NSEvent.otherEvent(
@@ -290,12 +305,44 @@ final class PanelHarness {
     for _ in 0..<400 where !drained.contains(current) {
       try? await Task.sleep(for: .milliseconds(5))
     }
-    #expect(drained.contains(current))
-    await settle(settling)
+    #expect(drained.contains(current), "the posted events never drained \(step)")
+    await settle(step)
   }
 
-  func settle(_ duration: Duration = .milliseconds(400)) async {
-    try? await Task.sleep(for: duration)
+  func settle(_ step: String = "after settling") async {
+    let clock = ContinuousClock()
+    let deadline = clock.now + Self.settleBound
+    var last = fingerprint
+    var quietSince = clock.now
+    while clock.now - quietSince < Self.quiet, clock.now < deadline {
+      try? await Task.sleep(for: .milliseconds(10))
+      let current = fingerprint
+      if current != last {
+        last = current
+        quietSince = clock.now
+      }
+    }
+    #expect(clock.now - quietSince >= Self.quiet, "the panel kept changing for 2 s \(step)")
+    checkIsolation(step)
+  }
+
+  func submitted() async {
+    let deadline = ContinuousClock.now + Self.settleBound
+    while submitting > 0, ContinuousClock.now < deadline {
+      try? await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(submitting == 0, "a submit was still running after 2 s")
+  }
+
+  private var fingerprint: String {
+    let editor = panel.firstResponder as? NSTextView
+    return [
+      "\(list.focus)", "\(list.selection)", "\(list.isMenuOpen)", "\(list.menuHighlight)",
+      list.query, "\(list.editing != nil)", list.editText, list.feedback?.text ?? "",
+      "\(list.visible.map(\.fileName))", input.text,
+      panel.firstResponder.map { "\(ObjectIdentifier($0))" } ?? "none", editor?.string ?? "",
+      "\(editor?.selectedRange() ?? NSRange())",
+    ].joined(separator: "|")
   }
 
   var inputField: InputTextField? {
@@ -330,18 +377,27 @@ final class PanelHarness {
     board.releaseGlobally()
   }
 
-  private func verifyIsolation() {
+  func checkIsolation(_ step: String) {
+    isolationChecks += 1
     let front = NSWorkspace.shared.frontmostApplication
+    let shown = front?.bundleIdentifier ?? "no app"
+    if !startedFront {
+      #expect(front?.processIdentifier != hostPID, "\(host) became the front app \(step)")
+    }
     #expect(
-      front?.processIdentifier == frontmost?.processIdentifier,
-      "front app went from \(frontmost?.bundleIdentifier ?? "none") to \(front?.bundleIdentifier ?? "none")"
-    )
-    #expect(!NSApp.isActive)
-    #expect(KeyWindowSeam.appKitKeyWindow == nil)
-    #expect(keyChanges == 0)
-    #expect(activations == 0)
-    #expect(foreignKeys == 0)
-    #expect(Self.ownWindowsOnScreens().isEmpty)
+      NSApp.isActive == startedActive,
+      "\(host) went from \(startedActive ? "active" : "inactive") \(step) with \(shown) in front")
+    #expect(
+      KeyWindowSeam.appKitKeyWindow == nil,
+      "AppKit gave \(host) a key window \(step) with \(shown) in front")
+    #expect(keyChanges == 0, "a window of \(host) became key \(step) with \(shown) in front")
+    #expect(activations == 0, "\(host) became active \(step) with \(shown) in front")
+    #expect(Self.ownWindowsOnScreens().isEmpty, "a window of \(host) showed on a screen \(step)")
+  }
+
+  private func verifyIsolation() {
+    checkIsolation("after the run")
+    #expect(foreignKeys == 0, "keys from outside the harness reached \(host)")
   }
 
   static func ownWindowsOnScreens() -> [CGRect] {

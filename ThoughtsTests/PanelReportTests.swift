@@ -42,6 +42,7 @@ struct PanelReportTests {
       withKnownIssue("Shift Return ends editing and selects the typed text") {
         #expect(harness.input.text == "one\ntwo")
       }
+      await harness.submitted()
       #expect(try harness.storedTexts.isEmpty)
     }
   }
@@ -55,7 +56,7 @@ struct PanelReportTests {
         #expect(harness.input.text == "")
       }
       await harness.press(.returnKey)
-      await harness.settle()
+      await harness.submitted()
       let stored = try harness.storedTexts
       withKnownIssue("Return after the undo still saves the undone text") {
         #expect(stored.isEmpty)

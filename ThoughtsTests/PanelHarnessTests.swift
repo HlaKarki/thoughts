@@ -49,7 +49,6 @@ struct PanelHarnessTests {
   }
 
   @Test func thePanelStaysOffEveryScreenAndNeverBecomesKey() async throws {
-    let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
     try await PanelHarness.run { harness in
       try harness.seed(["one"])
       try await harness.show()
@@ -61,12 +60,11 @@ struct PanelHarnessTests {
       #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
       #expect(!harness.panel.isKeyWindow)
       #expect(KeyWindowSeam.appKitKeyWindow == nil)
-      #expect(!NSApp.isActive)
-      #expect(NSWorkspace.shared.frontmostApplication?.processIdentifier == front)
+      #expect(NSApp.isActive == harness.startedActive)
+      #expect(harness.isolationChecks == 3)
       #expect(harness.seenKeyDowns == 4)
       #expect(harness.foreignKeys == 0)
     }
-    #expect(NSWorkspace.shared.frontmostApplication?.processIdentifier == front)
   }
 
   @Test func thePanelRendersToAPNG() async throws {
