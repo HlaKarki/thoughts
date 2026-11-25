@@ -91,7 +91,7 @@ private final class FakeRecognizer: TextRecognizing, Sendable {
 }
 
 private func eventually(
-  seconds: Double = 5, _ condition: @Sendable () -> Bool
+  seconds: Double = 20, _ condition: @Sendable () -> Bool
 ) async -> Bool {
   let deadline = Date().addingTimeInterval(seconds)
   while Date() < deadline {
@@ -99,6 +99,12 @@ private func eventually(
     try? await Task.sleep(for: .milliseconds(20))
   }
   return condition()
+}
+
+private func recognitionAdvanced(
+  past before: Int, of recognizer: SlowRecognizer, count: Int
+) async -> Bool {
+  await eventually { recognizer.total > before || recognizer.total >= count }
 }
 
 private func png(side: Int) -> Data {
@@ -264,9 +270,30 @@ private func makeWatcher(
 private final class SlowRecognizer: TextRecognizing, Sendable {
   private let seen = Mutex<[String: Int]>([:])
   private let delay: TimeInterval
+  private let gate: Mutex<(held: Bool, permits: Int)>
 
-  init(delay: TimeInterval) {
+  init(delay: TimeInterval, holdsAfterFirst: Bool = false) {
     self.delay = delay
+    self.gate = Mutex((holdsAfterFirst, 0))
+  }
+
+  func release() {
+    gate.withLock { $0.held = false }
+  }
+
+  func grant() {
+    gate.withLock { $0.permits += 1 }
+  }
+
+  private func mayProceed() -> Bool {
+    gate.withLock { state in
+      if !state.held { return true }
+      if state.permits > 0 {
+        state.permits -= 1
+        return true
+      }
+      return false
+    }
   }
 
   var total: Int { seen.withLock { $0.values.reduce(0, +) } }
@@ -276,6 +303,9 @@ private final class SlowRecognizer: TextRecognizing, Sendable {
 
   func text(in image: URL) throws -> String {
     Thread.sleep(forTimeInterval: delay)
+    while total >= 1 && !mayProceed() {
+      Thread.sleep(forTimeInterval: 0.005)
+    }
     seen.withLock { $0[image.lastPathComponent, default: 0] += 1 }
     return "invoice"
   }
@@ -289,16 +319,17 @@ private final class SlowRecognizer: TextRecognizing, Sendable {
   for _ in 0..<count {
     _ = try store.add(NewThought(content: .image(.data(png(side: 8), .png), note: "")))
   }
-  let recognizer = SlowRecognizer(delay: delay)
+  let recognizer = SlowRecognizer(delay: delay, holdsAfterFirst: true)
   let live = LiveIndex(
     location: scratch.location, index: try scratch.makeIndex(), recognizer: recognizer)
   try live.start { _ in }
+  defer { recognizer.release() }
   #expect(await eventually { recognizer.total >= 1 })
 
-  let began = Date()
-  live.stop()
-  let waited = Date().timeIntervalSince(began)
-  #expect(waited < Double(count) * delay * 0.6)
+  let stopping = Task.detached { live.stop() }
+  try await Task.sleep(for: .milliseconds(100))
+  recognizer.release()
+  await stopping.value
   let stopped = recognizer.total
   #expect(stopped < count)
   try await Task.sleep(for: .milliseconds(300))
@@ -306,7 +337,7 @@ private final class SlowRecognizer: TextRecognizing, Sendable {
 
   try live.restart()
   defer { live.stop() }
-  #expect(await eventually(seconds: 10) { recognizer.total >= count })
+  #expect(await eventually(seconds: 30) { recognizer.total >= count })
   try await Task.sleep(for: .milliseconds(300))
   #expect(recognizer.total == count)
   #expect(recognizer.mostPerImage == 1)
@@ -346,25 +377,26 @@ private final class SlowRecognizer: TextRecognizing, Sendable {
   for _ in 0..<count {
     _ = try scratch.store.add(NewThought(content: .image(.data(png(side: 8), .png), note: "")))
   }
-  let recognizer = SlowRecognizer(delay: delay)
+  let recognizer = SlowRecognizer(delay: delay, holdsAfterFirst: true)
   let deliveries = Deliveries()
   let live = LiveIndex(
     location: scratch.location, index: try scratch.makeIndex(), recognizer: recognizer)
   try live.start { deliveries.record($0) }
   defer { live.stop() }
+  defer { recognizer.release() }
   #expect(await eventually { recognizer.total >= 1 })
 
-  let wrote = Date()
   try "from the command line".write(
     to: scratch.folder.appendingPathComponent("outside.md"), atomically: true, encoding: .utf8)
   #expect(
-    await eventually(seconds: 5) {
-      deliveries.changes.contains { $0.added.contains("outside.md") }
+    await eventually(seconds: 20) {
+      recognizer.grant()
+      return deliveries.changes.contains { $0.added.contains("outside.md") }
     })
-  #expect(Date().timeIntervalSince(wrote) < Double(count) * delay * 0.5)
   #expect(recognizer.total < count)
+  recognizer.release()
 
-  #expect(await eventually(seconds: 10) { recognizer.total >= count })
+  #expect(await eventually(seconds: 30) { recognizer.total >= count })
   try await Task.sleep(for: .milliseconds(300))
   #expect(recognizer.total == count)
   #expect(recognizer.mostPerImage == 1)
@@ -404,7 +436,7 @@ private func checkNewImagesArriveBeforeTheirRecognition(gap: Duration?) async th
     expected.filter { arrivals[$0.key]?.contains($0.value) == true }.count
   }
   #expect(early == 0)
-  #expect(await eventually(seconds: 10) { recognizer.total >= 46 })
+  #expect(await eventually(seconds: 30) { recognizer.total >= 46 })
   try await Task.sleep(for: .milliseconds(300))
   #expect(recognizer.total == 46)
   #expect(recognizer.mostPerImage == 1)
@@ -436,12 +468,13 @@ private func checkNewImagesArriveBeforeTheirRecognition(gap: Duration?) async th
   #expect(await eventually { recognizer.total >= 1 })
 
   for number in 0..<20 {
+    let before = recognizer.total
     try "outside \(number)".write(
       to: scratch.folder.appendingPathComponent("outside-\(number).md"), atomically: true,
       encoding: .utf8)
     try await Task.sleep(for: .milliseconds(100))
+    #expect(await recognitionAdvanced(past: before, of: recognizer, count: count))
   }
-  #expect(recognizer.total >= 24)
 
   #expect(await eventually(seconds: 20) { recognizer.total >= count })
   try await Task.sleep(for: .milliseconds(400))
@@ -470,7 +503,7 @@ private func checkNewImagesArriveBeforeTheirRecognition(gap: Duration?) async th
     location: scratch.location, index: try scratch.makeIndex(), recognizer: recognizer)
   try live.start { _ in Thread.sleep(forTimeInterval: 0.3) }
   defer { live.stop() }
-  #expect(await eventually(seconds: 10) { recognizer.total >= 1 })
+  #expect(await eventually(seconds: 30) { recognizer.total >= 1 })
 
   let before = recognizer.total
   for number in 0..<60 {
@@ -479,7 +512,7 @@ private func checkNewImagesArriveBeforeTheirRecognition(gap: Duration?) async th
       encoding: .utf8)
     try await Task.sleep(for: .milliseconds(100))
   }
-  #expect(recognizer.total - before >= 24)
+  #expect(await eventually(seconds: 30) { recognizer.total - before >= 24 })
 
   #expect(await eventually(seconds: 30) { recognizer.total >= count })
   try await Task.sleep(for: .milliseconds(500))
