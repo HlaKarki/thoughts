@@ -8,7 +8,7 @@ export const site = {
   language: 'en',
   title: 'Thoughts, a quiet place for what you find while you work',
   description:
-    'Thoughts is a Mac app that keeps text, todos and screenshots from any app as Markdown files. Press ⌥Space to open the panel, or select text and press Shift twice to save it.',
+    'Thoughts is a Mac app that keeps text, todos and screenshots from any app as Markdown files. Press ⌥N to open the panel, or select text and press Shift twice to save it.',
   shareImage: { src: '/share.png', width: 1200, height: 630, alt: 'The Thoughts app icon next to the sentence: Thoughts is a quiet place for what you find while you work.' },
   favicon: { light: '/favicon-light.png', dark: '/favicon-dark.png', apple: '/apple-touch-icon.png' },
   icon: {
