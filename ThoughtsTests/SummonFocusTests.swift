@@ -19,11 +19,9 @@ struct SummonFocusTests {
     return rig
   }
 
-  static func settled(_ rig: Rig) async {
-    #expect(
-      await PanelHarness.waitUntil {
-        rig.controller.frame == rig.panelFrame(.right) && rig.controller.panel.alphaValue == 1
-      }, "the panel never showed")
+  static func settled(_ rig: Rig) {
+    #expect(rig.controller.frame == rig.panelFrame(.right))
+    #expect(rig.controller.panel.alphaValue == 1)
   }
 
   static func searching(_ rig: Rig) {
@@ -40,7 +38,7 @@ struct SummonFocusTests {
     let rig = try Self.rig(keepOpen: true)
     let entry = PanelEntry(rig.controller)
     entry.summon()
-    await Self.settled(rig)
+    Self.settled(rig)
     #expect(rig.controller.isKey)
     Self.searching(rig)
     let selection = rig.fixture.model.selection
@@ -58,7 +56,7 @@ struct SummonFocusTests {
     #expect(rig.controller.frame == rig.panelFrame(.right))
     entry.summon()
     #expect(!rig.controller.isShown)
-    #expect(await PanelHarness.waitUntil { !rig.controller.isVisible })
+    #expect(!rig.controller.isVisible)
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
@@ -66,7 +64,7 @@ struct SummonFocusTests {
     let rig = try Self.rig(keepOpen: true)
     let entry = PanelEntry(rig.controller)
     entry.summon()
-    await Self.settled(rig)
+    Self.settled(rig)
     rig.fixture.model.focus = .edit
     #expect(rig.fixture.model.editing == nil)
     rig.key.window = nil
@@ -74,19 +72,19 @@ struct SummonFocusTests {
     #expect(rig.controller.isKey)
     #expect(rig.fixture.model.focus == .input)
     rig.controller.hide()
-    #expect(await PanelHarness.waitUntil { !rig.controller.isVisible })
+    #expect(!rig.controller.isVisible)
   }
 
   @Test func withoutKeepOpenTheSummonKeyStillHidesAShownPanel() async throws {
     let rig = try Self.rig(keepOpen: false)
     let entry = PanelEntry(rig.controller)
     entry.summon()
-    await Self.settled(rig)
+    Self.settled(rig)
     rig.key.window = nil
     entry.summon()
     #expect(!rig.controller.isShown)
     #expect(rig.key.made == 1)
-    #expect(await PanelHarness.waitUntil { !rig.controller.isVisible })
+    #expect(!rig.controller.isVisible)
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
@@ -97,7 +95,7 @@ struct SummonFocusTests {
     let rig = try Self.rig(keepOpen: keepOpen)
     let entry = PanelEntry(rig.controller)
     entry.fromMenu(on: nil)
-    await Self.settled(rig)
+    Self.settled(rig)
     Self.searching(rig)
     let selection = rig.fixture.model.selection
     let other = NSWindow(
@@ -116,7 +114,7 @@ struct SummonFocusTests {
     #expect(rig.key.made == 3)
     #expect(rig.controller.frame == rig.panelFrame(.right))
     rig.controller.hide()
-    #expect(await PanelHarness.waitUntil { !rig.controller.isVisible })
+    #expect(!rig.controller.isVisible)
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 }

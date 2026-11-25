@@ -47,6 +47,7 @@ final class PanelController {
   private let key: WindowKey
   private let screens: @MainActor () -> [ScreenFrames]
   private let reducesMotion: @MainActor () -> Bool
+  private var hiding = false
   var ownIconInUse: @MainActor () -> Bool = { false }
   private var lostKey = LostKeyTracker()
   var onWillShow: (() -> Void)?
@@ -193,9 +194,14 @@ final class PanelController {
     visibility.revealBeforeOrderingFront()
     key.makeKey(panel)
     guard case .moveAndRefocus(let target) = plan else { return }
+    let from = restingFrame ?? panel.frame
     restingFrame = target
-    panel.setFrameAtOnce(target, display: true)
-    panel.alphaValue = 1
+    if ScreenList.movesOntoAnotherScreen(from: from, to: target, among: screens()) {
+      panel.setFrameAtOnce(target, display: true)
+      panel.alphaValue = 1
+    } else {
+      place(target)
+    }
     onMove?()
   }
 
@@ -220,7 +226,9 @@ final class PanelController {
   }
 
   func hide() {
-    guard isShown else { return }
+    guard isShown, !hiding else { return }
+    hiding = true
+    defer { hiding = false }
     lostKey.clear()
     _ = panel.cancelDrag()
     onWillHide?()

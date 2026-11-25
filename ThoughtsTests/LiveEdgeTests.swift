@@ -116,9 +116,7 @@ struct LiveEdgeTests {
     func showEverything() async throws {
       controller.show(inVisible: screen.visible, makeKey: false)
       let start = preferences.edge
-      #expect(
-        await PanelHarness.waitUntil { controller.frame == panelFrame(start) },
-        "the panel never reached \(start)")
+      #expect(controller.frame == panelFrame(start))
       fixture.model.select(shot.file.lastPathComponent, extend: false)
       fixture.model.perform(.preview)
       #expect(fixture.model.isPreviewing)
@@ -127,18 +125,19 @@ struct LiveEdgeTests {
       let chip = chip
       let previewTarget = try previewFrame(start)
       let chipTarget = chipFrames(start).window
+      #expect(preview.alpha == 1)
+      #expect(preview.frame == previewTarget)
       #expect(
         await PanelHarness.waitUntil {
-          preview.alpha == 1 && preview.frame == previewTarget && chip.windowAlpha == 1
-            && chip.windowFrame == chipTarget
-        }, "the preview and the chip never settled at \(start)")
+          chip.windowAlpha == 1 && chip.windowFrame == chipTarget
+        }, "the chip never settled at \(start)")
     }
 
     func finish() async {
       controller.hide()
       chip.hide()
       fixture.model.perform(.preview)
-      #expect(await PanelHarness.waitUntil { !self.preview.isVisible })
+      #expect(!preview.isVisible)
       try? await Task.sleep(for: .milliseconds(300))
       #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
     }
@@ -217,20 +216,16 @@ struct LiveEdgeTests {
   @Test func aHiddenPanelStaysHiddenAndShowsAtTheNewEdgeNextTime() async throws {
     let rig = try Rig(edge: .right)
     rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
-    #expect(
-      await PanelHarness.waitUntil { rig.controller.frame == rig.panelFrame(.right) })
+    #expect(rig.controller.frame == rig.panelFrame(.right))
     rig.controller.hide()
     #expect(!rig.controller.isShown)
     rig.preferences.edge = .left
     try? await Task.sleep(for: .milliseconds(400))
     #expect(!rig.controller.isShown)
     rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
-    #expect(
-      await PanelHarness.waitUntil { rig.controller.frame == rig.panelFrame(.left) },
-      "the panel showed at \(rig.controller.frame)")
+    #expect(rig.controller.frame == rig.panelFrame(.left))
     #expect(rig.controller.restingFrame == rig.panelFrame(.left))
     rig.controller.hide()
-    try? await Task.sleep(for: .milliseconds(400))
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
@@ -303,16 +298,52 @@ struct LiveEdgeTests {
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
-  @Test func withReduceMotionAnEdgeChangeRightAfterAShowIsNotUndoneByTheFadeIn() async throws {
+  @Test func withReduceMotionAnEdgeChangeRightAfterAShowEndsAtTheNewEdge() async throws {
     let rig = try Rig(edge: .right, reducesMotion: true)
     rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
     rig.preferences.edge = .left
-    try? await Task.sleep(for: .milliseconds(400))
     #expect(
-      rig.controller.frame == rig.panelFrame(.left),
+      await PanelHarness.waitUntil { rig.controller.frame == rig.panelFrame(.left) },
       "the panel ended at \(rig.controller.frame)")
     #expect(rig.controller.restingFrame == rig.panelFrame(.left))
     rig.controller.hide()
     #expect(!rig.controller.isVisible)
+  }
+
+  @Test func aHideStartedWhileHidingDoesNothing() async throws {
+    let rig = try Rig(edge: .right)
+    rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
+    let counted = rig.controller.onWillHide
+    rig.controller.onWillHide = { [unowned rig] in
+      counted?()
+      rig.controller.hide()
+      NotificationCenter.default.post(
+        name: NSWindow.didResignKeyNotification, object: rig.controller.panel)
+    }
+    rig.controller.hide()
+    try? await Task.sleep(for: .milliseconds(100))
+    #expect(rig.willHide == 1)
+    #expect(!rig.controller.isVisible)
+  }
+
+  @Test(arguments: [PanelEdge.right, .left])
+  func aSummonOnTheSameDisplayAfterItsVisibleFrameShrinksStillSlides(_ edge: PanelEdge)
+    async throws
+  {
+    let rig = try Rig(edge: edge, reducesMotion: false)
+    rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
+    let full = rig.screen.visible
+    let narrowed = CGRect(
+      x: edge == .right ? full.minX : full.minX + 500, y: full.minY, width: full.width - 500,
+      height: full.height)
+    rig.displays.list = [(rig.screen.frame, narrowed)]
+    let target = PanelController.frame(in: narrowed, edge: edge)
+    #expect(target != rig.controller.frame)
+    rig.controller.show(inVisible: narrowed, makeKey: true)
+    #expect(rig.controller.restingFrame == target)
+    #expect(rig.controller.frame != target)
+    #expect(rig.controller.panel.alphaValue == 1)
+    #expect(await PanelHarness.waitUntil { rig.controller.frame == target })
+    rig.controller.hide()
   }
 }

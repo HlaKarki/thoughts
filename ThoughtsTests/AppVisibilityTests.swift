@@ -58,14 +58,13 @@ struct AppVisibilityTests {
       visibility: app.visibility)
     controller.show(inVisible: screen.visible, makeKey: false)
     #expect(app.unhides == 1)
-    #expect(await PanelHarness.waitUntil { controller.isShown })
+    #expect(controller.isShown)
     controller.hide()
-    #expect(await PanelHarness.waitUntil { !controller.isShown })
+    #expect(!controller.isShown)
     app.hideAgain()
     controller.show(inVisible: screen.visible, makeKey: false)
     #expect(app.unhides == 2)
     controller.hide()
-    try? await Task.sleep(for: .milliseconds(400))
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
@@ -101,7 +100,7 @@ struct AppVisibilityTests {
     fixture.model.select(shot.file.lastPathComponent, extend: false)
     fixture.model.perform(.preview)
     #expect(app.unhides == 1)
-    #expect(await PanelHarness.waitUntil { preview.alpha == 1 })
+    #expect(preview.alpha == 1)
     try await PreviewPlacementTests.close(preview, fixture)
   }
 

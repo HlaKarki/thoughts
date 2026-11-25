@@ -14,9 +14,7 @@ struct PanelDragTests {
     let rig = try Rig(edge: edge, reducesMotion: reducesMotion)
     rig.preferences.keepOpen = false
     rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
-    #expect(
-      await PanelHarness.waitUntil { rig.controller.frame == rig.panelFrame(edge) },
-      "the panel never reached \(edge)")
+    #expect(rig.controller.frame == rig.panelFrame(edge))
     rig.controller.panel.contentView?.layoutSubtreeIfNeeded()
     return rig
   }
@@ -196,8 +194,7 @@ struct PanelDragTests {
     #expect(leaving.allSatisfy { $0 == midway })
     #expect(rig.preferences.panelPosition == nil)
     rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
-    #expect(
-      await PanelHarness.waitUntil { rig.controller.frame == rig.panelFrame(.right) })
+    #expect(rig.controller.frame == rig.panelFrame(.right))
     await Self.finish(rig)
   }
 
@@ -210,14 +207,14 @@ struct PanelDragTests {
     #expect(spot.minY == visible.minY + 16)
     #expect(await PanelHarness.waitUntil { rig.controller.frame == spot })
     rig.controller.hide()
-    #expect(await PanelHarness.waitUntil { !rig.controller.isVisible })
+    #expect(!rig.controller.isVisible)
     rig.chip.show(HintChipView(kind: .nothingToSave))
     #expect(await PanelHarness.waitUntil { rig.chip.windowAlpha == 1 })
     let chip = try #require(rig.chip.shownFrame)
     #expect(!rig.chip.windowFrame.intersects(spot), "\(rig.chip.windowFrame) covers \(spot)")
     #expect(visible.contains(rig.chip.windowFrame))
     rig.controller.show(inVisible: visible, makeKey: false)
-    #expect(await PanelHarness.waitUntil { rig.controller.frame == spot })
+    #expect(rig.controller.frame == spot)
     #expect(rig.chip.shownFrame == chip)
     await Self.finish(rig)
   }

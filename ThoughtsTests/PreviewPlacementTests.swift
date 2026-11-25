@@ -32,7 +32,7 @@ struct PreviewPlacementTests {
     fixture.model.select(thought.file.lastPathComponent, extend: false)
     fixture.model.perform(.preview)
     #expect(fixture.model.isPreviewing)
-    #expect(await PanelHarness.waitUntil { preview.alpha == 1 }, "the preview never faded in")
+    #expect(preview.alpha == 1)
     return preview
   }
 
@@ -47,7 +47,7 @@ struct PreviewPlacementTests {
 
   static func close(_ preview: PreviewWindowController, _ fixture: ListFixture) async throws {
     fixture.model.perform(.preview)
-    #expect(await PanelHarness.waitUntil { !preview.isVisible }, "the preview never hid")
+    #expect(!preview.isVisible)
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
@@ -146,7 +146,7 @@ struct PreviewPlacementTests {
     fixture.model.releaseRemoval(of: [name])
     fixture.model.perform(.preview)
     #expect(fixture.model.isPreviewing)
-    #expect(await PanelHarness.waitUntil { preview.alpha == 1 }, "the preview never came back")
+    #expect(preview.alpha == 1)
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
     try await Self.close(preview, fixture)
   }
