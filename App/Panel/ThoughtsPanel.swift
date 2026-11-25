@@ -173,9 +173,13 @@ final class ThoughtsPanel: NSPanel {
   static func standardKey(for event: NSEvent) -> StandardKey? {
     let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
       .subtracting([.capsLock, .numericPad, .function])
-    guard flags.contains(.command), !flags.contains(.control),
-      let key = event.charactersIgnoringModifiers?.lowercased()
-    else { return nil }
+    guard let key = event.charactersIgnoringModifiers else { return nil }
+    return standardKey(key, flags)
+  }
+
+  static func standardKey(_ key: String, _ flags: NSEvent.ModifierFlags) -> StandardKey? {
+    guard flags.contains(.command), !flags.contains(.control) else { return nil }
+    let key = key.lowercased()
     if key == ",", flags == .command { return .openSettings }
     return ["q", "h", "m", "w"].contains(key) ? .belongsToFrontApp : nil
   }

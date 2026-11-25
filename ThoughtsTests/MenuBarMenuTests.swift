@@ -125,7 +125,7 @@ struct MenuBarMenuTests {
     #expect(rig.menuBar.menu.item(withTitle: "Quit Thoughts")?.isEnabled == true)
   }
 
-  @Test func theCaretMenuTheAppMenuAndTheMoreMenuShowEachSharedItemsKey() throws {
+  @Test func theCaretMenuAndTheAppMenuShowEachSharedItemsKey() throws {
     let rig = Rig()
     rig.updates.updateWillShow(handledBySparkle: false)
     rig.menuBar.menuNeedsUpdate(rig.menuBar.menu)
@@ -151,10 +151,20 @@ struct MenuBarMenuTests {
       }
     }
     #expect(inAppMenu == [.settings, .quit])
-    #expect(rig.shared.settings.key?.shortcut == KeyboardShortcut(",", modifiers: .command))
-    #expect(rig.shared.quit.key?.shortcut == KeyboardShortcut("q", modifiers: .command))
     #expect(rig.shared.checkForUpdates.key == nil)
     #expect(rig.shared.updateAvailable?.key == nil)
+  }
+
+  @Test func theMoreMenuShowsOnlyTheSharedKeysThatWorkInThePanel() throws {
+    let rig = Rig()
+    rig.updates.updateWillShow(handledBySparkle: false)
+    let update = try #require(rig.shared.updateAvailable)
+    #expect(
+      MoreMenu.shortcut(for: rig.shared.settings) == KeyboardShortcut(",", modifiers: .command))
+    #expect(rig.shared.quit.key?.shortcut == KeyboardShortcut("q", modifiers: .command))
+    #expect(MoreMenu.shortcut(for: rig.shared.quit) == nil)
+    #expect(MoreMenu.shortcut(for: rig.shared.checkForUpdates) == nil)
+    #expect(MoreMenu.shortcut(for: update) == nil)
   }
 
   @Test func aMenuKeyKeepsEveryModifierInItsShortcut() {

@@ -10,6 +10,13 @@ struct MoreMenu: View {
 
   static let dotSize: CGFloat = 6
 
+  static func shortcut(for item: SharedMenuItem) -> KeyboardShortcut? {
+    guard let key = item.key,
+      ThoughtsPanel.standardKey(key.keyEquivalent, key.modifiers) != .belongsToFrontApp
+    else { return nil }
+    return key.shortcut
+  }
+
   var body: some View {
     Menu {
       if let update = shared.updateAvailable {
@@ -51,7 +58,7 @@ private struct SharedMenuButton: View {
 
   var body: some View {
     Button(item.title) { item.perform() }
-      .keyboardShortcut(item.key?.shortcut)
+      .keyboardShortcut(MoreMenu.shortcut(for: item))
       .disabled(!item.isEnabled)
   }
 }
