@@ -29,6 +29,6 @@ struct SearchField: View {
     }
     .padding(.horizontal, 10)
     .frame(height: 32)
-    .background(Color.primary.opacity(0.06), in: FieldShape(cornerRadius: 9))
+    .background(Color.primary.opacity(0.06), in: FieldShape())
   }
 }

@@ -37,7 +37,7 @@ struct InputView: View {
   }
 
   private var shape: FieldShape {
-    FieldShape(cornerRadius: 10, capsuleHeight: Self.boxHeight)
+    FieldShape()
   }
 
   private var inputFill: Color {
