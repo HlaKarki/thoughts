@@ -50,6 +50,8 @@ final class EdgeChipPanel {
   private let plannedPanelFrame: @MainActor (CGRect) -> CGRect?
   private let pointer: @MainActor () -> CGPoint
   private let visibleFrame: @MainActor (CGPoint) -> CGRect
+  private let screens: @MainActor () -> [ScreenFrames]
+  private let reducesMotion: @MainActor () -> Bool
   private let orderFront: @MainActor (NSWindow) -> Void
   private let visibility: AppVisibility
   private var transition = 0
@@ -57,6 +59,7 @@ final class EdgeChipPanel {
   private var content: AnyView?
   private(set) var isShown = false
   private(set) var shownFrame: CGRect?
+  private var restingFrame: CGRect?
   var windowFrame: CGRect { window.frame }
   var windowAlpha: CGFloat { window.alphaValue }
 
@@ -67,14 +70,20 @@ final class EdgeChipPanel {
     pointer: @escaping @MainActor () -> CGPoint = { NSEvent.mouseLocation },
     visibleFrame: @escaping @MainActor (CGPoint) -> CGRect = EdgeChipPanel.visibleFrame(
       containing:),
+    screens: @escaping @MainActor () -> [ScreenFrames] = ScreenList.live,
     orderFront: @escaping @MainActor (NSWindow) -> Void = { $0.orderFrontRegardless() },
-    visibility: AppVisibility = .live
+    visibility: AppVisibility = .live,
+    reducesMotion: @escaping @MainActor () -> Bool = {
+      NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
   ) {
     self.edge = edge
     self.shownPanelFrame = shownPanelFrame
     self.plannedPanelFrame = plannedPanelFrame
     self.pointer = pointer
     self.visibleFrame = visibleFrame
+    self.screens = screens
+    self.reducesMotion = reducesMotion
     self.orderFront = orderFront
     self.visibility = visibility
     hosting = ChipHostingView(rootView: AnyView(EmptyView()))
@@ -141,12 +150,13 @@ final class EdgeChipPanel {
     window.ignoresMouseEvents = onClick == nil
     shownFrame = placed.chip
     let target = placed.window
+    restingFrame = target
     transition += 1
     if isShown {
       window.setFrameAtOnce(target, display: true)
     } else {
       isShown = true
-      let start = reduceMotion ? target : target.offsetBy(dx: slideOffset, dy: 0)
+      let start = slid(target) ?? target
       window.setFrameAtOnce(start, display: false)
       window.alphaValue = 0
       orderFront(window)
@@ -167,9 +177,15 @@ final class EdgeChipPanel {
     hosting.rootView = AnyView(
       content.padding(Self.padding(around: placed.chip, in: placed.window)))
     shownFrame = placed.chip
+    let from = restingFrame ?? window.frame
+    restingFrame = placed.window
     transition += 1
     if reduceMotion {
       window.setFrameAtOnce(placed.window, display: true)
+    } else if ScreenList.movesOntoAnotherScreen(from: from, to: placed.window, among: screens()) {
+      window.alphaValue = 0
+      window.setFrameAtOnce(placed.window, display: true)
+      animate(frame: placed.window, alpha: 1, completion: nil)
     } else {
       animate(frame: placed.window, alpha: 1, completion: nil)
     }
@@ -180,9 +196,12 @@ final class EdgeChipPanel {
     guard isShown else { return }
     isShown = false
     shownFrame = nil
+    let resting = restingFrame ?? window.frame
+    restingFrame = nil
     transition += 1
     let current = transition
-    let target = reduceMotion ? window.frame : window.frame.offsetBy(dx: slideOffset, dy: 0)
+    let slides = slid(resting) != nil
+    let target = slides ? window.frame.offsetBy(dx: slideOffset, dy: 0) : window.frame
     animate(frame: target, alpha: 0) { [weak self] in
       guard let self, self.transition == current else { return }
       self.window.orderOut(nil)
@@ -191,6 +210,10 @@ final class EdgeChipPanel {
 
   private var slideOffset: CGFloat {
     edge() == .right ? Self.slide : -Self.slide
+  }
+
+  private func slid(_ frame: CGRect) -> CGRect? {
+    reduceMotion ? nil : Self.slid(frame, toward: edge(), among: screens())
   }
 
   private func placement() -> (chip: CGRect, window: CGRect) {
@@ -212,9 +235,14 @@ final class EdgeChipPanel {
     return screen.visibleFrame
   }
 
-  private var reduceMotion: Bool {
-    NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+  static func slid(_ frame: CGRect, toward edge: PanelEdge, among screens: [ScreenFrames])
+    -> CGRect?
+  {
+    let slid = frame.offsetBy(dx: edge == .right ? slide : -slide, dy: 0)
+    return ScreenList.movesOntoAnotherScreen(from: frame, to: slid, among: screens) ? nil : slid
   }
+
+  private var reduceMotion: Bool { reducesMotion() }
 
   private func animate(frame: CGRect, alpha: CGFloat, completion: (@MainActor () -> Void)?) {
     NSAnimationContext.runAnimationGroup(

@@ -124,4 +124,61 @@ struct CrossDisplayTests {
     #expect(await PanelHarness.waitUntil { !rig.controller.isVisible })
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
+
+  static func chip(_ rig: Rig) async -> [Sample] {
+    await samples({ (rig.chip.windowFrame, rig.chip.windowAlpha) }, for: .milliseconds(350))
+  }
+
+  @Test(arguments: [false, true], [PanelEdge.right, .left])
+  func onHlasDisplaysAChipFadesInPlaceOnlyWhereItsSlideWouldTouchTheOtherDisplay(
+    _ onBuiltIn: Bool, _ edge: PanelEdge
+  ) async throws {
+    let rig = try Rig(
+      edge: edge, reducesMotion: false, screens: Self.hlasDisplays(builtInFirst: onBuiltIn))
+    let fades = onBuiltIn && edge == .left
+    let target = rig.chipFrames(edge).window
+    rig.chip.show(HintChipView(kind: .nothingToSave))
+    let shown = await Self.chip(rig)
+    #expect(shown.last?.frame == target)
+    #expect(shown.last?.alpha == 1)
+    #expect(shown.contains { $0.alpha < 1 })
+    if fades {
+      #expect(Self.still(shown, at: target), "the chip moved: \(shown.map(\.frame))")
+    } else {
+      #expect(shown.contains { $0.frame.minX != target.minX }, "the chip never slid in")
+    }
+    rig.chip.hide()
+    let hidden = await Self.chip(rig)
+    #expect(hidden.last?.alpha == 0)
+    if fades {
+      #expect(Self.still(hidden, at: target), "the chip moved: \(hidden.map(\.frame))")
+    } else {
+      #expect(hidden.last?.frame == target.offsetBy(dx: edge == .right ? 24 : -24, dy: 0))
+    }
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
+  }
+
+  @Test(arguments: [false, true])
+  func aChipFollowsThePanelToTheOtherDisplayWithoutCrossing(_ reducesMotion: Bool) async throws {
+    let displays = Self.hlasDisplays()
+    let rig = try Rig(edge: .left, reducesMotion: reducesMotion, screens: displays)
+    rig.controller.show(inVisible: displays[0].visible, makeKey: false)
+    #expect(await PanelHarness.waitUntil { Self.near(rig.controller.frame, rig.panelFrame(.left)) })
+    rig.chip.show(HintChipView(kind: .nothingToSave))
+    let start = rig.chipFrames(.left).window
+    #expect(
+      await PanelHarness.waitUntil { rig.chip.windowFrame == start && rig.chip.windowAlpha == 1 })
+    let panel = PanelController.frame(in: displays[1].visible, edge: .left)
+    let target = EdgeChipPanel.frames(
+      size: ChipSurface<EmptyView>.size, visible: displays[1].visible, edge: .left, panel: panel
+    ).window
+    rig.controller.show(inVisible: displays[1].visible, makeKey: true)
+    let moved = await Self.chip(rig)
+    #expect(
+      moved.allSatisfy { $0.frame == start || $0.frame == target },
+      "the chip crossed: \(moved.map(\.frame))")
+    #expect(moved.last?.frame == target)
+    #expect(moved.last?.alpha == 1)
+    await rig.finish()
+  }
 }

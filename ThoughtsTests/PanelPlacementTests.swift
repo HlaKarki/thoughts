@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Testing
 
 @testable import Thoughts
@@ -256,6 +257,32 @@ struct PanelPlacementTests {
     #expect(Self.slides(.end, .fraction(0.5), on: main, among: screens) == [.right, .right])
     #expect(Self.slides(.end, .start, on: main, among: screens) == [.right, .right])
     #expect(Self.slides(.start, .end, on: main, among: screens) == [.left, .left])
+  }
+
+  @Test func onHlasTwoDisplaysAChipSlidesUnlessItsSlidFrameTouchesTheOtherDisplay() {
+    let both = [Self.external, Self.builtIn]
+    let size = ChipSurface<EmptyView>.size
+    func slides(_ edge: PanelEdge, on screen: ScreenFrames) -> Bool {
+      let window = EdgeChipPanel.frames(size: size, visible: screen.visible, edge: edge).window
+      let slid = EdgeChipPanel.slid(window, toward: edge, among: both)
+      if let slid { #expect(slid == window.offsetBy(dx: edge == .right ? 24 : -24, dy: 0)) }
+      return slid != nil
+    }
+    #expect(
+      EdgeChipPanel.frames(size: size, visible: Self.external.visible, edge: .right).window.maxY
+        < Self.builtIn.frame.minY)
+    #expect(slides(.right, on: Self.external))
+    #expect(slides(.left, on: Self.external))
+    #expect(slides(.right, on: Self.builtIn))
+    #expect(!slides(.left, on: Self.builtIn))
+    let tallBuiltIn: ScreenFrames = (
+      CGRect(x: 2560, y: 0, width: 1728, height: 1117),
+      CGRect(x: 2560, y: 0, width: 1728, height: 1085)
+    )
+    let window = EdgeChipPanel.frames(size: size, visible: Self.external.visible, edge: .right)
+      .window
+    #expect(EdgeChipPanel.slid(window, toward: .right, among: [Self.external, tallBuiltIn]) == nil)
+    #expect(EdgeChipPanel.slid(window, toward: .right, among: [Self.external]) != nil)
   }
 
   @Test func aPanelAtBothInsetsOfANarrowDisplayLeavesThroughTheOpenSide() {

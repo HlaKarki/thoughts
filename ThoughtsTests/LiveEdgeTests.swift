@@ -88,7 +88,7 @@ struct LiveEdgeTests {
         shownPanelFrame: { controller.isShown ? controller.restingFrame : nil },
         plannedPanelFrame: { controller.frame(onVisible: $0) },
         visibleFrame: { displays.visibleFrame(containing: $0, or: screen.visible) },
-        orderFront: { _ in })
+        screens: { displays.list }, orderFront: { _ in }, reducesMotion: { reducesMotion })
       fixture.model.onPreviewChange = { [preview] in preview.update(showing: $0) }
       controller.onWillShow = { [unowned self] in willShow += 1 }
       controller.onWillHide = { [unowned self] in willHide += 1 }
