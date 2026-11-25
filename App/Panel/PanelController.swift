@@ -43,7 +43,7 @@ final class PanelController {
   private let panel: ThoughtsPanel
   private let preferences: Preferences
   private let visibility: AppVisibility
-  private let screens: @MainActor () -> [(frame: CGRect, visible: CGRect)]
+  private let screens: @MainActor () -> [ScreenFrames]
   private var hiding = false
   private var transition = 0
   var ownIconInUse: @MainActor () -> Bool = { false }
@@ -55,9 +55,7 @@ final class PanelController {
 
   init(
     content: NSView, preferences: Preferences,
-    screens: @escaping @MainActor () -> [(frame: CGRect, visible: CGRect)] = {
-      NSScreen.screens.map { ($0.frame, $0.visibleFrame) }
-    },
+    screens: @escaping @MainActor () -> [ScreenFrames] = ScreenList.live,
     visibility: AppVisibility = .live
   ) {
     self.panel = ThoughtsPanel(content: content)
@@ -255,7 +253,7 @@ final class PanelController {
 
   private func moveToEdge() {
     guard isShown, let resting = restingFrame,
-      let visible = PreviewWindowController.visibleFrame(for: resting, among: screens())
+      let visible = ScreenList.visibleFrame(for: resting, among: screens())
     else {
       onEdgeMove?()
       return

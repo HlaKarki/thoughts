@@ -34,15 +34,13 @@ final class PreviewWindowController {
   private let list: ListModel
   private let hosting: NSHostingView<PreviewHost>
   private let anchor: () -> (frame: CGRect, edge: PanelEdge)?
-  private let screens: @MainActor () -> [(frame: CGRect, visible: CGRect)]
+  private let screens: @MainActor () -> [ScreenFrames]
   private let visibility: AppVisibility
   private var transition = 0
 
   init(
     list: ListModel, anchor: @escaping () -> (frame: CGRect, edge: PanelEdge)?,
-    screens: @escaping @MainActor () -> [(frame: CGRect, visible: CGRect)] = {
-      NSScreen.screens.map { ($0.frame, $0.visibleFrame) }
-    },
+    screens: @escaping @MainActor () -> [ScreenFrames] = ScreenList.live,
     visibility: AppVisibility = .live
   ) {
     let hosting = NSHostingView(rootView: PreviewHost(list: list))
@@ -59,20 +57,6 @@ final class PreviewWindowController {
   var alpha: CGFloat { panel.alphaValue }
   var isVisible: Bool { panel.isVisible }
   private(set) var loadedImage: URL?
-
-  static func visibleFrame(
-    for panel: CGRect, among screens: [(frame: CGRect, visible: CGRect)]
-  ) -> CGRect? {
-    screens.min { rank($0.frame, for: panel) < rank($1.frame, for: panel) }?.visible
-  }
-
-  private static func rank(_ screen: CGRect, for panel: CGRect) -> (CGFloat, CGFloat) {
-    let shared = screen.intersection(panel)
-    let center = CGPoint(x: panel.midX, y: panel.midY)
-    let dx = max(screen.minX - center.x, 0, center.x - screen.maxX)
-    let dy = max(screen.minY - center.y, 0, center.y - screen.maxY)
-    return (-(shared.width * shared.height), hypot(dx, dy))
-  }
 
   static func placement(
     beside panel: CGRect, edge: PanelEdge, in visible: CGRect,
@@ -122,7 +106,7 @@ final class PreviewWindowController {
 
   func update(showing thought: Thought?, animated: Bool = false) {
     guard let thought, let anchor = anchor(),
-      let visible = Self.visibleFrame(for: anchor.frame, among: screens())
+      let visible = ScreenList.visibleFrame(for: anchor.frame, among: screens())
     else {
       hide()
       return
