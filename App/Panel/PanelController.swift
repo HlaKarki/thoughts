@@ -42,23 +42,32 @@ final class PanelController {
 
   private let panel: ThoughtsPanel
   private let preferences: Preferences
+  private let screens: @MainActor () -> [(frame: CGRect, visible: CGRect)]
   private var hiding = false
   private var transition = 0
   var ownIconInUse: @MainActor () -> Bool = { false }
   private var lostKey = LostKeyTracker()
   var onWillShow: (() -> Void)?
   var onWillHide: (() -> Void)?
+  var onEdgeMove: (() -> Void)?
   private(set) var restingFrame: CGRect?
 
-  init(content: NSView, preferences: Preferences) {
+  init(
+    content: NSView, preferences: Preferences,
+    screens: @escaping @MainActor () -> [(frame: CGRect, visible: CGRect)] = {
+      NSScreen.screens.map { ($0.frame, $0.visibleFrame) }
+    }
+  ) {
     self.panel = ThoughtsPanel(content: content)
     self.preferences = preferences
+    self.screens = screens
     panel.onCancel = { [weak self] in self?.hide() }
     NotificationCenter.default.addObserver(
       forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
     ) { [weak self] _ in
       MainActor.assumeIsolated { self?.resignedKey() }
     }
+    followEdge()
   }
 
   var onPaste: ((NSPasteboard) -> Bool)? {
@@ -136,28 +145,32 @@ final class PanelController {
   }
 
   func show(on screen: NSScreen? = nil) {
-    present(makeKey: true, on: screen)
+    present(makeKey: true, visible: screen?.visibleFrame)
+  }
+
+  func show(inVisible visible: CGRect, makeKey: Bool) {
+    present(makeKey: makeKey, visible: visible)
   }
 
   func showForDrag() {
-    present(makeKey: false, on: nil)
+    present(makeKey: false, visible: nil)
   }
 
   func makeKey() {
     panel.makeKeyAndOrderFront(nil)
   }
 
-  private func present(makeKey: Bool, on screen: NSScreen?) {
+  private func present(makeKey: Bool, visible: CGRect?) {
     lostKey.clear()
     if isShown {
-      if makeKey { refocus(on: screen) }
+      if makeKey { refocus(on: visible) }
       return
     }
     onWillShow?()
     transition += 1
     hiding = false
     let target = Self.frame(
-      in: (screen ?? screenUnderPointer()).visibleFrame, edge: preferences.edge)
+      in: visible ?? screenUnderPointer().visibleFrame, edge: preferences.edge)
     restingFrame = target
     if reduceMotion {
       panel.setFrame(target, display: false)
@@ -174,10 +187,9 @@ final class PanelController {
     animate(frame: target, alpha: 1, completion: nil)
   }
 
-  private func refocus(on screen: NSScreen?) {
+  private func refocus(on visible: CGRect?) {
     let plan = Self.showPlan(
-      isShown: true, panelFrame: panel.frame, requestedVisible: screen?.visibleFrame,
-      edge: preferences.edge)
+      isShown: true, panelFrame: panel.frame, requestedVisible: visible, edge: preferences.edge)
     onWillShow?()
     panel.makeKeyAndOrderFront(nil)
     guard case .moveAndRefocus(let target) = plan else { return }
@@ -208,17 +220,45 @@ final class PanelController {
     lostKey.clear()
     onWillHide?()
     hiding = true
+    let base = restingFrame ?? panel.frame
     restingFrame = nil
     transition += 1
     let current = transition
     let target =
-      reduceMotion
-      ? panel.frame : Self.offscreenFrame(from: panel.frame, edge: preferences.edge)
+      reduceMotion ? panel.frame : Self.offscreenFrame(from: base, edge: preferences.edge)
     animate(frame: target, alpha: 0) { [weak self] in
       guard let self, self.transition == current else { return }
       self.panel.orderOut(nil)
       self.hiding = false
     }
+  }
+
+  private func followEdge() {
+    withObservationTracking {
+      _ = preferences.edge
+    } onChange: { [weak self] in
+      Task { @MainActor in
+        guard let self else { return }
+        self.moveToEdge()
+        self.followEdge()
+      }
+    }
+  }
+
+  private func moveToEdge() {
+    guard isShown, let resting = restingFrame,
+      let visible = PreviewWindowController.visibleFrame(for: resting, among: screens())
+    else { return }
+    let target = Self.frame(in: visible, edge: preferences.edge)
+    guard target != resting else { return }
+    transition += 1
+    restingFrame = target
+    if reduceMotion {
+      panel.setFrame(target, display: true)
+    } else {
+      animate(frame: target, alpha: 1, completion: nil)
+    }
+    onEdgeMove?()
   }
 
   private var reduceMotion: Bool {

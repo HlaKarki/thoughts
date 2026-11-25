@@ -92,7 +92,7 @@ final class AppState {
     panel.onNothingToDo = { [actions] in actions.nothingToDo($0) }
     panel.defersHistory = { [actions] in actions.deferIfBusy($0) }
     let preview = PreviewWindowController(list: list) { [panel] in
-      panel.isShown ? (panel.frame, panel.edge) : nil
+      panel.isShown ? (panel.restingFrame ?? panel.frame, panel.edge) : nil
     }
     self.preview = preview
     list.onPreviewChange = { [preview] thought in preview.update(showing: thought) }
@@ -106,6 +106,10 @@ final class AppState {
       edge: { [panel] in panel.edge },
       shownPanelFrame: { [panel] in panel.isShown ? panel.restingFrame : nil })
     self.chip = chip
+    panel.onEdgeMove = { [preview, chip] in
+      preview.reposition()
+      chip.reposition()
+    }
     let sound = SavedSound(preferences: preferences)
     let clipboard = ClipboardWatcher(
       isOwnChange: { [pasteboard] in pasteboard.ownChangeCounts.contains($0) },

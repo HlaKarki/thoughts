@@ -52,6 +52,7 @@ final class EdgeChipPanel {
   private let orderFront: @MainActor (NSWindow) -> Void
   private var transition = 0
   private var hideTask: Task<Void, Never>?
+  private var content: AnyView?
   private(set) var isShown = false
   private(set) var shownFrame: CGRect?
   var windowFrame: CGRect { window.frame }
@@ -122,6 +123,7 @@ final class EdgeChipPanel {
   ) {
     hideTask?.cancel()
     let placed = placement()
+    self.content = AnyView(content)
     hosting.rootView = AnyView(
       content.padding(Self.padding(around: placed.chip, in: placed.window)))
     hosting.onClick = onClick
@@ -145,6 +147,20 @@ final class EdgeChipPanel {
         guard !Task.isCancelled else { return }
         self?.hide()
       }
+    }
+  }
+
+  func reposition() {
+    guard isShown, let content else { return }
+    let placed = placement()
+    hosting.rootView = AnyView(
+      content.padding(Self.padding(around: placed.chip, in: placed.window)))
+    shownFrame = placed.chip
+    transition += 1
+    if reduceMotion {
+      window.setFrame(placed.window, display: true)
+    } else {
+      animate(frame: placed.window, alpha: 1, completion: nil)
     }
   }
 

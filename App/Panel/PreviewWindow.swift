@@ -112,7 +112,12 @@ final class PreviewWindowController {
       .fittingSize.height
   }
 
-  func update(showing thought: Thought?) {
+  func reposition() {
+    guard panel.isVisible, list.isPreviewing else { return }
+    update(showing: list.previewThought, animated: true)
+  }
+
+  func update(showing thought: Thought?, animated: Bool = false) {
     guard let thought, let anchor = anchor(),
       let visible = Self.visibleFrame(for: anchor.frame, among: screens())
     else {
@@ -127,7 +132,11 @@ final class PreviewWindowController {
     }
     transition += 1
     let wasHidden = !panel.isVisible
-    panel.setFrame(placed.frame, display: true)
+    if animated, !wasHidden, !reduceMotion {
+      slide(to: placed.frame)
+    } else {
+      panel.setFrame(placed.frame, display: true)
+    }
     if wasHidden { panel.alphaValue = 0 }
     panel.orderFront(nil)
     if panel.alphaValue < 1 { fade(to: 1, completion: nil) }
@@ -154,6 +163,18 @@ final class PreviewWindowController {
     fade(to: 0) { [weak self] in
       guard let self, self.transition == current else { return }
       self.panel.orderOut(nil)
+    }
+  }
+
+  private var reduceMotion: Bool {
+    NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+  }
+
+  private func slide(to frame: CGRect) {
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = PanelController.duration
+      context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+      panel.animator().setFrame(frame, display: true)
     }
   }
 
