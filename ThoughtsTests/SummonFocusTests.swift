@@ -90,39 +90,33 @@ struct SummonFocusTests {
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
-  @Test func withKeepOpenShowThoughtsFollowsTheSummonRule() async throws {
-    let rig = try Self.rig(keepOpen: true)
+  @Test(arguments: [true, false])
+  func showThoughtsMakesAShownPanelKeyWithItsFocusAndNeverHidesIt(_ keepOpen: Bool)
+    async throws
+  {
+    let rig = try Self.rig(keepOpen: keepOpen)
     let entry = PanelEntry(rig.controller)
     entry.fromMenu(on: nil)
     await Self.settled(rig)
     Self.searching(rig)
-    rig.key.window = nil
-    rig.controller.ownMenuOpened()
-    rig.controller.ownMenuClosed(.show)
-    entry.fromMenu(on: nil)
-    #expect(rig.controller.isShown)
-    #expect(rig.controller.isKey)
-    #expect(rig.fixture.model.focus == .search)
-    #expect(rig.fixture.model.query == "fetchUser")
-    rig.controller.ownMenuOpened()
-    rig.controller.ownMenuClosed(.show)
-    entry.fromMenu(on: nil)
-    #expect(!rig.controller.isShown)
-    #expect(await PanelHarness.waitUntil { !rig.controller.isVisible })
-    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
-  }
-
-  @Test func withoutKeepOpenShowThoughtsKeepsAShownPanelShown() async throws {
-    let rig = try Self.rig(keepOpen: false)
-    let entry = PanelEntry(rig.controller)
-    entry.fromMenu(on: nil)
-    await Self.settled(rig)
-    rig.controller.ownMenuOpened()
-    rig.controller.ownMenuClosed(.show)
-    entry.fromMenu(on: nil)
-    #expect(rig.controller.isShown)
-    #expect(rig.controller.isKey)
+    let selection = rig.fixture.model.selection
+    let other = NSWindow(
+      contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: true)
+    for keyWhenOpened in [false, true] {
+      rig.key.window = keyWhenOpened ? rig.controller.panel : other
+      rig.controller.ownMenuOpened()
+      rig.controller.ownMenuClosed(.show)
+      entry.fromMenu(on: nil)
+      #expect(rig.controller.isShown, "key when opened \(keyWhenOpened)")
+      #expect(rig.controller.isKey, "key when opened \(keyWhenOpened)")
+      #expect(rig.fixture.model.focus == .search, "key when opened \(keyWhenOpened)")
+      #expect(rig.fixture.model.query == "fetchUser")
+      #expect(rig.fixture.model.selection == selection)
+    }
+    #expect(rig.key.made == 3)
+    #expect(rig.controller.frame == rig.panelFrame(.right))
     rig.controller.hide()
     #expect(await PanelHarness.waitUntil { !rig.controller.isVisible })
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 }

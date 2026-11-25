@@ -112,7 +112,6 @@ final class PanelController {
   var isShown: Bool { panel.isVisible && !hiding }
   var isKey: Bool { key.isKey(panel) }
   var keepsOpen: Bool { preferences.keepOpen }
-  private(set) var wasKeyWhenOwnMenuOpened = false
 
   func frame(onVisible visible: CGRect) -> CGRect {
     Self.frame(in: visible, edge: preferences.edge, position: preferences.panelPosition)
@@ -218,7 +217,6 @@ final class PanelController {
   func ownMenuOpened() {
     lostKey.menuOpened(
       event: Self.mouseEventNumber(NSApp.currentEvent), isShown: isShown, isKey: isKey)
-    wasKeyWhenOwnMenuOpened = isShown && (isKey || lostKey.held)
   }
 
   func ownMenuClosed(_ pick: MenuPick) {
