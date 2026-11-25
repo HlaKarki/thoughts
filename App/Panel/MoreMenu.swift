@@ -51,6 +51,7 @@ private struct SharedMenuButton: View {
 
   var body: some View {
     Button(item.title) { item.perform() }
+      .keyboardShortcut(item.key?.shortcut)
       .disabled(!item.isEnabled)
   }
 }

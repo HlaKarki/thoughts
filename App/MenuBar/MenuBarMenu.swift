@@ -101,6 +101,8 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         return created
       }()
     item.title = shared.title
+    item.keyEquivalent = shared.key?.keyEquivalent ?? ""
+    item.keyEquivalentModifierMask = shared.key?.modifiers ?? []
     item.isEnabled = shared.isEnabled
     return item
   }

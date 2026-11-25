@@ -57,9 +57,15 @@ final class AppMenu: NSObject, NSMenuItemValidation {
     return item
   }
 
+  private func item(for shared: SharedMenuItem, _ action: Selector) -> NSMenuItem {
+    item(
+      shared.title, action, shared.key?.keyEquivalent ?? "", modifiers: shared.key?.modifiers ?? [],
+      target: self)
+  }
+
   private func appMenu() -> NSMenu {
     let menu = NSMenu(title: appName)
-    menu.addItem(item(shared.settings.title, #selector(openSettings(_:)), ",", target: self))
+    menu.addItem(item(for: shared.settings, #selector(openSettings(_:))))
     menu.addItem(.separator())
     menu.addItem(
       item(
@@ -74,7 +80,7 @@ final class AppMenu: NSObject, NSMenuItemValidation {
         String(localized: "Show All"), #selector(NSApplication.unhideAllApplications(_:)), "",
         target: NSApp))
     menu.addItem(.separator())
-    menu.addItem(item(shared.quit.title, #selector(quit(_:)), "q", target: self))
+    menu.addItem(item(for: shared.quit, #selector(quit(_:))))
     return menu
   }
 

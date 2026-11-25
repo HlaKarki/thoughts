@@ -1,5 +1,6 @@
 import AppKit
 import KeyboardShortcuts
+import SwiftUI
 import Testing
 
 @testable import Thoughts
@@ -122,6 +123,45 @@ struct MenuBarMenuTests {
     #expect(more.shared.updateAvailable?.title == "Update available")
     #expect(rig.menuBar.menu.item(withTitle: "Settings…")?.isEnabled == false)
     #expect(rig.menuBar.menu.item(withTitle: "Quit Thoughts")?.isEnabled == true)
+  }
+
+  @Test func theCaretMenuTheAppMenuAndTheMoreMenuShowEachSharedItemsKey() throws {
+    let rig = Rig()
+    rig.updates.updateWillShow(handledBySparkle: false)
+    rig.menuBar.menuNeedsUpdate(rig.menuBar.menu)
+    let settings = try #require(rig.menuBar.menu.item(withTitle: "Settings…"))
+    #expect(settings.keyEquivalent == ",")
+    #expect(settings.keyEquivalentModifierMask == .command)
+    let quit = try #require(rig.menuBar.menu.item(withTitle: "Quit Thoughts"))
+    #expect(quit.keyEquivalent == "q")
+    #expect(quit.keyEquivalentModifierMask == .command)
+    let appItems = AppMenu(shared: rig.shared, appName: "Thoughts").menu.items
+      .compactMap(\.submenu).flatMap(\.items)
+    var inAppMenu: [SharedMenuItem.ID] = []
+    for id in SharedMenuItem.ID.allCases {
+      let definition = rig.shared.item(id)
+      let caret = try #require(
+        rig.menuBar.menu.items.first { $0.identifier?.rawValue == id.rawValue })
+      #expect(caret.keyEquivalent == definition.key?.keyEquivalent ?? "", "\(id)")
+      if let key = definition.key { #expect(caret.keyEquivalentModifierMask == key.modifiers) }
+      if let app = appItems.first(where: { $0.title == definition.title }) {
+        inAppMenu.append(id)
+        #expect(app.keyEquivalent == caret.keyEquivalent, "\(id)")
+        #expect(app.keyEquivalentModifierMask == caret.keyEquivalentModifierMask, "\(id)")
+      }
+    }
+    #expect(inAppMenu == [.settings, .quit])
+    #expect(rig.shared.settings.key?.shortcut == KeyboardShortcut(",", modifiers: .command))
+    #expect(rig.shared.quit.key?.shortcut == KeyboardShortcut("q", modifiers: .command))
+    #expect(rig.shared.checkForUpdates.key == nil)
+    #expect(rig.shared.updateAvailable?.key == nil)
+  }
+
+  @Test func aMenuKeyKeepsEveryModifierInItsShortcut() {
+    let key = MenuKey(character: "k", modifiers: [.command, .shift, .option, .control])
+    #expect(key.keyEquivalent == "k")
+    #expect(
+      key.shortcut == KeyboardShortcut("k", modifiers: [.command, .shift, .option, .control]))
   }
 
   @Test func showThoughtsCarriesTheSummonKeyAndFollowsAChange() async throws {
