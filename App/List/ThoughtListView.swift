@@ -3,6 +3,7 @@ import ThoughtsCore
 
 struct ThoughtListView: View {
   let model: ListModel
+  @State private var position = ScrollPosition()
 
   static let rowSpacing: CGFloat = 4
 
@@ -20,7 +21,12 @@ struct ThoughtListView: View {
           .padding(.horizontal, 12)
           .frame(minHeight: proxy.size.height, alignment: .bottom)
         }
+        .scrollPosition($position)
         .defaultScrollAnchor(.bottom)
+        .onScrollGeometryChange(for: ListViewport.self, of: ListViewport.init) { old, new in
+          guard old.atBottom, new.height != old.height else { return }
+          position.scrollTo(edge: .bottom)
+        }
         .onChange(of: model.addedCount) {
           guard let last = model.visible.last else { return }
           scroller.scrollTo(last.fileName, anchor: .bottom)
@@ -91,6 +97,16 @@ struct ThoughtListView: View {
       }
     }
     .accessibilityAddTraits(selected ? .isSelected : [])
+  }
+
+  private struct ListViewport: Equatable {
+    let height: CGFloat
+    let atBottom: Bool
+
+    init(_ geometry: ScrollGeometry) {
+      height = geometry.containerSize.height
+      atBottom = geometry.visibleRect.maxY >= geometry.contentSize.height - 1
+    }
   }
 
   private func timeLabel(for entry: ThoughtEntry) -> String {

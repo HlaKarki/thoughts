@@ -189,7 +189,7 @@ struct PanelReportTests {
 
   @Test func theInputGrowsALineAtATimeUpToFiveAndTheListGivesUpTheSpace() async throws {
     try await PanelHarness.run { harness in
-      try harness.seed((1...15).map { "thought \($0)" })
+      try harness.seed((1...40).map { "thought \($0)" })
       try await harness.show()
       let field = try #require(harness.inputField)
       let list = try #require(harness.listScroller)
