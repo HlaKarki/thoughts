@@ -257,6 +257,35 @@ struct LiveEdgeTests {
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
+  @Test(arguments: [0, 60])
+  func aHideFollowedQuicklyByAShowLeavesEveryWindowFullyVisible(_ gap: Int) async throws {
+    let rig = try Rig(edge: .right)
+    try await rig.showEverything()
+    let thought = try #require(rig.fixture.model.previewThought)
+    rig.controller.hide()
+    rig.chip.hide()
+    rig.preview.hide()
+    if gap > 0 { try? await Task.sleep(for: .milliseconds(gap)) }
+    rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
+    rig.chip.show(HintChipView(kind: .nothingToSave))
+    rig.preview.update(showing: thought)
+    let alphas = { [rig.controller.panel.alphaValue, rig.chip.windowAlpha, rig.preview.alpha] }
+    #expect(
+      await PanelHarness.waitUntil { alphas() == [1, 1, 1] },
+      "panel, chip and preview alphas \(alphas())")
+    var dips: [[CGFloat]] = []
+    let end = ContinuousClock.now + .milliseconds(300)
+    while ContinuousClock.now < end {
+      try? await Task.sleep(for: .milliseconds(10))
+      if alphas() != [1, 1, 1] { dips.append(alphas()) }
+    }
+    #expect(dips.isEmpty, "a window faded out again: \(dips)")
+    #expect(rig.controller.isShown)
+    #expect(rig.chip.isShown)
+    #expect(rig.preview.isVisible)
+    await rig.finish()
+  }
+
   @Test func theNextHideLeavesTowardTheNewEdge() async throws {
     let rig = try Rig(edge: .right)
     rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
