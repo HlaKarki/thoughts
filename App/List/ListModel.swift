@@ -624,6 +624,19 @@ final class ListModel {
     feedback = nil
   }
 
+  func panelWillShow() {
+    focus = editing == nil ? .input : .edit
+    if editing == nil { selection = [] }
+    now = Date()
+    panelDidShow()
+  }
+
+  func panelWillRefocus() {
+    now = Date()
+    let gone = focus == .edit && editing == nil || focus == .menu && !isMenuOpen
+    if gone { focus = .input }
+  }
+
   func panelDidShow() {
     isPanelShown = true
     hover.clear()

@@ -52,6 +52,7 @@ final class PanelController {
   var ownIconInUse: @MainActor () -> Bool = { false }
   private var lostKey = LostKeyTracker()
   var onWillShow: (() -> Void)?
+  var onWillRefocus: (() -> Void)?
   var onWillHide: (() -> Void)?
   var onMove: (() -> Void)?
   private(set) var restingFrame: CGRect?
@@ -110,6 +111,8 @@ final class PanelController {
 
   var isShown: Bool { panel.isVisible && !hiding }
   var isKey: Bool { key.isKey(panel) }
+  var keepsOpen: Bool { preferences.keepOpen }
+  private(set) var wasKeyWhenOwnMenuOpened = false
 
   func frame(onVisible visible: CGRect) -> CGRect {
     Self.frame(in: visible, edge: preferences.edge, position: preferences.panelPosition)
@@ -195,7 +198,7 @@ final class PanelController {
     let plan = Self.showPlan(
       isShown: true, panelFrame: panel.frame, requestedVisible: visible, edge: preferences.edge,
       position: preferences.panelPosition)
-    onWillShow?()
+    onWillRefocus?()
     visibility.revealBeforeOrderingFront()
     key.makeKey(panel)
     guard case .moveAndRefocus(let target) = plan else { return }
@@ -215,6 +218,7 @@ final class PanelController {
   func ownMenuOpened() {
     lostKey.menuOpened(
       event: Self.mouseEventNumber(NSApp.currentEvent), isShown: isShown, isKey: isKey)
+    wasKeyWhenOwnMenuOpened = isShown && (isKey || lostKey.held)
   }
 
   func ownMenuClosed(_ pick: MenuPick) {

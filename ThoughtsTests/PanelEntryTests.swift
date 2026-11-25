@@ -8,12 +8,16 @@ struct PanelEntryTests {
   @MainActor
   final class Stage {
     var shown = false
+    var key = false
+    var keyWhenMenuOpened = false
+    var keepOpen = false
     var shows: [NSScreen?] = []
     var hides = 0
 
     var entry: PanelEntry {
       PanelEntry(
-        isShown: { self.shown },
+        isShown: { self.shown }, isKey: { self.key },
+        wasKeyWhenMenuOpened: { self.keyWhenMenuOpened }, keepsOpen: { self.keepOpen },
         hide: {
           self.hides += 1
           self.shown = false
@@ -37,19 +41,60 @@ struct PanelEntryTests {
     #expect(stage.hides == 0)
   }
 
-  @Test func theSummonKeyHidesAShownPanelButTheMenuAndReopenKeepItShown() {
+  @Test func withoutKeepOpenTheSummonKeyHidesAShownPanelAndTheMenuAndReopenKeepItShown() {
+    for key in [false, true] {
+      let stage = Stage()
+      let entry = stage.entry
+      stage.shown = true
+      stage.key = key
+      stage.keyWhenMenuOpened = key
+      entry.summon()
+      #expect(stage.hides == 1)
+      #expect(stage.shows.isEmpty)
+      stage.shown = true
+      entry.fromMenu(on: nil)
+      entry.reopen()
+      #expect(stage.hides == 1)
+      #expect(stage.shown)
+      #expect(stage.shows.count == 2)
+    }
+  }
+
+  @Test func withKeepOpenTheSummonKeyFocusesAShownPanelThatIsNotKeyAndHidesAKeyOne() {
     let stage = Stage()
+    stage.keepOpen = true
     let entry = stage.entry
     stage.shown = true
     entry.summon()
+    #expect(stage.hides == 0)
+    #expect(stage.shows.count == 1)
+    stage.key = true
+    entry.summon()
     #expect(stage.hides == 1)
-    #expect(stage.shows.isEmpty)
+    #expect(!stage.shown)
+    entry.summon()
+    #expect(stage.shows.count == 2)
+    #expect(stage.shown)
+  }
+
+  @Test func withKeepOpenShowThoughtsFocusesAPanelThatWasNotKeyWhenTheMenuOpenedAndHidesAKeyOne() {
+    let stage = Stage()
+    stage.keepOpen = true
+    let entry = stage.entry
     stage.shown = true
     entry.fromMenu(on: nil)
+    #expect(stage.hides == 0)
+    #expect(stage.shows.count == 1)
+    stage.keyWhenMenuOpened = true
+    entry.fromMenu(on: nil)
+    #expect(stage.hides == 1)
+    #expect(!stage.shown)
+    entry.fromMenu(on: nil)
+    #expect(stage.shows.count == 2)
+    #expect(stage.shown)
     entry.reopen()
     #expect(stage.hides == 1)
-    #expect(stage.shown)
-    #expect(stage.shows.count == 2)
+    #expect(stage.shows.count == 3)
   }
 
   @Test func theMenuShowsOnTheScreenWhoseMenuBarWasClicked() throws {

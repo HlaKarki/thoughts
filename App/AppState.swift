@@ -96,12 +96,8 @@ final class AppState {
     }
     self.preview = preview
     list.onPreviewChange = { [preview] thought in preview.update(showing: thought) }
-    panel.onWillShow = { [list] in
-      list.focus = list.editing == nil ? .input : .edit
-      if list.editing == nil { list.selection = [] }
-      list.now = Date()
-      list.panelDidShow()
-    }
+    panel.onWillShow = { [list] in list.panelWillShow() }
+    panel.onWillRefocus = { [list] in list.panelWillRefocus() }
     let chip = EdgeChipPanel(
       edge: { [panel] in panel.edge },
       shownPanelFrame: { [panel] in panel.isShown ? panel.restingFrame : nil },
