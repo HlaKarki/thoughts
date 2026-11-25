@@ -126,6 +126,39 @@ struct SettingsModelTests {
     #expect(try height(.alwaysDeny) == allowed)
   }
 
+  private func trailingInk<Content: View>(of content: Content) throws -> CGFloat {
+    let width: CGFloat = 460
+    let hosting = NSHostingView(rootView: content.frame(width: width))
+    hosting.appearance = NSAppearance(named: .aqua)
+    hosting.frame = CGRect(x: 0, y: 0, width: width, height: 80)
+    hosting.layoutSubtreeIfNeeded()
+    let bitmap = try #require(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
+    hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
+    let scale = CGFloat(bitmap.pixelsWide) / width
+    for x in stride(from: bitmap.pixelsWide - 1, through: 0, by: -1) {
+      for y in 0..<bitmap.pixelsHigh {
+        let color = try #require(bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
+        if color.alphaComponent > 0.02 { return CGFloat(x + 1) / scale }
+      }
+    }
+    return 0
+  }
+
+  private func pasteRow(_ access: NSPasteboard.AccessBehavior) throws -> ClipboardAccessRow {
+    let system = FakeSystem()
+    system.access = access
+    return ClipboardAccessRow(
+      model: try SettingsFixtures.settings(
+        system: system, preferences: SettingsFixtures.preferences()))
+  }
+
+  @Test func thePasteStatusEndsWhereTheButtonEnds() throws {
+    let status = try trailingInk(of: pasteRow(.alwaysAllow))
+    let button = try trailingInk(of: pasteRow(.alwaysDeny))
+    #expect(status > 0)
+    #expect(abs(status - button) <= 1)
+  }
+
   @Test func addedFoldersSkipDuplicatesOfTheScreenshotLocation() async throws {
     let system = FakeSystem()
     let model = try SettingsFixtures.settings(

@@ -2,6 +2,8 @@ import AppKit
 import SwiftUI
 
 struct ClipboardAccessRow: View {
+  static let contentHeight: CGFloat = 24
+
   let model: SettingsModel
 
   static func title(for behavior: NSPasteboard.AccessBehavior) -> LocalizedStringKey {
@@ -25,12 +27,11 @@ struct ClipboardAccessRow: View {
       Text(Self.title(for: model.clipboardAccess))
         .font(.system(size: 13))
         .foregroundStyle(Color(nsColor: .secondaryLabelColor))
-      let showsButton = Self.showsSettingsButton(for: model.clipboardAccess)
-      Button("Open Privacy & Security") { model.openClipboardSettings() }
-        .opacity(showsButton ? 1 : 0)
-        .disabled(!showsButton)
-        .accessibilityHidden(!showsButton)
+      if Self.showsSettingsButton(for: model.clipboardAccess) {
+        Button("Open Privacy & Security") { model.openClipboardSettings() }
+      }
     }
+    .frame(minHeight: Self.contentHeight)
     .padding(.horizontal, 12)
     .padding(.bottom, 12)
   }
