@@ -80,7 +80,7 @@ final class ListModel {
       guard selection != oldValue else { return }
       if !isRevealing { pendingReveal = [] }
       if isMenuOpen, selection.isEmpty { closeMenu() }
-      if isPreviewing, previewThought == nil { isPreviewing = false }
+      settlePreview()
       if isPreviewing { onPreviewChange?(previewThought) }
     }
   }
@@ -226,6 +226,10 @@ final class ListModel {
   var previewThought: Thought? {
     guard selection.count == 1 else { return nil }
     return selectedEntries.first?.thought
+  }
+
+  func settlePreview() {
+    if isPreviewing, previewThought == nil { isPreviewing = false }
   }
 
   func expectRestored(_ names: [String]) {

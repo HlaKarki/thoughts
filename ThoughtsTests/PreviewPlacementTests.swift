@@ -128,6 +128,29 @@ struct PreviewPlacementTests {
     try await Self.close(preview, fixture)
   }
 
+  @Test func thePreviewEndsWhenTheListDropsItsThoughtWithoutASelectionChange() async throws {
+    let fixture = try ListFixture()
+    defer { withExtendedLifetime(fixture) {} }
+    let shot = try fixture.addScreenshot(note: "", daysAgo: 0.3)
+    try fixture.reload()
+    let screen = Self.offscreen(CGSize(width: 1728, height: 1117))
+    let anchor = PanelController.frame(in: screen.visible, edge: .right)
+    let preview = try await Self.showPreview(
+      of: shot, in: fixture, anchor: anchor, edge: .right, screens: [screen])
+    let name = shot.file.lastPathComponent
+    fixture.model.holdRemoval(of: [name])
+    #expect(fixture.model.selection == [name])
+    #expect(fixture.model.previewThought == nil)
+    #expect(await PanelHarness.waitUntil { !preview.isVisible }, "the preview stayed up")
+    #expect(!fixture.model.isPreviewing)
+    fixture.model.releaseRemoval(of: [name])
+    fixture.model.perform(.preview)
+    #expect(fixture.model.isPreviewing)
+    #expect(await PanelHarness.waitUntil { preview.alpha == 1 }, "the preview never came back")
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
+    try await Self.close(preview, fixture)
+  }
+
   @Test func aPanelOnNoScreenStillGetsItsPreviewInsideTheNearestScreen() async throws {
     let fixture = try ListFixture()
     defer { withExtendedLifetime(fixture) {} }

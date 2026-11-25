@@ -141,7 +141,8 @@ final class PreviewWindowController {
     } onChange: { [weak self] in
       Task { @MainActor in
         guard let self, self.transition == current, self.list.isPreviewing else { return }
-        self.update(showing: self.list.previewThought)
+        self.list.settlePreview()
+        if self.list.isPreviewing { self.update(showing: self.list.previewThought) }
       }
     }
   }
