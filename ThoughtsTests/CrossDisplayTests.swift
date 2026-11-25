@@ -20,14 +20,18 @@ struct CrossDisplayTests {
     return builtInFirst ? both.reversed() : both
   }
 
-  static func samples(_ window: @escaping () -> Sample, for duration: Duration) async -> [Sample] {
-    var samples: [Sample] = []
-    let end = ContinuousClock.now + duration
-    while ContinuousClock.now < end {
-      samples.append(window())
+  static func samples(_ window: () -> Sample, until settled: () -> Bool) async -> [Sample] {
+    var samples = [window()]
+    let deadline = ContinuousClock.now + .seconds(5)
+    while !settled(), ContinuousClock.now < deadline {
       try? await Task.sleep(for: .milliseconds(10))
+      samples.append(window())
     }
-    samples.append(window())
+    let tail = ContinuousClock.now + .milliseconds(150)
+    while ContinuousClock.now < tail {
+      try? await Task.sleep(for: .milliseconds(10))
+      samples.append(window())
+    }
     return samples
   }
 
@@ -41,9 +45,16 @@ struct CrossDisplayTests {
     samples.allSatisfy { $0.frame == samples[0].frame } && near(samples[0].frame, target)
   }
 
-  static func panel(_ rig: Rig) async -> [Sample] {
-    await samples(
-      { (rig.controller.frame, rig.controller.panel.alphaValue) }, for: .milliseconds(350))
+  static func panel(_ rig: Rig, until settled: () -> Bool) async -> [Sample] {
+    await samples({ (rig.controller.frame, rig.controller.panel.alphaValue) }, until: settled)
+  }
+
+  static func panel(_ rig: Rig, settlesAt target: CGRect) async -> [Sample] {
+    await panel(rig) { near(rig.controller.frame, target) && rig.controller.panel.alphaValue == 1 }
+  }
+
+  static func panelHidden(_ rig: Rig) async -> [Sample] {
+    await panel(rig) { !rig.controller.isVisible }
   }
 
   @Test(arguments: [false, true], [PanelEdge.right, .left])
@@ -57,7 +68,7 @@ struct CrossDisplayTests {
     let target = rig.panelFrame(edge)
     let gone = PanelController.offscreenFrame(from: target, edge: edge)
     rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
-    let shown = await Self.panel(rig)
+    let shown = await Self.panel(rig, settlesAt: target)
     #expect(Self.near(shown.last?.frame, target))
     #expect(shown.last?.alpha == 1)
     #expect(shown.contains { $0.alpha < 1 })
@@ -68,7 +79,7 @@ struct CrossDisplayTests {
       #expect(shown.contains { $0.frame.minX != target.minX }, "the panel never slid in")
     }
     rig.controller.hide()
-    let hidden = await Self.panel(rig)
+    let hidden = await Self.panelHidden(rig)
     #expect(!rig.controller.isVisible)
     #expect(hidden.contains { $0.alpha < 1 })
     if fades {
@@ -76,6 +87,21 @@ struct CrossDisplayTests {
     } else {
       #expect(Self.near(hidden.last?.frame, gone))
     }
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
+  }
+
+  @Test func aMainThreadStallRightAfterAShowOnlyDelaysTheFadeIn() async throws {
+    let rig = try Rig(
+      edge: .right, reducesMotion: false, screens: Self.aWideDisplayBesideALowerLaptop())
+    let target = rig.panelFrame(.right)
+    rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
+    DispatchQueue.main.async { Thread.sleep(forTimeInterval: 0.45) }
+    let shown = await Self.panel(rig, settlesAt: target)
+    #expect(Self.still(shown, at: target), "the panel moved: \(shown.map(\.frame))")
+    #expect(shown.contains { $0.alpha < 1 })
+    #expect(shown.last?.alpha == 1)
+    rig.controller.hide()
+    #expect(await PanelHarness.waitUntil { !rig.controller.isVisible })
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
@@ -88,11 +114,11 @@ struct CrossDisplayTests {
       screens: Self.aWideDisplayBesideALowerLaptop(builtInFirst: onBuiltIn))
     let target = rig.panelFrame(edge)
     rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
-    let shown = await Self.panel(rig)
+    let shown = await Self.panel(rig, settlesAt: target)
     #expect(Self.still(shown, at: target))
     #expect(shown.last?.alpha == 1)
     rig.controller.hide()
-    let hidden = await Self.panel(rig)
+    let hidden = await Self.panelHidden(rig)
     #expect(Self.still(hidden, at: target))
     #expect(!rig.controller.isVisible)
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
@@ -111,7 +137,7 @@ struct CrossDisplayTests {
     let moves = rig.moves
     let target = PanelController.frame(in: displays[1].visible, edge: .left)
     rig.controller.show(inVisible: displays[1].visible, makeKey: true)
-    let moved = await Self.panel(rig)
+    let moved = await Self.panel(rig, settlesAt: target)
     #expect(rig.key.made == 1)
     #expect(rig.controller.isKey)
     #expect(
@@ -127,8 +153,10 @@ struct CrossDisplayTests {
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
-  static func chip(_ rig: Rig) async -> [Sample] {
-    await samples({ (rig.chip.windowFrame, rig.chip.windowAlpha) }, for: .milliseconds(350))
+  static func chip(_ rig: Rig, settlesAt target: CGRect, alpha: CGFloat) async -> [Sample] {
+    await samples(
+      { (rig.chip.windowFrame, rig.chip.windowAlpha) },
+      until: { rig.chip.windowFrame == target && rig.chip.windowAlpha == alpha })
   }
 
   @Test(arguments: [false, true], [PanelEdge.right, .left])
@@ -141,7 +169,7 @@ struct CrossDisplayTests {
     let fades = onBuiltIn && edge == .left
     let target = rig.chipFrames(edge).window
     rig.chip.show(HintChipView(kind: .nothingToSave))
-    let shown = await Self.chip(rig)
+    let shown = await Self.chip(rig, settlesAt: target, alpha: 1)
     #expect(shown.last?.frame == target)
     #expect(shown.last?.alpha == 1)
     #expect(shown.contains { $0.alpha < 1 })
@@ -151,7 +179,8 @@ struct CrossDisplayTests {
       #expect(shown.contains { $0.frame.minX != target.minX }, "the chip never slid in")
     }
     rig.chip.hide()
-    let hidden = await Self.chip(rig)
+    let gone = fades ? target : target.offsetBy(dx: edge == .right ? 24 : -24, dy: 0)
+    let hidden = await Self.chip(rig, settlesAt: gone, alpha: 0)
     #expect(hidden.last?.alpha == 0)
     if fades {
       #expect(Self.still(hidden, at: target), "the chip moved: \(hidden.map(\.frame))")
@@ -176,7 +205,7 @@ struct CrossDisplayTests {
       size: ChipSurface<EmptyView>.size, visible: displays[1].visible, edge: .left, panel: panel
     ).window
     rig.controller.show(inVisible: displays[1].visible, makeKey: true)
-    let moved = await Self.chip(rig)
+    let moved = await Self.chip(rig, settlesAt: target, alpha: 1)
     #expect(
       moved.allSatisfy { $0.frame == start || $0.frame == target },
       "the chip crossed: \(moved.map(\.frame))")
@@ -204,7 +233,8 @@ struct CrossDisplayTests {
       for: panel, edge: .left, in: displays[1].visible, fixture: rig.fixture)
     rig.controller.show(inVisible: displays[1].visible, makeKey: true)
     let moved = await Self.samples(
-      { (rig.preview.frame, rig.preview.alpha) }, for: .milliseconds(350))
+      { (rig.preview.frame, rig.preview.alpha) },
+      until: { Self.near(rig.preview.frame, target) && rig.preview.alpha == 1 })
     #expect(
       moved.allSatisfy { Self.near($0.frame, start) || Self.near($0.frame, target) },
       "the preview crossed: \(moved.map(\.frame))")
