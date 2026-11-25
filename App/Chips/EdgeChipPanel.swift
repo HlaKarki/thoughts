@@ -136,11 +136,11 @@ final class EdgeChipPanel {
     let target = placed.window
     transition += 1
     if isShown {
-      window.setFrame(target, display: true)
+      window.setFrameAtOnce(target, display: true)
     } else {
       isShown = true
       let start = reduceMotion ? target : target.offsetBy(dx: slideOffset, dy: 0)
-      window.setFrame(start, display: false)
+      window.setFrameAtOnce(start, display: false)
       window.alphaValue = 0
       orderFront(window)
       animate(frame: target, alpha: 1, completion: nil)
@@ -162,7 +162,7 @@ final class EdgeChipPanel {
     shownFrame = placed.chip
     transition += 1
     if reduceMotion {
-      window.setFrame(placed.window, display: true)
+      window.setFrameAtOnce(placed.window, display: true)
     } else {
       animate(frame: placed.window, alpha: 1, completion: nil)
     }

@@ -44,6 +44,7 @@ final class PanelController {
   private let preferences: Preferences
   private let visibility: AppVisibility
   private let screens: @MainActor () -> [ScreenFrames]
+  private let reducesMotion: @MainActor () -> Bool
   private var hiding = false
   private var transition = 0
   var ownIconInUse: @MainActor () -> Bool = { false }
@@ -56,9 +57,13 @@ final class PanelController {
   init(
     content: NSView, preferences: Preferences,
     screens: @escaping @MainActor () -> [ScreenFrames] = ScreenList.live,
-    visibility: AppVisibility = .live
+    visibility: AppVisibility = .live,
+    reducesMotion: @escaping @MainActor () -> Bool = {
+      NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
   ) {
     self.panel = ThoughtsPanel(content: content)
+    self.reducesMotion = reducesMotion
     self.preferences = preferences
     self.visibility = visibility
     self.screens = screens
@@ -94,6 +99,7 @@ final class PanelController {
   }
 
   var frame: CGRect { panel.frame }
+  var isVisible: Bool { panel.isVisible }
   var edge: PanelEdge { preferences.edge }
 
   var isShown: Bool { panel.isVisible && !hiding }
@@ -175,10 +181,11 @@ final class PanelController {
       in: visible ?? screenUnderPointer().visibleFrame, edge: preferences.edge)
     restingFrame = target
     if reduceMotion {
-      panel.setFrame(target, display: false)
+      panel.setFrameAtOnce(target, display: false)
       panel.alphaValue = 0
     } else {
-      panel.setFrame(Self.offscreenFrame(from: target, edge: preferences.edge), display: false)
+      panel.setFrameAtOnce(
+        Self.offscreenFrame(from: target, edge: preferences.edge), display: false)
       panel.alphaValue = 0
     }
     visibility.revealBeforeOrderingFront()
@@ -263,16 +270,14 @@ final class PanelController {
     transition += 1
     restingFrame = target
     if reduceMotion {
-      panel.setFrame(target, display: true)
+      panel.setFrameAtOnce(target, display: true)
     } else {
       animate(frame: target, alpha: 1, completion: nil)
     }
     onEdgeMove?()
   }
 
-  private var reduceMotion: Bool {
-    NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-  }
+  private var reduceMotion: Bool { reducesMotion() }
 
   private func resignedKey() {
     guard isShown else { return }

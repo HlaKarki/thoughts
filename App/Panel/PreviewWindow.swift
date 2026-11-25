@@ -122,7 +122,7 @@ final class PreviewWindowController {
     if animated, !wasHidden, !reduceMotion {
       slide(to: placed.frame)
     } else {
-      panel.setFrame(placed.frame, display: true)
+      panel.setFrameAtOnce(placed.frame, display: true)
     }
     if wasHidden { panel.alphaValue = 0 }
     visibility.revealBeforeOrderingFront()

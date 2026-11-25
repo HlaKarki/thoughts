@@ -21,7 +21,7 @@ struct LiveEdgeTests {
     private(set) var willHide = 0
     private(set) var moves = 0
 
-    init(edge: PanelEdge) throws {
+    init(edge: PanelEdge, reducesMotion: Bool = false) throws {
       fixture = try ListFixture()
       shot = try fixture.addScreenshot(
         note: "Rename fetchUser before the PR", daysAgo: 0.3,
@@ -38,7 +38,8 @@ struct LiveEdgeTests {
       )
       hosting.sizingOptions = []
       let controller = PanelController(
-        content: hosting, preferences: preferences, screens: { [screen] })
+        content: hosting, preferences: preferences, screens: { [screen] },
+        reducesMotion: { reducesMotion })
       self.controller = controller
       preview = PreviewWindowController(
         list: fixture.model,
@@ -229,5 +230,29 @@ struct LiveEdgeTests {
     #expect(
       await PanelHarness.waitUntil { rig.controller.frame == gone },
       "the panel left to \(rig.controller.frame)")
+  }
+
+  @Test func withReduceMotionTheNextHideFadesInPlaceAtTheNewEdge() async throws {
+    let rig = try Rig(edge: .right, reducesMotion: true)
+    rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
+    #expect(await PanelHarness.waitUntil { rig.controller.frame == rig.panelFrame(.right) })
+    rig.preferences.edge = .left
+    #expect(await PanelHarness.waitUntil { rig.controller.frame == rig.panelFrame(.left) })
+    rig.controller.hide()
+    #expect(await PanelHarness.waitUntil { !rig.controller.isVisible })
+    #expect(rig.controller.frame == rig.panelFrame(.left))
+  }
+
+  @Test func withReduceMotionAnEdgeChangeRightAfterAShowIsNotUndoneByTheFadeIn() async throws {
+    let rig = try Rig(edge: .right, reducesMotion: true)
+    rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
+    rig.preferences.edge = .left
+    try? await Task.sleep(for: .milliseconds(400))
+    #expect(
+      rig.controller.frame == rig.panelFrame(.left),
+      "the panel ended at \(rig.controller.frame)")
+    #expect(rig.controller.restingFrame == rig.panelFrame(.left))
+    rig.controller.hide()
+    #expect(await PanelHarness.waitUntil { !rig.controller.isVisible })
   }
 }
