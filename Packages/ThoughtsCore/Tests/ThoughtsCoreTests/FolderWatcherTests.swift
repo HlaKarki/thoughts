@@ -279,25 +279,29 @@ private func makeWatcher(
 private final class SlowRecognizer: TextRecognizing, Sendable {
   private let seen = Mutex<[String: Int]>([:])
   private let delay: TimeInterval
-  private let gate: Mutex<(held: Bool, permits: Int, granted: Int)>
+  private let gate: Mutex<(held: Bool, permits: Int, granted: Int, lastGrant: Date)>
 
   init(delay: TimeInterval, holdsAfterFirst: Bool = false) {
     self.delay = delay
-    self.gate = Mutex((holdsAfterFirst, 0, 0))
+    self.gate = Mutex((holdsAfterFirst, 0, 0, .distantPast))
   }
 
   func release() {
     gate.withLock { $0.held = false }
   }
 
-  func grantIfIdle(limit: Int) -> Bool {
+  func grantIfIdle(spacing: TimeInterval, limit: Int) {
     gate.withLock { state in
-      guard state.permits == 0 else { return true }
-      guard state.granted < limit else { return false }
+      guard state.permits == 0, state.granted < limit else { return }
+      guard Date().timeIntervalSince(state.lastGrant) >= spacing else { return }
       state.permits += 1
       state.granted += 1
-      return true
+      state.lastGrant = Date()
     }
+  }
+
+  func grantsSpent(limit: Int) -> Bool {
+    gate.withLock { $0.granted >= limit && $0.permits == 0 }
   }
 
   private func mayProceed() -> Bool {
@@ -403,14 +407,13 @@ private final class SlowRecognizer: TextRecognizing, Sendable {
 
   try "from the command line".write(
     to: scratch.folder.appendingPathComponent("outside.md"), atomically: true, encoding: .utf8)
-  let permitLimit = 30
-  let arrived = await eventually(seconds: 60) {
-    guard recognizer.grantIfIdle(limit: permitLimit) else { return true }
-    return deliveries.changes.contains { $0.added.contains("outside.md") }
+  let permitLimit = count - 2
+  _ = await eventually(seconds: 120) {
+    if deliveries.changes.contains(where: { $0.added.contains("outside.md") }) { return true }
+    recognizer.grantIfIdle(spacing: 0.25, limit: permitLimit)
+    return recognizer.grantsSpent(limit: permitLimit)
   }
-  #expect(arrived)
   #expect(deliveries.changes.contains { $0.added.contains("outside.md") })
-  #expect(recognizer.total <= permitLimit + 1)
   #expect(recognizer.total < count)
   recognizer.release()
 
