@@ -55,6 +55,7 @@ final class EdgeChipPanel {
   private(set) var isShown = false
   private(set) var shownFrame: CGRect?
   var windowFrame: CGRect { window.frame }
+  var windowAlpha: CGFloat { window.alphaValue }
 
   init(
     edge: @escaping () -> PanelEdge,

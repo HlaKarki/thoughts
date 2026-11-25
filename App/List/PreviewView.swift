@@ -32,6 +32,7 @@ struct PreviewHost: View {
   let list: ListModel
   var layout = PreviewCardLayout.full
   var size: CGSize?
+  var onImage: @MainActor (URL) -> Void = { _ in }
   @State private var image: CGImage?
 
   var body: some View {
@@ -42,6 +43,7 @@ struct PreviewHost: View {
             image = nil
             guard let url = thought.imageFileURL else { return }
             image = await PreviewImageLoader.load(url)
+            if image != nil { onImage(url) }
           }
       }
     }

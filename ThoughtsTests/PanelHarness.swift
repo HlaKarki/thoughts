@@ -407,6 +407,17 @@ final class PanelHarness {
     #expect(foreignKeys == 0, "keys from outside the harness reached \(host)")
   }
 
+  static func waitUntil(within limit: Duration = .seconds(5), _ condition: () -> Bool) async
+    -> Bool
+  {
+    let deadline = ContinuousClock.now + limit
+    while !condition() {
+      guard ContinuousClock.now < deadline else { return false }
+      try? await Task.sleep(for: .milliseconds(10))
+    }
+    return true
+  }
+
   static func ownWindowsOnScreens() -> [CGRect] {
     let pid = ProcessInfo.processInfo.processIdentifier
     var count: UInt32 = 0

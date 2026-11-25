@@ -32,23 +32,27 @@ struct ChipPlacementTests {
     let (size, edge, dock) = (screen.size, screen.edge, screen.dock)
     let visible = Self.visible(size, dock: dock)
     let panel = PanelController.frame(in: visible, edge: edge)
+    let computed = EdgeChipPanel.frames(
+      size: ChipSurface<EmptyView>.size, visible: visible, edge: edge)
     for onClick in [nil, {}] as [(() -> Void)?] {
       let chip = EdgeChipPanel(
         edge: { edge }, shownPanelFrame: { panel }, visibleFrame: { _ in visible },
         orderFront: { _ in })
       chip.show(HintChipView(kind: .nothingToSave), onClick: onClick)
-      try await Task.sleep(for: .milliseconds(350))
+      #expect(
+        await PanelHarness.waitUntil {
+          chip.windowAlpha == 1 && chip.windowFrame == computed.window
+        }, "the chip never slid in to \(computed.window)")
       let frame = chip.windowFrame
       let shown = try #require(chip.shownFrame)
       #expect(visible.contains(frame), "\(size) dock \(dock) \(edge): \(frame) left \(visible)")
       #expect(!frame.intersects(panel), "\(size) dock \(dock) \(edge): \(frame) covers \(panel)")
       #expect(frame.contains(shown))
       #expect(shown.size == ChipSurface<EmptyView>.size)
-      let computed = EdgeChipPanel.frames(size: shown.size, visible: visible, edge: edge)
       #expect(frame == computed.window)
       #expect(shown == computed.chip)
       chip.hide()
-      try await Task.sleep(for: .milliseconds(300))
+      #expect(await PanelHarness.waitUntil { chip.windowAlpha == 0 }, "the chip never faded out")
     }
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }

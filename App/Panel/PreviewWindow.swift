@@ -53,6 +53,9 @@ final class PreviewWindowController {
   }
 
   var frame: CGRect { panel.frame }
+  var alpha: CGFloat { panel.alphaValue }
+  var isVisible: Bool { panel.isVisible }
+  private(set) var loadedImage: URL?
 
   static func visibleFrame(
     for panel: CGRect, among screens: [(frame: CGRect, visible: CGRect)]
@@ -119,7 +122,9 @@ final class PreviewWindowController {
     let placed = Self.placement(beside: anchor.frame, edge: anchor.edge, in: visible) {
       Self.height(of: thought, layout: $0)
     }
-    hosting.rootView = PreviewHost(list: list, layout: placed.layout, size: placed.frame.size)
+    hosting.rootView = PreviewHost(list: list, layout: placed.layout, size: placed.frame.size) {
+      [weak self] in self?.loadedImage = $0
+    }
     transition += 1
     let wasHidden = !panel.isVisible
     panel.setFrame(placed.frame, display: true)

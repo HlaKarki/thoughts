@@ -32,7 +32,7 @@ struct PreviewPlacementTests {
     fixture.model.select(thought.file.lastPathComponent, extend: false)
     fixture.model.perform(.preview)
     #expect(fixture.model.isPreviewing)
-    try await Task.sleep(for: .milliseconds(400))
+    #expect(await PanelHarness.waitUntil { preview.alpha == 1 }, "the preview never faded in")
     return preview
   }
 
@@ -47,7 +47,7 @@ struct PreviewPlacementTests {
 
   static func close(_ preview: PreviewWindowController, _ fixture: ListFixture) async throws {
     fixture.model.perform(.preview)
-    try await Task.sleep(for: .milliseconds(300))
+    #expect(await PanelHarness.waitUntil { !preview.isVisible }, "the preview never hid")
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
@@ -72,8 +72,11 @@ struct PreviewPlacementTests {
     #expect(
       frame
         == (try Self.expected(for: anchor, edge: .right, in: screen.visible, fixture: fixture)))
-    try await Task.sleep(for: .milliseconds(600))
-    #expect(preview.frame == frame, "the preview moved after its image loaded")
+    let image = try #require(fixture.model.previewThought?.imageFileURL)
+    try #require(
+      await PanelHarness.waitUntil { preview.loadedImage == image }, "the image never loaded")
+    let moved = await PanelHarness.waitUntil(within: .milliseconds(500)) { preview.frame != frame }
+    #expect(!moved, "the preview moved to \(preview.frame) after its image loaded")
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
     try await Self.close(preview, fixture)
   }
@@ -114,7 +117,8 @@ struct PreviewPlacementTests {
     _ = try fixture.store.setDone(true, for: shot.id, at: ListFixture.now)
     try fixture.reload()
     #expect(fixture.model.previewThought?.done != nil)
-    try await Task.sleep(for: .milliseconds(400))
+    let target = try Self.expected(for: anchor, edge: .right, in: screen.visible, fixture: fixture)
+    #expect(await PanelHarness.waitUntil { preview.frame == target }, "the preview never grew")
     let after = preview.frame
     #expect(after.height > before.height)
     #expect(
