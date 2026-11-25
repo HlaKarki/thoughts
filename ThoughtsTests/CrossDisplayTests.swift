@@ -181,4 +181,32 @@ struct CrossDisplayTests {
     #expect(moved.last?.alpha == 1)
     await rig.finish()
   }
+
+  @Test(arguments: [false, true])
+  func thePreviewFollowsThePanelToTheOtherDisplayWithoutCrossing(_ reducesMotion: Bool)
+    async throws
+  {
+    let displays = Self.hlasDisplays()
+    let rig = try Rig(edge: .left, reducesMotion: reducesMotion, screens: displays)
+    rig.controller.show(inVisible: displays[0].visible, makeKey: false)
+    #expect(await PanelHarness.waitUntil { Self.near(rig.controller.frame, rig.panelFrame(.left)) })
+    rig.fixture.model.select(rig.shot.file.lastPathComponent, extend: false)
+    rig.fixture.model.perform(.preview)
+    let start = try rig.previewFrame(.left)
+    #expect(
+      await PanelHarness.waitUntil { Self.near(rig.preview.frame, start) && rig.preview.alpha == 1 }
+    )
+    let panel = PanelController.frame(in: displays[1].visible, edge: .left)
+    let target = try PreviewPlacementTests.expected(
+      for: panel, edge: .left, in: displays[1].visible, fixture: rig.fixture)
+    rig.controller.show(inVisible: displays[1].visible, makeKey: true)
+    let moved = await Self.samples(
+      { (rig.preview.frame, rig.preview.alpha) }, for: .milliseconds(350))
+    #expect(
+      moved.allSatisfy { Self.near($0.frame, start) || Self.near($0.frame, target) },
+      "the preview crossed: \(moved.map(\.frame))")
+    #expect(Self.near(moved.last?.frame, target))
+    #expect(moved.last?.alpha == 1)
+    await rig.finish()
+  }
 }

@@ -82,7 +82,7 @@ struct LiveEdgeTests {
         anchor: {
           controller.isShown ? (controller.restingFrame ?? controller.frame, controller.edge) : nil
         },
-        screens: { displays.list })
+        screens: { displays.list }, reducesMotion: { reducesMotion })
       chip = EdgeChipPanel(
         edge: { controller.edge },
         shownPanelFrame: { controller.isShown ? controller.restingFrame : nil },

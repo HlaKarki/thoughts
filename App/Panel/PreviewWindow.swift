@@ -36,12 +36,16 @@ final class PreviewWindowController {
   private let anchor: () -> (frame: CGRect, edge: PanelEdge)?
   private let screens: @MainActor () -> [ScreenFrames]
   private let visibility: AppVisibility
+  private let reducesMotion: @MainActor () -> Bool
   private var transition = 0
 
   init(
     list: ListModel, anchor: @escaping () -> (frame: CGRect, edge: PanelEdge)?,
     screens: @escaping @MainActor () -> [ScreenFrames] = ScreenList.live,
-    visibility: AppVisibility = .live
+    visibility: AppVisibility = .live,
+    reducesMotion: @escaping @MainActor () -> Bool = {
+      NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
   ) {
     let hosting = NSHostingView(rootView: PreviewHost(list: list))
     hosting.sizingOptions = []
@@ -51,6 +55,7 @@ final class PreviewWindowController {
     self.anchor = anchor
     self.screens = screens
     self.visibility = visibility
+    self.reducesMotion = reducesMotion
   }
 
   var frame: CGRect { panel.frame }
@@ -119,12 +124,15 @@ final class PreviewWindowController {
     }
     transition += 1
     let wasHidden = !panel.isVisible
-    if animated, !wasHidden, !reduceMotion {
+    let crosses =
+      !wasHidden
+      && ScreenList.movesOntoAnotherScreen(from: panel.frame, to: placed.frame, among: screens())
+    if animated, !wasHidden, !crosses, !reduceMotion {
       slide(to: placed.frame)
     } else {
       panel.setFrameAtOnce(placed.frame, display: true)
     }
-    if wasHidden { panel.alphaValue = 0 }
+    if wasHidden || crosses { panel.alphaValue = 0 }
     visibility.revealBeforeOrderingFront()
     panel.orderFront(nil)
     if panel.alphaValue < 1 { fade(to: 1, completion: nil) }
@@ -154,9 +162,7 @@ final class PreviewWindowController {
     }
   }
 
-  private var reduceMotion: Bool {
-    NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-  }
+  private var reduceMotion: Bool { reducesMotion() }
 
   private func slide(to frame: CGRect) {
     NSAnimationContext.runAnimationGroup { context in
