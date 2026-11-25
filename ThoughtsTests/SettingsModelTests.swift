@@ -94,6 +94,17 @@ struct StorageMoverTests {
 
 @MainActor
 struct SettingsModelTests {
+  @Test func openPrivacyAndSecurityGoesStraightToPasteFromOtherApps() throws {
+    let system = FakeSystem()
+    let model = try SettingsFixtures.settings(
+      system: system, preferences: SettingsFixtures.preferences())
+    model.openClipboardSettings()
+    #expect(
+      system.opened.map(\.absoluteString) == [
+        "x-apple.systempreferences:com.apple.preference.security?Privacy_Pasteboard"
+      ])
+  }
+
   @Test func addedFoldersSkipDuplicatesOfTheScreenshotLocation() async throws {
     let system = FakeSystem()
     let model = try SettingsFixtures.settings(

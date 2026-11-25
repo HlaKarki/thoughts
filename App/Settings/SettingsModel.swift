@@ -78,7 +78,7 @@ final class SettingsModel {
   }
 
   func openClipboardSettings() {
-    services.open(SystemServices.privacyPane)
+    services.open(SystemServices.pasteboardPane)
   }
 
   func showStorageInFinder() {

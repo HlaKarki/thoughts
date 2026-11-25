@@ -4,7 +4,8 @@ import ApplicationServices
 struct SystemServices: Sendable {
   static let accessibilityPane = URL(
     string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-  static let privacyPane = URL(string: "x-apple.systempreferences:com.apple.preference.security")!
+  static let pasteboardPane = URL(
+    string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Pasteboard")!
 
   var accessibilityTrusted: @MainActor () -> Bool
   var requestAccessibility: @MainActor () -> Void
