@@ -217,7 +217,7 @@ struct PanelPlacementTests {
     }
   }
 
-  @Test func onHlasTwoDisplaysAPanelSlidesOnlyThroughAnEdgeWithNoDisplayBeyondIt() {
+  @Test func besideALowerLaptopDisplayAPanelSlidesOnlyThroughAnEdgeWithNoDisplayBeyondIt() {
     let external = Self.external
     let builtIn = Self.builtIn
     let both = [external, builtIn]
@@ -259,7 +259,7 @@ struct PanelPlacementTests {
     #expect(Self.slides(.start, .end, on: main, among: screens) == [.left, .left])
   }
 
-  @Test func onHlasTwoDisplaysAChipSlidesUnlessItsSlidFrameTouchesTheOtherDisplay() {
+  @Test func besideALowerLaptopDisplayAChipSlidesUnlessItsSlidFrameTouchesTheOtherDisplay() {
     let both = [Self.external, Self.builtIn]
     let size = ChipSurface<EmptyView>.size
     func slides(_ edge: PanelEdge, on screen: ScreenFrames) -> Bool {

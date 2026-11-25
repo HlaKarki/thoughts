@@ -11,7 +11,7 @@ struct CrossDisplayTests {
   typealias Rig = LiveEdgeTests.Rig
   typealias Sample = (frame: CGRect, alpha: CGFloat)
 
-  static func hlasDisplays(builtInFirst: Bool = false) -> [ScreenFrames] {
+  static func aWideDisplayBesideALowerLaptop(builtInFirst: Bool = false) -> [ScreenFrames] {
     let union = NSScreen.screens.map(\.frame).reduce(CGRect.null) { $0.union($1) }
     let shift = union.maxX + 4000
     let both: [ScreenFrames] = [PanelPlacementTests.external, PanelPlacementTests.builtIn].map {
@@ -47,11 +47,12 @@ struct CrossDisplayTests {
   }
 
   @Test(arguments: [false, true], [PanelEdge.right, .left])
-  func onHlasDisplaysThePanelFadesInPlaceAtTheSharedEdgeAndSlidesAtAnOuterEdge(
+  func besideALowerLaptopDisplayThePanelFadesInPlaceAtTheSharedEdgeAndSlidesAtAnOuterEdge(
     _ onBuiltIn: Bool, _ edge: PanelEdge
   ) async throws {
     let rig = try Rig(
-      edge: edge, reducesMotion: false, screens: Self.hlasDisplays(builtInFirst: onBuiltIn))
+      edge: edge, reducesMotion: false,
+      screens: Self.aWideDisplayBesideALowerLaptop(builtInFirst: onBuiltIn))
     let fades = onBuiltIn == (edge == .left)
     let target = rig.panelFrame(edge)
     let gone = PanelController.offscreenFrame(from: target, edge: edge)
@@ -79,11 +80,12 @@ struct CrossDisplayTests {
   }
 
   @Test(arguments: [false, true], [PanelEdge.right, .left])
-  func withReduceMotionThePanelFadesAtEveryEdgeOfHlasDisplays(
+  func withReduceMotionThePanelFadesAtEveryEdgeOfAWideDisplayBesideALowerLaptop(
     _ onBuiltIn: Bool, _ edge: PanelEdge
   ) async throws {
     let rig = try Rig(
-      edge: edge, reducesMotion: true, screens: Self.hlasDisplays(builtInFirst: onBuiltIn))
+      edge: edge, reducesMotion: true,
+      screens: Self.aWideDisplayBesideALowerLaptop(builtInFirst: onBuiltIn))
     let target = rig.panelFrame(edge)
     rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
     let shown = await Self.panel(rig)
@@ -100,7 +102,7 @@ struct CrossDisplayTests {
   func aShownPanelCalledToTheOtherDisplayFadesInThereWithoutCrossing(_ reducesMotion: Bool)
     async throws
   {
-    let displays = Self.hlasDisplays()
+    let displays = Self.aWideDisplayBesideALowerLaptop()
     let rig = try Rig(edge: .left, reducesMotion: reducesMotion, screens: displays)
     let start = rig.panelFrame(.left)
     rig.controller.show(inVisible: displays[0].visible, makeKey: false)
@@ -130,11 +132,12 @@ struct CrossDisplayTests {
   }
 
   @Test(arguments: [false, true], [PanelEdge.right, .left])
-  func onHlasDisplaysAChipFadesInPlaceOnlyWhereItsSlideWouldTouchTheOtherDisplay(
+  func besideALowerLaptopDisplayAChipFadesInPlaceOnlyWhereItsSlideWouldTouchTheOtherDisplay(
     _ onBuiltIn: Bool, _ edge: PanelEdge
   ) async throws {
     let rig = try Rig(
-      edge: edge, reducesMotion: false, screens: Self.hlasDisplays(builtInFirst: onBuiltIn))
+      edge: edge, reducesMotion: false,
+      screens: Self.aWideDisplayBesideALowerLaptop(builtInFirst: onBuiltIn))
     let fades = onBuiltIn && edge == .left
     let target = rig.chipFrames(edge).window
     rig.chip.show(HintChipView(kind: .nothingToSave))
@@ -160,7 +163,7 @@ struct CrossDisplayTests {
 
   @Test(arguments: [false, true])
   func aChipFollowsThePanelToTheOtherDisplayWithoutCrossing(_ reducesMotion: Bool) async throws {
-    let displays = Self.hlasDisplays()
+    let displays = Self.aWideDisplayBesideALowerLaptop()
     let rig = try Rig(edge: .left, reducesMotion: reducesMotion, screens: displays)
     rig.controller.show(inVisible: displays[0].visible, makeKey: false)
     #expect(await PanelHarness.waitUntil { Self.near(rig.controller.frame, rig.panelFrame(.left)) })
@@ -186,7 +189,7 @@ struct CrossDisplayTests {
   func thePreviewFollowsThePanelToTheOtherDisplayWithoutCrossing(_ reducesMotion: Bool)
     async throws
   {
-    let displays = Self.hlasDisplays()
+    let displays = Self.aWideDisplayBesideALowerLaptop()
     let rig = try Rig(edge: .left, reducesMotion: reducesMotion, screens: displays)
     rig.controller.show(inVisible: displays[0].visible, makeKey: false)
     #expect(await PanelHarness.waitUntil { Self.near(rig.controller.frame, rig.panelFrame(.left)) })
