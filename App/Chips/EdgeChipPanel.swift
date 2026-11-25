@@ -83,24 +83,28 @@ final class EdgeChipPanel {
     frames(size: size, visible: visible, edge: edge).chip
   }
 
-  static func frames(size: CGSize, visible: CGRect, edge: PanelEdge) -> (
+  static func frames(size: CGSize, visible: CGRect, edge: PanelEdge, panel: CGRect? = nil) -> (
     chip: CGRect, window: CGRect
   ) {
-    let panel = PanelController.frame(in: visible, edge: edge)
+    let panel = panel ?? PanelController.frame(in: visible, edge: edge)
     let atEdge: CGFloat =
       switch edge {
       case .right: visible.maxX - edgeInset - size.width
       case .left: visible.minX + edgeInset
       }
-    var chip = CGRect(
-      x: atEdge, y: visible.minY + bottomInset, width: size.width, height: size.height)
-    if chip.insetBy(dx: -panelGap, dy: -panelGap).intersects(panel) {
-      chip.origin.x =
-        switch edge {
-        case .right: max(panel.minX - panelGap - size.width, visible.minX)
-        case .left: min(panel.maxX + panelGap, visible.maxX - size.width)
-        }
+    let beside: CGFloat =
+      switch edge {
+      case .right: panel.minX - panelGap - size.width
+      case .left: panel.maxX + panelGap
+      }
+    let squeezed = min(max(beside, visible.minX), visible.maxX - size.width)
+    let spots = [atEdge, beside, squeezed].map {
+      CGRect(x: $0, y: visible.minY + bottomInset, width: size.width, height: size.height)
     }
+    let chip =
+      spots.first {
+        visible.contains($0) && !$0.insetBy(dx: -panelGap, dy: -panelGap).intersects(panel)
+      } ?? spots[2]
     let outer = chip.insetBy(dx: -shadowMargin, dy: -shadowMargin).intersection(visible)
     var (minX, maxX, minY, maxY) = (outer.minX, outer.maxX, outer.minY, outer.maxY)
     if chip.maxX <= panel.minX {
@@ -187,10 +191,11 @@ final class EdgeChipPanel {
   }
 
   private func placement() -> (chip: CGRect, window: CGRect) {
-    Self.frames(
-      size: ChipSurface<EmptyView>.size,
-      visible: visibleFrame(Self.screenPoint(panel: shownPanelFrame(), pointer: pointer())),
-      edge: edge())
+    let shown = shownPanelFrame()
+    let visible = visibleFrame(Self.screenPoint(panel: shown, pointer: pointer()))
+    return Self.frames(
+      size: ChipSurface<EmptyView>.size, visible: visible, edge: edge(),
+      panel: shown)
   }
 
   static func screenPoint(panel: CGRect?, pointer: CGPoint) -> CGPoint {
