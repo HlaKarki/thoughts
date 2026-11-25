@@ -270,19 +270,25 @@ private func makeWatcher(
 private final class SlowRecognizer: TextRecognizing, Sendable {
   private let seen = Mutex<[String: Int]>([:])
   private let delay: TimeInterval
-  private let gate: Mutex<(held: Bool, permits: Int)>
+  private let gate: Mutex<(held: Bool, permits: Int, granted: Int)>
 
   init(delay: TimeInterval, holdsAfterFirst: Bool = false) {
     self.delay = delay
-    self.gate = Mutex((holdsAfterFirst, 0))
+    self.gate = Mutex((holdsAfterFirst, 0, 0))
   }
 
   func release() {
     gate.withLock { $0.held = false }
   }
 
-  func grant() {
-    gate.withLock { $0.permits += 1 }
+  func grantIfIdle(limit: Int) -> Bool {
+    gate.withLock { state in
+      guard state.permits == 0 else { return true }
+      guard state.granted < limit else { return false }
+      state.permits += 1
+      state.granted += 1
+      return true
+    }
   }
 
   private func mayProceed() -> Bool {
@@ -388,11 +394,14 @@ private final class SlowRecognizer: TextRecognizing, Sendable {
 
   try "from the command line".write(
     to: scratch.folder.appendingPathComponent("outside.md"), atomically: true, encoding: .utf8)
-  #expect(
-    await eventually(seconds: 20) {
-      recognizer.grant()
-      return deliveries.changes.contains { $0.added.contains("outside.md") }
-    })
+  let permitLimit = 30
+  let arrived = await eventually(seconds: 60) {
+    guard recognizer.grantIfIdle(limit: permitLimit) else { return true }
+    return deliveries.changes.contains { $0.added.contains("outside.md") }
+  }
+  #expect(arrived)
+  #expect(deliveries.changes.contains { $0.added.contains("outside.md") })
+  #expect(recognizer.total <= permitLimit + 1)
   #expect(recognizer.total < count)
   recognizer.release()
 
