@@ -211,6 +211,11 @@ final class ListModel {
     menuRows.place(id, at: frame)
   }
 
+  func listPointerMoved(to point: CGPoint?) {
+    guard isPanelShown else { return }
+    hover.pointerMoved(to: point)
+  }
+
   func menuPointerMoved(to point: CGPoint?) {
     guard isMenuOpen, let id = menuRows.item(at: point),
       let row = menuItems.firstIndex(where: { $0.id == id }), row != menuHighlight
@@ -617,6 +622,7 @@ final class ListModel {
 
   func panelDidShow() {
     isPanelShown = true
+    hover.clear()
     armFeedbackEnd()
     if storageProblem != nil { Task { await retryStorage() } }
   }

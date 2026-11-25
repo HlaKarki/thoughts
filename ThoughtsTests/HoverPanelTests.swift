@@ -204,6 +204,46 @@ struct HoverPanelTests {
     }
   }
 
+  @Test func aPointerMoveDuringTheHideLeavesNoHoverOrMenuHighlightOnTheNextShow() async throws {
+    try await PanelHarness.run { harness in
+      try harness.seed(["one", "two", "three"])
+      try await harness.show()
+      let tracker = try Self.listTracker(harness)
+      let names = harness.list.visible.map(\.fileName)
+      let row = try #require(Self.rowRects(harness)[names[1]])
+      harness.list.panelDidHide()
+      tracker.track(windowPoint: Self.center(row))
+      await harness.settle("after a pointer move during the hide")
+      #expect(harness.list.hoveredRow == nil)
+      #expect(harness.list.hover.row == nil)
+      try await harness.show()
+      #expect(harness.list.hoveredRow == nil)
+      let shown = try #require(Self.rowRects(harness)[names[1]])
+      tracker.track(windowPoint: Self.center(shown))
+      await harness.settle("after a pointer move on the shown panel")
+      #expect(harness.list.hoveredRow == names[1])
+
+      await harness.press(.up)
+      await harness.press(.character("k"), .command)
+      await harness.press(.down)
+      #expect(harness.list.menuHighlight == 1)
+      let menu = try #require(
+        PanelHarness.views(of: PointerTracker.TrackerView.self, in: harness.hosting).min {
+          $0.frame.width < $1.frame.width
+        })
+      let third = menu.convert(CGPoint(x: 100, y: 6 + ActionsMenu.rowHeight * 2 + 15), to: nil)
+      harness.list.panelDidHide()
+      menu.track(windowPoint: third)
+      await harness.settle("after a pointer move over the menu during the hide")
+      #expect(harness.list.menuHighlight == 1)
+      try await harness.show()
+      await harness.press(.up)
+      await harness.press(.character("k"), .command)
+      #expect(harness.list.isMenuOpen)
+      #expect(harness.list.menuHighlight == 0)
+    }
+  }
+
   @Test func movingThePointerOverAMenuRowMovesTheHighlightAndKeysStillMoveIt() async throws {
     try await PanelHarness.run { harness in
       try harness.seed(["one", "two", "three"])

@@ -84,6 +84,34 @@ struct RowHoverTests {
     #expect(model.selection == [names[2]])
   }
 
+  @Test func listReportsCountOnlyWhileThePanelIsShownAndEveryShowStartsClear() throws {
+    let fixture = try ListFixture()
+    try fixture.addText("one", daysAgo: 3)
+    try fixture.addText("two", daysAgo: 2)
+    try fixture.addText("three", daysAgo: 1)
+    try fixture.reload()
+    let model = fixture.model
+    let names = model.visible.map(\.fileName)
+    for (offset, name) in names.enumerated() {
+      model.hover.place(name, at: Self.rows[offset].1)
+    }
+    let pointer = CGPoint(x: 100, y: 60)
+    model.listPointerMoved(to: pointer)
+    #expect(model.hoveredRow == nil)
+    model.panelDidShow()
+    model.listPointerMoved(to: pointer)
+    #expect(model.hoveredRow == names[1])
+    model.panelDidHide()
+    model.listPointerMoved(to: pointer)
+    #expect(model.hoveredRow == nil)
+    model.hover.pointerMoved(to: pointer)
+    #expect(model.hoveredRow == names[1])
+    model.panelDidShow()
+    #expect(model.hoveredRow == nil)
+    model.listPointerMoved(to: pointer)
+    #expect(model.hoveredRow == names[1])
+  }
+
   @Test func theMenuHighlightFollowsPointerMovesAndKeysButNotRowsMovingUnderAStillPointer()
     throws
   {

@@ -95,7 +95,7 @@ struct PanelRootView: View {
       if input.isDropTargeted { DropTargetView().transition(.opacity) }
     }
     .overlay {
-      PointerTracker { list.hover.pointerMoved(to: $0) }
+      PointerTracker { list.listPointerMoved(to: $0) }
         .allowsHitTesting(false)
     }
     .coordinateSpace(.named(RowHover.space))
