@@ -286,28 +286,21 @@ struct LiveEdgeTests {
     await rig.finish()
   }
 
-  @Test func theNextHideLeavesTowardTheNewEdge() async throws {
-    let rig = try Rig(edge: .right)
+  @Test(arguments: [false, true])
+  func thePanelAppearsAndDisappearsAtOnceAtTheNewEdge(_ reducesMotion: Bool) async throws {
+    let rig = try Rig(edge: .right, reducesMotion: reducesMotion)
     rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
-    #expect(await PanelHarness.waitUntil { rig.controller.frame == rig.panelFrame(.right) })
+    #expect(rig.controller.frame == rig.panelFrame(.right))
     rig.preferences.edge = .left
     #expect(await PanelHarness.waitUntil { rig.controller.frame == rig.panelFrame(.left) })
     rig.controller.hide()
-    let gone = PanelController.offscreenFrame(from: rig.panelFrame(.left), edge: .left)
-    #expect(
-      await PanelHarness.waitUntil { rig.controller.frame == gone },
-      "the panel left to \(rig.controller.frame)")
-  }
-
-  @Test func withReduceMotionTheNextHideFadesInPlaceAtTheNewEdge() async throws {
-    let rig = try Rig(edge: .right, reducesMotion: true)
-    rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
-    #expect(await PanelHarness.waitUntil { rig.controller.frame == rig.panelFrame(.right) })
-    rig.preferences.edge = .left
-    #expect(await PanelHarness.waitUntil { rig.controller.frame == rig.panelFrame(.left) })
-    rig.controller.hide()
-    #expect(await PanelHarness.waitUntil { !rig.controller.isVisible })
+    #expect(!rig.controller.isVisible)
     #expect(rig.controller.frame == rig.panelFrame(.left))
+    rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
+    #expect(rig.controller.frame == rig.panelFrame(.left))
+    #expect(rig.controller.panel.alphaValue == 1)
+    rig.controller.hide()
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
   @Test func withReduceMotionAnEdgeChangeRightAfterAShowIsNotUndoneByTheFadeIn() async throws {
@@ -320,6 +313,6 @@ struct LiveEdgeTests {
       "the panel ended at \(rig.controller.frame)")
     #expect(rig.controller.restingFrame == rig.panelFrame(.left))
     rig.controller.hide()
-    #expect(await PanelHarness.waitUntil { !rig.controller.isVisible })
+    #expect(!rig.controller.isVisible)
   }
 }

@@ -38,7 +38,6 @@ final class PreviewWindowController {
   private let visibility: AppVisibility
   private let reducesMotion: @MainActor () -> Bool
   private var transition = 0
-  private var hiding = false
 
   init(
     list: ListModel, anchor: @escaping () -> (frame: CGRect, edge: PanelEdge)?,
@@ -125,8 +124,6 @@ final class PreviewWindowController {
     }
     transition += 1
     let wasHidden = !panel.isVisible
-    let wasHiding = hiding
-    hiding = false
     let crosses =
       !wasHidden
       && ScreenList.movesOntoAnotherScreen(from: panel.frame, to: placed.frame, among: screens())
@@ -135,10 +132,9 @@ final class PreviewWindowController {
     } else {
       panel.setFrameAtOnce(placed.frame, display: true)
     }
-    if wasHidden || crosses { panel.alphaValue = 0 }
+    panel.alphaValue = 1
     visibility.revealBeforeOrderingFront()
     panel.orderFront(nil)
-    if wasHiding || panel.alphaValue < 1 { fade(to: 1, completion: nil) }
     followContent()
   }
 
@@ -157,14 +153,8 @@ final class PreviewWindowController {
 
   func hide() {
     guard panel.isVisible else { return }
-    hiding = true
     transition += 1
-    let current = transition
-    fade(to: 0) { [weak self] in
-      guard let self, self.transition == current else { return }
-      self.hiding = false
-      self.panel.orderOut(nil)
-    }
+    panel.orderOut(nil)
   }
 
   private var reduceMotion: Bool { reducesMotion() }
@@ -175,17 +165,5 @@ final class PreviewWindowController {
       context.timingFunction = CAMediaTimingFunction(name: .easeOut)
       panel.animator().setFrame(frame, display: true)
     }
-  }
-
-  private func fade(to alpha: CGFloat, completion: (@MainActor () -> Void)?) {
-    NSAnimationContext.runAnimationGroup(
-      { context in
-        context.duration = PanelController.duration
-        context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        panel.animator().alphaValue = alpha
-      },
-      completionHandler: {
-        MainActor.assumeIsolated { completion?() }
-      })
   }
 }

@@ -167,31 +167,6 @@ struct PanelPlacementTests {
     #expect(PanelPosition(frame: middle, in: visible).side == nil)
   }
 
-  @Test func onlyAPanelAtASideEdgesInsetSlides() {
-    let visible = Self.screen
-    for edge in [PanelEdge.left, .right] {
-      #expect(
-        PanelController.slideEdge(
-          of: PanelController.frame(in: visible, edge: .left), in: visible, preferring: edge)
-          == .left)
-      #expect(
-        PanelController.slideEdge(
-          of: PanelController.frame(in: visible, edge: .right), in: visible, preferring: edge)
-          == .right)
-      #expect(
-        PanelController.slideEdge(
-          of: Self.at(x: visible.minX + 17, y: 100), in: visible, preferring: edge) == nil)
-      #expect(
-        PanelController.slideEdge(
-          of: Self.at(x: visible.midX, y: visible.minY + 16), in: visible, preferring: edge)
-          == nil)
-    }
-    let narrow = CGRect(x: 0, y: 0, width: 392, height: 800)
-    let both = Self.at(x: 16, y: 100)
-    #expect(PanelController.slideEdge(of: both, in: narrow, preferring: .left) == .left)
-    #expect(PanelController.slideEdge(of: both, in: narrow, preferring: .right) == .right)
-  }
-
   static let external: ScreenFrames = (
     CGRect(x: 0, y: 0, width: 2560, height: 1440), CGRect(x: 0, y: 0, width: 2560, height: 1409)
   )
@@ -199,65 +174,6 @@ struct PanelPlacementTests {
     CGRect(x: 2560, y: 166, width: 1728, height: 1117),
     CGRect(x: 2560, y: 166, width: 1728, height: 1085)
   )
-
-  static func spot(_ x: PanelPosition.Place, _ y: PanelPosition.Place, on screen: ScreenFrames)
-    -> CGRect
-  {
-    PanelPosition(x: x, y: y).frame(
-      size: PanelController.size(in: screen.visible), in: screen.visible)
-  }
-
-  static func slides(
-    _ x: PanelPosition.Place, _ y: PanelPosition.Place, on screen: ScreenFrames,
-    among screens: [ScreenFrames]
-  ) -> [PanelEdge?] {
-    [PanelEdge.left, .right].map {
-      PanelController.slideEdge(
-        of: spot(x, y, on: screen), in: screen.visible, preferring: $0, among: screens)
-    }
-  }
-
-  @Test func besideALowerLaptopDisplayAPanelSlidesOnlyThroughAnEdgeWithNoDisplayBeyondIt() {
-    let external = Self.external
-    let builtIn = Self.builtIn
-    let both = [external, builtIn]
-    #expect(Self.spot(.end, .end, on: external).maxY == 1393)
-    for y: PanelPosition.Place in [.end, .fraction(0.5), .start] {
-      #expect(Self.slides(.end, y, on: external, among: both) == [nil, nil], "\(y)")
-      #expect(Self.slides(.start, y, on: external, among: both) == [.left, .left], "\(y)")
-      #expect(Self.slides(.end, y, on: builtIn, among: both) == [.right, .right], "\(y)")
-      #expect(Self.slides(.start, y, on: builtIn, among: both) == [nil, nil], "\(y)")
-      for alone in both {
-        #expect(Self.slides(.end, y, on: alone, among: [alone]) == [.right, .right])
-        #expect(Self.slides(.start, y, on: alone, among: [alone]) == [.left, .left])
-      }
-    }
-  }
-
-  @Test func aDisplayAboveStopsASideSlideOnlyWhereTheOffscreenFrameTouchesIt() {
-    let main: ScreenFrames = (
-      CGRect(x: 0, y: 0, width: 1728, height: 1117), CGRect(x: 0, y: 0, width: 1728, height: 1080)
-    )
-    let above: ScreenFrames = (
-      CGRect(x: -400, y: 1117, width: 2560, height: 1440),
-      CGRect(x: -400, y: 1117, width: 2560, height: 1409)
-    )
-    for y: PanelPosition.Place in [.end, .fraction(0.5), .start] {
-      #expect(Self.slides(.end, y, on: main, among: [main, above]) == [.right, .right])
-      #expect(Self.slides(.start, y, on: main, among: [main, above]) == [.left, .left])
-    }
-    let aboveRight: ScreenFrames = (
-      CGRect(x: 1728, y: 1000, width: 1920, height: 1080),
-      CGRect(x: 1728, y: 1000, width: 1920, height: 1049)
-    )
-    let screens = [main, above, aboveRight]
-    #expect(Self.spot(.end, .end, on: main).maxY > aboveRight.frame.minY)
-    #expect(Self.slides(.end, .end, on: main, among: screens) == [nil, nil])
-    #expect(Self.spot(.end, .fraction(0.5), on: main).maxY < aboveRight.frame.minY)
-    #expect(Self.slides(.end, .fraction(0.5), on: main, among: screens) == [.right, .right])
-    #expect(Self.slides(.end, .start, on: main, among: screens) == [.right, .right])
-    #expect(Self.slides(.start, .end, on: main, among: screens) == [.left, .left])
-  }
 
   @Test func besideALowerLaptopDisplayAChipSlidesUnlessItsSlidFrameTouchesTheOtherDisplay() {
     let both = [Self.external, Self.builtIn]
@@ -283,23 +199,6 @@ struct PanelPlacementTests {
       .window
     #expect(EdgeChipPanel.slid(window, toward: .right, among: [Self.external, tallBuiltIn]) == nil)
     #expect(EdgeChipPanel.slid(window, toward: .right, among: [Self.external]) != nil)
-  }
-
-  @Test func aPanelAtBothInsetsOfANarrowDisplayLeavesThroughTheOpenSide() {
-    let narrow: ScreenFrames = (
-      CGRect(x: 0, y: 0, width: 392, height: 800), CGRect(x: 0, y: 0, width: 392, height: 800)
-    )
-    let right: ScreenFrames = (
-      CGRect(x: 392, y: 0, width: 1000, height: 800), CGRect(x: 392, y: 0, width: 1000, height: 800)
-    )
-    let left: ScreenFrames = (
-      CGRect(x: -1000, y: 0, width: 1000, height: 800),
-      CGRect(x: -1000, y: 0, width: 1000, height: 800)
-    )
-    #expect(Self.slides(.start, .end, on: narrow, among: [narrow]) == [.left, .right])
-    #expect(Self.slides(.start, .end, on: narrow, among: [narrow, right]) == [.left, .left])
-    #expect(Self.slides(.start, .end, on: narrow, among: [narrow, left]) == [.right, .right])
-    #expect(Self.slides(.start, .end, on: narrow, among: [narrow, left, right]) == [nil, nil])
   }
 
   @Test func choosingAnEdgeMovesAFloatingPanelToThatSideAndKeepsItsTop() {

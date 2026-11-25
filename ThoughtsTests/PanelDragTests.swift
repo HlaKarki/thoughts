@@ -93,7 +93,7 @@ struct PanelDragTests {
   }
 
   @Test(arguments: [false, true])
-  func hideAndShowFadeInPlaceAwayFromASideEdgeAndKeepTheSpot(_ reducesMotion: Bool)
+  func hideAndShowAreAtOnceAwayFromASideEdgeAndKeepTheSpot(_ reducesMotion: Bool)
     async throws
   {
     let rig = try await Self.shown(reducesMotion: reducesMotion)
@@ -101,13 +101,10 @@ struct PanelDragTests {
     let spot = try #require(rig.controller.restingFrame)
     #expect(await PanelHarness.waitUntil { rig.controller.frame == spot })
     rig.controller.hide()
-    let leaving = await Self.samples(rig, for: .milliseconds(300))
-    #expect(leaving.allSatisfy { $0 == spot }, "the hide moved the panel: \(Set(leaving))")
     #expect(!rig.controller.isVisible)
+    #expect(rig.controller.frame == spot)
     rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
-    #expect(rig.controller.panel.alphaValue < 1)
-    let arriving = await Self.samples(rig, for: .milliseconds(300))
-    #expect(arriving.allSatisfy { $0 == spot }, "the show moved the panel: \(Set(arriving))")
+    #expect(rig.controller.frame == spot)
     #expect(rig.controller.panel.alphaValue == 1)
     #expect(rig.controller.restingFrame == spot)
     await Self.finish(rig)
@@ -157,11 +154,6 @@ struct PanelDragTests {
     #expect(rig.controller.restingFrame == expected)
     #expect(rig.preferences.panelPosition == PanelPosition(frame: expected, in: visible))
     #expect(rig.preferences.panelPosition?.x == .start)
-    rig.controller.hide()
-    let gone = PanelController.offscreenFrame(from: expected, edge: .left)
-    #expect(
-      await PanelHarness.waitUntil { rig.controller.frame == gone },
-      "a panel at the left side slides out, it left to \(rig.controller.frame)")
     await Self.finish(rig)
   }
 

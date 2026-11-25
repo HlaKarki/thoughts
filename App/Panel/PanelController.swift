@@ -47,8 +47,6 @@ final class PanelController {
   private let key: WindowKey
   private let screens: @MainActor () -> [ScreenFrames]
   private let reducesMotion: @MainActor () -> Bool
-  private var hiding = false
-  private var transition = 0
   var ownIconInUse: @MainActor () -> Bool = { false }
   private var lostKey = LostKeyTracker()
   var onWillShow: (() -> Void)?
@@ -109,7 +107,7 @@ final class PanelController {
   var isVisible: Bool { panel.isVisible }
   var edge: PanelEdge { preferences.edge }
 
-  var isShown: Bool { panel.isVisible && !hiding }
+  var isShown: Bool { panel.isVisible }
   var isKey: Bool { key.isKey(panel) }
   var keepsOpen: Bool { preferences.keepOpen }
 
@@ -175,22 +173,16 @@ final class PanelController {
     }
     guard let screen = visible ?? screenUnderPointer() else { return }
     onWillShow?()
-    transition += 1
-    hiding = false
     let target = frame(onVisible: screen)
     restingFrame = target
-    let start = slideEdge(of: target, in: screen).map {
-      Self.offscreenFrame(from: target, edge: $0)
-    }
-    panel.setFrameAtOnce(start ?? target, display: false)
-    panel.alphaValue = 0
+    panel.setFrameAtOnce(target, display: false)
+    panel.alphaValue = 1
     visibility.revealBeforeOrderingFront()
     if makeKey {
       key.makeKey(panel)
     } else {
       panel.orderFrontRegardless()
     }
-    animate(frame: target, alpha: 1, completion: nil)
   }
 
   private func refocus(on visible: CGRect?) {
@@ -201,16 +193,9 @@ final class PanelController {
     visibility.revealBeforeOrderingFront()
     key.makeKey(panel)
     guard case .moveAndRefocus(let target) = plan else { return }
-    let from = restingFrame ?? panel.frame
-    transition += 1
     restingFrame = target
-    if ScreenList.movesOntoAnotherScreen(from: from, to: target, among: screens()) {
-      panel.alphaValue = 0
-      panel.setFrameAtOnce(target, display: true)
-      animate(frame: target, alpha: 1, completion: nil)
-    } else {
-      place(target)
-    }
+    panel.setFrameAtOnce(target, display: true)
+    panel.alphaValue = 1
     onMove?()
   }
 
@@ -237,29 +222,16 @@ final class PanelController {
   func hide() {
     guard isShown else { return }
     lostKey.clear()
-    let dragged = panel.cancelDrag()
+    _ = panel.cancelDrag()
     onWillHide?()
-    hiding = true
-    let base = dragged ? panel.frame : restingFrame ?? panel.frame
     restingFrame = nil
-    transition += 1
-    let current = transition
-    let side = ScreenList.visibleFrame(for: base, among: screens()).flatMap {
-      slideEdge(of: base, in: $0)
-    }
-    let target = side.map { Self.offscreenFrame(from: base, edge: $0) } ?? base
-    animate(frame: target, alpha: 0) { [weak self] in
-      guard let self, self.transition == current else { return }
-      self.panel.orderOut(nil)
-      self.hiding = false
-    }
+    panel.orderOut(nil)
   }
 
   private func dragEnded() {
     guard isShown, let visible = ScreenList.visibleFrame(for: panel.frame, among: screens())
     else { return }
     let target = Self.dropped(panel.frame, in: visible)
-    transition += 1
     restingFrame = target
     preferences.panelPosition = PanelPosition(frame: target, in: visible)
     let edge = Self.edge(of: target, in: visible, current: preferences.edge)
@@ -303,7 +275,6 @@ final class PanelController {
 
   private func move(to target: CGRect, from resting: CGRect) {
     guard target != resting else { return }
-    transition += 1
     restingFrame = target
     place(target)
     onMove?()
@@ -313,14 +284,8 @@ final class PanelController {
     if reduceMotion {
       panel.setFrameAtOnce(target, display: true)
     } else {
-      animate(frame: target, alpha: 1, completion: nil)
+      animate(frame: target)
     }
-  }
-
-  private func slideEdge(of frame: CGRect, in visible: CGRect) -> PanelEdge? {
-    reduceMotion
-      ? nil
-      : Self.slideEdge(of: frame, in: visible, preferring: preferences.edge, among: screens())
   }
 
   private var reduceMotion: Bool { reducesMotion() }
@@ -341,16 +306,11 @@ final class PanelController {
     return (list.first { NSMouseInRect(pointer, $0.frame, false) } ?? list.first)?.visible
   }
 
-  private func animate(frame: CGRect, alpha: CGFloat, completion: (@MainActor () -> Void)?) {
-    NSAnimationContext.runAnimationGroup(
-      { context in
-        context.duration = Self.duration
-        context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        panel.animator().setFrame(frame, display: true)
-        panel.animator().alphaValue = alpha
-      },
-      completionHandler: {
-        MainActor.assumeIsolated { completion?() }
-      })
+  private func animate(frame: CGRect) {
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = Self.duration
+      context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+      panel.animator().setFrame(frame, display: true)
+    }
   }
 }

@@ -86,11 +86,6 @@ extension PanelController {
     return position.frame(size: size(in: visible), in: visible)
   }
 
-  static func offscreenFrame(from frame: CGRect, edge: PanelEdge) -> CGRect {
-    let travel = width + edgeInset
-    return frame.offsetBy(dx: edge == .right ? travel : -travel, dy: 0)
-  }
-
   static func dropped(_ frame: CGRect, in visible: CGRect) -> CGRect {
     let size = size(in: visible)
     return CGRect(
@@ -108,30 +103,6 @@ extension PanelController {
 
   static func edge(of frame: CGRect, in visible: CGRect, current: PanelEdge) -> PanelEdge {
     side(of: frame, in: visible) ?? current
-  }
-
-  static func slideEdge(of frame: CGRect, in visible: CGRect, preferring edge: PanelEdge)
-    -> PanelEdge?
-  {
-    let left = abs(frame.minX - (visible.minX + edgeInset)) < 0.5
-    let right = abs(frame.maxX - (visible.maxX - edgeInset)) < 0.5
-    switch (left, right) {
-    case (true, true): return edge
-    case (true, false): return .left
-    case (false, true): return .right
-    case (false, false): return nil
-    }
-  }
-
-  static func slideEdge(
-    of frame: CGRect, in visible: CGRect, preferring edge: PanelEdge,
-    among screens: [ScreenFrames]
-  ) -> PanelEdge? {
-    [edge, edge == .left ? .right : .left].first { side in
-      slideEdge(of: frame, in: visible, preferring: side) == side
-        && !ScreenList.movesOntoAnotherScreen(
-          from: frame, to: offscreenFrame(from: frame, edge: side), among: screens)
-    }
   }
 
   static func moved(_ frame: CGRect, to edge: PanelEdge, in visible: CGRect) -> CGRect {

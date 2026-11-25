@@ -171,6 +171,55 @@ struct PreviewPlacementTests {
     try await Self.close(preview, fixture)
   }
 
+  @Test(arguments: [false, true])
+  func thePreviewAppearsAndDisappearsAtOnce(_ reducesMotion: Bool) throws {
+    let fixture = try ListFixture()
+    defer { withExtendedLifetime(fixture) {} }
+    let shot = try fixture.addScreenshot(note: "note", daysAgo: 0.3)
+    try fixture.reload()
+    let screen = Self.offscreen(CGSize(width: 1728, height: 1117))
+    let anchor = PanelController.frame(in: screen.visible, edge: .right)
+    let preview = PreviewWindowController(
+      list: fixture.model, anchor: { (anchor, .right) }, screens: { [screen] },
+      reducesMotion: { reducesMotion })
+    fixture.model.onPreviewChange = { preview.update(showing: $0) }
+    fixture.model.select(shot.file.lastPathComponent, extend: false)
+    fixture.model.perform(.preview)
+    #expect(preview.isVisible)
+    #expect(preview.alpha == 1)
+    #expect(
+      preview.frame
+        == (try Self.expected(for: anchor, edge: .right, in: screen.visible, fixture: fixture)))
+    fixture.model.perform(.preview)
+    #expect(!preview.isVisible)
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
+  }
+
+  @Test func aShownPreviewStillSlidesToFollowItsPanelOnTheSameDisplay() async throws {
+    let fixture = try ListFixture()
+    defer { withExtendedLifetime(fixture) {} }
+    let shot = try fixture.addScreenshot(note: "note", daysAgo: 0.3)
+    try fixture.reload()
+    let screen = Self.offscreen(CGSize(width: 1728, height: 1117))
+    var edge = PanelEdge.right
+    let preview = PreviewWindowController(
+      list: fixture.model,
+      anchor: { (PanelController.frame(in: screen.visible, edge: edge), edge) },
+      screens: { [screen] }, reducesMotion: { false })
+    fixture.model.onPreviewChange = { preview.update(showing: $0) }
+    fixture.model.select(shot.file.lastPathComponent, extend: false)
+    fixture.model.perform(.preview)
+    edge = .left
+    let target = try Self.expected(
+      for: PanelController.frame(in: screen.visible, edge: .left), edge: .left,
+      in: screen.visible, fixture: fixture)
+    preview.reposition()
+    #expect(preview.frame != target)
+    #expect(await PanelHarness.waitUntil { preview.frame == target })
+    #expect(preview.alpha == 1)
+    try await Self.close(preview, fixture)
+  }
+
   static func height(_ layout: PreviewCardLayout) -> CGFloat {
     layout.mediaHeight + 140
   }
