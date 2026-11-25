@@ -36,7 +36,7 @@ struct LostKeyTracker: Equatable {
 @MainActor
 final class PanelController {
   static let width: CGFloat = 360
-  static let maxHeight: CGFloat = 812
+  static let maxHeight: CGFloat = 640
   static let edgeInset: CGFloat = 16
   static let duration: TimeInterval = 0.2
 

@@ -234,7 +234,8 @@ struct PreviewPlacementTests {
 
   @Test func thePreviewTakesTheOtherSideWhenOnlyThatSideHasRoom() {
     let visible = CGRect(x: 0, y: 0, width: 1440, height: 900)
-    let panel = CGRect(x: 40, y: 44, width: PanelController.width, height: 812)
+    let panel = CGRect(
+      x: 40, y: 44, width: PanelController.width, height: PanelController.maxHeight)
     let frame = Self.placed(panel, .right, visible)
     #expect(frame.minX == panel.maxX + PreviewWindowController.gap)
     #expect(frame.width == PreviewCardLayout.fullWidth)
@@ -263,13 +264,13 @@ struct PreviewPlacementTests {
       visible: CGRect(x: 1728, y: 0, width: 2560, height: 1403)
     )
     let screens = [left, right]
-    let beyond = CGRect(x: 4400, y: 100, width: 360, height: 812)
+    let beyond = CGRect(x: 4400, y: 100, width: 360, height: 640)
     #expect(ScreenList.visibleFrame(for: beyond, among: screens) == right.visible)
-    let below = CGRect(x: 200, y: -2000, width: 360, height: 812)
+    let below = CGRect(x: 200, y: -2000, width: 360, height: 640)
     #expect(ScreenList.visibleFrame(for: below, among: screens) == left.visible)
-    let straddling = CGRect(x: 1500, y: 100, width: 360, height: 812)
+    let straddling = CGRect(x: 1500, y: 100, width: 360, height: 640)
     #expect(ScreenList.visibleFrame(for: straddling, among: screens) == left.visible)
-    let mostlyRight = CGRect(x: 1600, y: 100, width: 360, height: 812)
+    let mostlyRight = CGRect(x: 1600, y: 100, width: 360, height: 640)
     #expect(ScreenList.visibleFrame(for: mostlyRight, among: screens) == right.visible)
     #expect(ScreenList.visibleFrame(for: beyond, among: []) == nil)
     let frame = Self.placed(beyond, .right, right.visible)

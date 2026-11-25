@@ -6,7 +6,7 @@ import Testing
 
 @MainActor
 struct HintChipTests {
-  static let visible = CGRect(x: 0, y: 25, width: 1440, height: 875)
+  static let visible = CGRect(x: 0, y: 25, width: 1312, height: 786)
   static let size = CGSize(width: 300, height: 60)
   static let bottom: CGFloat = 25 + 32
 

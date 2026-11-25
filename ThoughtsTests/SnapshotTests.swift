@@ -6,7 +6,7 @@ import Testing
 
 @MainActor
 struct SnapshotTests {
-  static let panelSize = CGSize(width: 360, height: 812)
+  static let panelSize = CGSize(width: PanelController.width, height: PanelController.maxHeight)
 
   @Test(arguments: [NSAppearance.Name.aqua, .darkAqua])
   func panelChrome(_ appearance: NSAppearance.Name) async throws {

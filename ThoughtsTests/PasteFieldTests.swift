@@ -44,7 +44,7 @@ struct PasteFieldTests {
       received.append($0)
       return true
     }
-    panel.setContentSize(NSSize(width: 360, height: 812))
+    panel.setContentSize(NSSize(width: PanelController.width, height: PanelController.maxHeight))
     hosting.layoutSubtreeIfNeeded()
     let input = try #require(Self.inputFields(in: hosting).first)
     #expect(panel.makeFirstResponder(input))

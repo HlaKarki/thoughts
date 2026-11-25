@@ -21,7 +21,7 @@ struct InputFocusTests {
         preferences: Preferences(defaults: defaults), list: fixture.model, input: fixture.input))
     hosting.sizingOptions = []
     let panel = ThoughtsPanel(content: hosting)
-    panel.setContentSize(NSSize(width: 360, height: 812))
+    panel.setContentSize(NSSize(width: PanelController.width, height: PanelController.maxHeight))
     hosting.layoutSubtreeIfNeeded()
     let field = try #require(PasteFieldTests.inputFields(in: hosting).first)
     return Rig(fixture: fixture, panel: panel, hosting: hosting, field: field)
