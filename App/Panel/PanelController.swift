@@ -248,7 +248,10 @@ final class PanelController {
   private func moveToEdge() {
     guard isShown, let resting = restingFrame,
       let visible = PreviewWindowController.visibleFrame(for: resting, among: screens())
-    else { return }
+    else {
+      onEdgeMove?()
+      return
+    }
     let target = Self.frame(in: visible, edge: preferences.edge)
     guard target != resting else { return }
     transition += 1

@@ -185,13 +185,35 @@ struct LiveEdgeTests {
     rig.preferences.edge = .left
     try? await Task.sleep(for: .milliseconds(400))
     #expect(!rig.controller.isShown)
-    #expect(rig.moves == 0)
     rig.controller.show(inVisible: rig.screen.visible, makeKey: false)
     #expect(
       await PanelHarness.waitUntil { rig.controller.frame == rig.panelFrame(.left) },
       "the panel showed at \(rig.controller.frame)")
     #expect(rig.controller.restingFrame == rig.panelFrame(.left))
     rig.controller.hide()
+    try? await Task.sleep(for: .milliseconds(400))
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
+  }
+
+  @Test(arguments: [PanelEdge.right, .left])
+  func aChipShownWhileThePanelIsHiddenFollowsTheEdge(_ start: PanelEdge) async throws {
+    let rig = try Rig(edge: start)
+    let other: PanelEdge = start == .right ? .left : .right
+    rig.chip.show(HintChipView(kind: .nothingToSave))
+    #expect(
+      await PanelHarness.waitUntil {
+        rig.chip.windowAlpha == 1 && rig.chip.windowFrame == rig.chipFrames(start).window
+      }, "the chip never settled at \(start)")
+    #expect(!rig.controller.isShown)
+    rig.preferences.edge = other
+    let target = rig.chipFrames(other)
+    #expect(
+      await PanelHarness.waitUntil {
+        rig.chip.windowFrame == target.window && rig.chip.windowAlpha == 1
+      }, "the chip stayed at \(rig.chip.windowFrame)")
+    #expect(rig.chip.shownFrame == target.chip)
+    #expect(!rig.controller.isShown)
+    rig.chip.hide()
     try? await Task.sleep(for: .milliseconds(400))
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
