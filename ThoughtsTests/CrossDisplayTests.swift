@@ -95,4 +95,33 @@ struct CrossDisplayTests {
     #expect(!rig.controller.isVisible)
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
+
+  @Test(arguments: [false, true])
+  func aShownPanelCalledToTheOtherDisplayFadesInThereWithoutCrossing(_ reducesMotion: Bool)
+    async throws
+  {
+    let displays = Self.hlasDisplays()
+    let rig = try Rig(edge: .left, reducesMotion: reducesMotion, screens: displays)
+    let start = rig.panelFrame(.left)
+    rig.controller.show(inVisible: displays[0].visible, makeKey: false)
+    #expect(await PanelHarness.waitUntil { Self.near(rig.controller.frame, start) })
+    #expect(await PanelHarness.waitUntil { rig.controller.panel.alphaValue == 1 })
+    let moves = rig.moves
+    let target = PanelController.frame(in: displays[1].visible, edge: .left)
+    rig.controller.show(inVisible: displays[1].visible, makeKey: true)
+    let moved = await Self.panel(rig)
+    #expect(rig.key.made == 1)
+    #expect(rig.controller.isKey)
+    #expect(
+      moved.allSatisfy { Self.near($0.frame, start) || Self.near($0.frame, target) },
+      "the panel crossed: \(moved.map(\.frame))")
+    #expect(Self.near(moved.last?.frame, target))
+    #expect(moved.last?.alpha == 1)
+    #expect(moved.contains { $0.alpha < 1 })
+    #expect(rig.controller.restingFrame == target)
+    #expect(rig.moves == moves + 1)
+    rig.controller.hide()
+    #expect(await PanelHarness.waitUntil { !rig.controller.isVisible })
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
+  }
 }

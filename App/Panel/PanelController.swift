@@ -44,6 +44,7 @@ final class PanelController {
   let panel: ThoughtsPanel
   private let preferences: Preferences
   private let visibility: AppVisibility
+  private let key: WindowKey
   private let screens: @MainActor () -> [ScreenFrames]
   private let reducesMotion: @MainActor () -> Bool
   private var hiding = false
@@ -59,6 +60,7 @@ final class PanelController {
     content: NSView, preferences: Preferences,
     screens: @escaping @MainActor () -> [ScreenFrames] = ScreenList.live,
     visibility: AppVisibility = .live,
+    key: WindowKey = .live,
     reducesMotion: @escaping @MainActor () -> Bool = {
       NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
@@ -67,6 +69,7 @@ final class PanelController {
     self.reducesMotion = reducesMotion
     self.preferences = preferences
     self.visibility = visibility
+    self.key = key
     self.screens = screens
     panel.onCancel = { [weak self] in self?.hide() }
     panel.onDragStart = { [weak self] in self?.isShown == true }
@@ -106,6 +109,7 @@ final class PanelController {
   var edge: PanelEdge { preferences.edge }
 
   var isShown: Bool { panel.isVisible && !hiding }
+  var isKey: Bool { key.isKey(panel) }
 
   func frame(onVisible visible: CGRect) -> CGRect {
     Self.frame(in: visible, edge: preferences.edge, position: preferences.panelPosition)
@@ -158,7 +162,7 @@ final class PanelController {
 
   func makeKey() {
     visibility.revealBeforeOrderingFront()
-    panel.makeKeyAndOrderFront(nil)
+    key.makeKey(panel)
   }
 
   private func present(makeKey: Bool, visible: CGRect?) {
@@ -180,7 +184,7 @@ final class PanelController {
     panel.alphaValue = 0
     visibility.revealBeforeOrderingFront()
     if makeKey {
-      panel.makeKeyAndOrderFront(nil)
+      key.makeKey(panel)
     } else {
       panel.orderFrontRegardless()
     }
@@ -193,15 +197,24 @@ final class PanelController {
       position: preferences.panelPosition)
     onWillShow?()
     visibility.revealBeforeOrderingFront()
-    panel.makeKeyAndOrderFront(nil)
+    key.makeKey(panel)
     guard case .moveAndRefocus(let target) = plan else { return }
+    let from = restingFrame ?? panel.frame
+    transition += 1
     restingFrame = target
-    animate(frame: target, alpha: 1, completion: nil)
+    if ScreenList.movesOntoAnotherScreen(from: from, to: target, among: screens()) {
+      panel.alphaValue = 0
+      panel.setFrameAtOnce(target, display: true)
+      animate(frame: target, alpha: 1, completion: nil)
+    } else {
+      place(target)
+    }
+    onMove?()
   }
 
   func ownMenuOpened() {
     lostKey.menuOpened(
-      event: Self.mouseEventNumber(NSApp.currentEvent), isShown: isShown, isKey: panel.isKeyWindow)
+      event: Self.mouseEventNumber(NSApp.currentEvent), isShown: isShown, isKey: isKey)
   }
 
   func ownMenuClosed(_ pick: MenuPick) {
@@ -214,7 +227,7 @@ final class PanelController {
     case .none: break
     case .restoreKey:
       visibility.revealBeforeOrderingFront()
-      panel.makeKeyAndOrderFront(nil)
+      key.makeKey(panel)
     case .hide: hide()
     }
   }

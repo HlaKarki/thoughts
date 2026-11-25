@@ -22,12 +22,29 @@ struct LiveEdgeTests {
   }
 
   @MainActor
+  final class FakeKey {
+    weak var window: NSWindow?
+    private(set) var made = 0
+
+    var seam: WindowKey {
+      WindowKey(
+        isKey: { [unowned self] in window === $0 },
+        makeKey: { [unowned self] in
+          made += 1
+          window = $0
+          $0.orderFrontRegardless()
+        })
+    }
+  }
+
+  @MainActor
   final class Rig {
     let fixture: ListFixture
     let preferences: Preferences
     let defaults: UserDefaults
     let screen: (frame: CGRect, visible: CGRect)
     let displays: Displays
+    let key = FakeKey()
     let controller: PanelController
     let preview: PreviewWindowController
     let chip: EdgeChipPanel
@@ -57,7 +74,7 @@ struct LiveEdgeTests {
       )
       hosting.sizingOptions = []
       let controller = PanelController(
-        content: hosting, preferences: preferences, screens: { displays.list },
+        content: hosting, preferences: preferences, screens: { displays.list }, key: key.seam,
         reducesMotion: { reducesMotion })
       self.controller = controller
       preview = PreviewWindowController(
