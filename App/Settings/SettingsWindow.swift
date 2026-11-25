@@ -8,8 +8,10 @@ final class SettingsWindowController {
   private var window: NSWindow?
   private var model: SettingsModel?
   private let makeModel: @MainActor () -> SettingsModel
+  private let visibility: AppVisibility
 
-  init(makeModel: @escaping @MainActor () -> SettingsModel) {
+  init(visibility: AppVisibility = .live, makeModel: @escaping @MainActor () -> SettingsModel) {
+    self.visibility = visibility
     self.makeModel = makeModel
   }
 
@@ -20,6 +22,7 @@ final class SettingsWindowController {
     let window = self.window ?? makeWindow(model: model)
     self.window = window
     NSApp.activate()
+    visibility.revealBeforeOrderingFront()
     window.makeKeyAndOrderFront(nil)
   }
 

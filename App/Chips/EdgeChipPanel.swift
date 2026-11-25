@@ -50,6 +50,7 @@ final class EdgeChipPanel {
   private let pointer: @MainActor () -> CGPoint
   private let visibleFrame: @MainActor (CGPoint) -> CGRect
   private let orderFront: @MainActor (NSWindow) -> Void
+  private let visibility: AppVisibility
   private var transition = 0
   private var hideTask: Task<Void, Never>?
   private var content: AnyView?
@@ -64,13 +65,15 @@ final class EdgeChipPanel {
     pointer: @escaping @MainActor () -> CGPoint = { NSEvent.mouseLocation },
     visibleFrame: @escaping @MainActor (CGPoint) -> CGRect = EdgeChipPanel.visibleFrame(
       containing:),
-    orderFront: @escaping @MainActor (NSWindow) -> Void = { $0.orderFrontRegardless() }
+    orderFront: @escaping @MainActor (NSWindow) -> Void = { $0.orderFrontRegardless() },
+    visibility: AppVisibility = .live
   ) {
     self.edge = edge
     self.shownPanelFrame = shownPanelFrame
     self.pointer = pointer
     self.visibleFrame = visibleFrame
     self.orderFront = orderFront
+    self.visibility = visibility
     hosting = ChipHostingView(rootView: AnyView(EmptyView()))
     hosting.sizingOptions = []
     window.contentView = hosting
@@ -122,6 +125,7 @@ final class EdgeChipPanel {
     _ content: some View, hideAfter lifetime: TimeInterval? = nil, onClick: (() -> Void)? = nil
   ) {
     hideTask?.cancel()
+    visibility.revealBeforeOrderingFront()
     let placed = placement()
     self.content = AnyView(content)
     hosting.rootView = AnyView(

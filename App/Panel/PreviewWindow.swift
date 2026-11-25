@@ -35,13 +35,15 @@ final class PreviewWindowController {
   private let hosting: NSHostingView<PreviewHost>
   private let anchor: () -> (frame: CGRect, edge: PanelEdge)?
   private let screens: @MainActor () -> [(frame: CGRect, visible: CGRect)]
+  private let visibility: AppVisibility
   private var transition = 0
 
   init(
     list: ListModel, anchor: @escaping () -> (frame: CGRect, edge: PanelEdge)?,
     screens: @escaping @MainActor () -> [(frame: CGRect, visible: CGRect)] = {
       NSScreen.screens.map { ($0.frame, $0.visibleFrame) }
-    }
+    },
+    visibility: AppVisibility = .live
   ) {
     let hosting = NSHostingView(rootView: PreviewHost(list: list))
     hosting.sizingOptions = []
@@ -50,6 +52,7 @@ final class PreviewWindowController {
     self.panel = PreviewPanel(content: hosting)
     self.anchor = anchor
     self.screens = screens
+    self.visibility = visibility
   }
 
   var frame: CGRect { panel.frame }
@@ -138,6 +141,7 @@ final class PreviewWindowController {
       panel.setFrame(placed.frame, display: true)
     }
     if wasHidden { panel.alphaValue = 0 }
+    visibility.revealBeforeOrderingFront()
     panel.orderFront(nil)
     if panel.alphaValue < 1 { fade(to: 1, completion: nil) }
     followContent()

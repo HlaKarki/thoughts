@@ -28,16 +28,24 @@ final class EdgeDropZone {
   private let panel: PanelController
   private let preferences: Preferences
   private let monitor: DragSessionMonitor
+  private let visibility: AppVisibility
+  private let orderFront: @MainActor (NSWindow) -> Void
   private var window: EdgeDropPanel?
   private var shownByZone = false
   private var dropped = false
   var onTargetChange: (Bool) -> Void = { _ in }
   var onDrop: (NSPasteboard) -> Bool = { _ in false }
 
-  init(panel: PanelController, preferences: Preferences, monitor: DragSessionMonitor) {
+  init(
+    panel: PanelController, preferences: Preferences, monitor: DragSessionMonitor,
+    visibility: AppVisibility = .live,
+    orderFront: @escaping @MainActor (NSWindow) -> Void = { $0.orderFrontRegardless() }
+  ) {
     self.panel = panel
     self.preferences = preferences
     self.monitor = monitor
+    self.visibility = visibility
+    self.orderFront = orderFront
   }
 
   static func frame(screen: CGRect, visible: CGRect, edge: PanelEdge) -> CGRect {
@@ -79,7 +87,8 @@ final class EdgeDropZone {
         screen: screen.frame, visible: screen.visibleFrame, edge: preferences.edge),
       content: view)
     window = zone
-    zone.orderFrontRegardless()
+    visibility.revealBeforeOrderingFront()
+    orderFront(zone)
   }
 
   private func entered() {

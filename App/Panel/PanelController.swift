@@ -42,6 +42,7 @@ final class PanelController {
 
   private let panel: ThoughtsPanel
   private let preferences: Preferences
+  private let visibility: AppVisibility
   private let screens: @MainActor () -> [(frame: CGRect, visible: CGRect)]
   private var hiding = false
   private var transition = 0
@@ -56,10 +57,12 @@ final class PanelController {
     content: NSView, preferences: Preferences,
     screens: @escaping @MainActor () -> [(frame: CGRect, visible: CGRect)] = {
       NSScreen.screens.map { ($0.frame, $0.visibleFrame) }
-    }
+    },
+    visibility: AppVisibility = .live
   ) {
     self.panel = ThoughtsPanel(content: content)
     self.preferences = preferences
+    self.visibility = visibility
     self.screens = screens
     panel.onCancel = { [weak self] in self?.hide() }
     NotificationCenter.default.addObserver(
@@ -157,6 +160,7 @@ final class PanelController {
   }
 
   func makeKey() {
+    visibility.revealBeforeOrderingFront()
     panel.makeKeyAndOrderFront(nil)
   }
 
@@ -179,6 +183,7 @@ final class PanelController {
       panel.setFrame(Self.offscreenFrame(from: target, edge: preferences.edge), display: false)
       panel.alphaValue = 0
     }
+    visibility.revealBeforeOrderingFront()
     if makeKey {
       panel.makeKeyAndOrderFront(nil)
     } else {
@@ -191,6 +196,7 @@ final class PanelController {
     let plan = Self.showPlan(
       isShown: true, panelFrame: panel.frame, requestedVisible: visible, edge: preferences.edge)
     onWillShow?()
+    visibility.revealBeforeOrderingFront()
     panel.makeKeyAndOrderFront(nil)
     guard case .moveAndRefocus(let target) = plan else { return }
     restingFrame = target
@@ -210,7 +216,9 @@ final class PanelController {
       pick: pick, lostKeyToOwnIcon: lost, keepOpen: preferences.keepOpen)
     switch outcome {
     case .none: break
-    case .restoreKey: panel.makeKeyAndOrderFront(nil)
+    case .restoreKey:
+      visibility.revealBeforeOrderingFront()
+      panel.makeKeyAndOrderFront(nil)
     case .hide: hide()
     }
   }

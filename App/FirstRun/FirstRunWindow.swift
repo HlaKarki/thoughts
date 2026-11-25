@@ -7,14 +7,17 @@ final class FirstRunWindowController {
 
   private var window: NSWindow?
   private let makeModel: @MainActor () -> FirstRunModel
+  private let visibility: AppVisibility
 
-  init(makeModel: @escaping @MainActor () -> FirstRunModel) {
+  init(visibility: AppVisibility = .live, makeModel: @escaping @MainActor () -> FirstRunModel) {
+    self.visibility = visibility
     self.makeModel = makeModel
   }
 
   func show() {
     if let window {
       NSApp.activate()
+      visibility.revealBeforeOrderingFront()
       window.makeKeyAndOrderFront(nil)
       return
     }
@@ -27,6 +30,7 @@ final class FirstRunWindowController {
     let window = makeWindow(model: model)
     self.window = window
     NSApp.activate()
+    visibility.revealBeforeOrderingFront()
     window.makeKeyAndOrderFront(nil)
   }
 
