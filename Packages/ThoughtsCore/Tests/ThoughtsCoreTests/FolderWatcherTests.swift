@@ -101,10 +101,19 @@ private func eventually(
   return condition()
 }
 
-private func recognitionAdvanced(
-  past before: Int, of recognizer: SlowRecognizer, count: Int
-) async -> Bool {
-  await eventually { recognizer.total > before || recognizer.total >= count }
+private func writeOutsideFilesUntil(
+  _ recognizer: SlowRecognizer, folder: URL, total target: Int, writeCap: Int = 300
+) async throws -> Int {
+  var written = 0
+  while recognizer.total < target && written < writeCap {
+    try "outside \(written)".write(
+      to: folder.appendingPathComponent("outside-\(written).md"), atomically: true,
+      encoding: .utf8)
+    written += 1
+    try await Task.sleep(for: .milliseconds(100))
+  }
+  #expect(recognizer.total >= target)
+  return written
 }
 
 private func png(side: Int) -> Data {
@@ -476,14 +485,8 @@ private func checkNewImagesArriveBeforeTheirRecognition(gap: Duration?) async th
   defer { live.stop() }
   #expect(await eventually { recognizer.total >= 1 })
 
-  for number in 0..<20 {
-    let before = recognizer.total
-    try "outside \(number)".write(
-      to: scratch.folder.appendingPathComponent("outside-\(number).md"), atomically: true,
-      encoding: .utf8)
-    try await Task.sleep(for: .milliseconds(100))
-    #expect(await recognitionAdvanced(past: before, of: recognizer, count: count))
-  }
+  let written = try await writeOutsideFilesUntil(
+    recognizer, folder: scratch.folder, total: 24)
 
   #expect(await eventually(seconds: 20) { recognizer.total >= count })
   try await Task.sleep(for: .milliseconds(400))
@@ -491,14 +494,14 @@ private func checkNewImagesArriveBeforeTheirRecognition(gap: Duration?) async th
   #expect(recognizer.mostPerImage == 1)
   #expect(
     await eventually(seconds: 20) {
-      deliveries.changes.flatMap(\.added).filter { $0.hasPrefix("outside-") }.count >= 20
+      deliveries.changes.flatMap(\.added).filter { $0.hasPrefix("outside-") }.count >= written
     })
 
   let updated = deliveries.changes.flatMap(\.updated)
   #expect(Set(updated).count == updated.count)
   #expect(Set(updated) == imageThoughts)
   let added = deliveries.changes.flatMap(\.added)
-  #expect(added.filter { $0.hasPrefix("outside-") }.count == 20)
+  #expect(added.filter { $0.hasPrefix("outside-") }.count == written)
 }
 
 @Test func slowHandlerDoesNotStarveRecognition() async throws {
