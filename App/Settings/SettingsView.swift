@@ -83,9 +83,7 @@ struct KeysSettings: View {
   }
 
   var body: some View {
-    SettingsRow(title: "Summon key") {
-      ShortcutRecorder(for: .summon).frame(width: 150)
-    }
+    SummonKeyRow()
     RowDivider()
     SettingsRow(title: "Capture gesture") {
       HStack(spacing: 8) {
@@ -94,6 +92,30 @@ struct KeysSettings: View {
         }
         MethodPicker(selection: $preferences.captureMethod).frame(width: 160)
       }
+    }
+  }
+}
+
+struct SummonKeyRow: View {
+  var body: some View {
+    SettingsRow(title: "Summon key") {
+      ShortcutRecorder(for: .summon).fixedSize()
+    }
+  }
+}
+
+struct PanelEdgeRow: View {
+  @Bindable var preferences: Preferences
+
+  var body: some View {
+    SettingsRow(title: "Panel edge") {
+      Picker("Panel edge", selection: $preferences.edge) {
+        Text("Left").tag(PanelEdge.left)
+        Text("Right").tag(PanelEdge.right)
+      }
+      .labelsHidden()
+      .pickerStyle(.segmented)
+      .fixedSize()
     }
   }
 }
@@ -180,15 +202,7 @@ struct PanelSettings: View {
   }
 
   var body: some View {
-    SettingsRow(title: "Panel edge") {
-      Picker("Panel edge", selection: $preferences.edge) {
-        Text("Left").tag(PanelEdge.left)
-        Text("Right").tag(PanelEdge.right)
-      }
-      .labelsHidden()
-      .pickerStyle(.segmented)
-      .frame(width: 125)
-    }
+    PanelEdgeRow(preferences: preferences)
     RowDivider()
     MenuBarIconSetting(preferences: preferences)
     RowDivider()
