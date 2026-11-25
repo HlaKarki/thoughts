@@ -35,12 +35,13 @@ struct LostKeyTracker: Equatable {
 
 @MainActor
 final class PanelController {
-  static let width: CGFloat = 360
-  static let maxHeight: CGFloat = 640
-  static let edgeInset: CGFloat = 16
+  nonisolated static let width: CGFloat = 360
+  nonisolated static let maxHeight: CGFloat = 640
+  nonisolated static let edgeInset: CGFloat = 16
+  nonisolated static let snapDistance: CGFloat = 40
   static let duration: TimeInterval = 0.2
 
-  private let panel: ThoughtsPanel
+  let panel: ThoughtsPanel
   private let preferences: Preferences
   private let visibility: AppVisibility
   private let screens: @MainActor () -> [ScreenFrames]
@@ -51,7 +52,7 @@ final class PanelController {
   private var lostKey = LostKeyTracker()
   var onWillShow: (() -> Void)?
   var onWillHide: (() -> Void)?
-  var onEdgeMove: (() -> Void)?
+  var onMove: (() -> Void)?
   private(set) var restingFrame: CGRect?
 
   init(
@@ -68,6 +69,8 @@ final class PanelController {
     self.visibility = visibility
     self.screens = screens
     panel.onCancel = { [weak self] in self?.hide() }
+    panel.onDragStart = { [weak self] in self?.isShown == true }
+    panel.onDragEnd = { [weak self] in self?.dragEnded() }
     NotificationCenter.default.addObserver(
       forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
     ) { [weak self] _ in
@@ -104,24 +107,19 @@ final class PanelController {
 
   var isShown: Bool { panel.isVisible && !hiding }
 
-  static func frame(in visible: CGRect, edge: PanelEdge) -> CGRect {
-    let height = min(maxHeight, visible.height - 2 * edgeInset)
-    let x =
-      switch edge {
-      case .left: visible.minX + edgeInset
-      case .right: visible.maxX - edgeInset - width
-      }
-    return CGRect(x: x, y: visible.midY - height / 2, width: width, height: height)
+  func frame(onVisible visible: CGRect) -> CGRect {
+    Self.frame(in: visible, edge: preferences.edge, position: preferences.panelPosition)
   }
 
   static func showPlan(
-    isShown: Bool, panelFrame: CGRect, requestedVisible: CGRect?, edge: PanelEdge
+    isShown: Bool, panelFrame: CGRect, requestedVisible: CGRect?, edge: PanelEdge,
+    position: PanelPosition? = nil
   ) -> PanelShowPlan {
     guard isShown else { return .fresh }
     guard let visible = requestedVisible,
       !visible.contains(CGPoint(x: panelFrame.midX, y: panelFrame.midY))
     else { return .refocus }
-    return .moveAndRefocus(frame(in: visible, edge: edge))
+    return .moveAndRefocus(frame(in: visible, edge: edge, position: position))
   }
 
   static func afterMenuClosed(
@@ -144,11 +142,6 @@ final class PanelController {
 
   static func hidesOnKeyLoss(keepOpen: Bool, ownIconInUse: Bool) -> Bool {
     !keepOpen && !ownIconInUse
-  }
-
-  static func offscreenFrame(from frame: CGRect, edge: PanelEdge) -> CGRect {
-    let travel = width + edgeInset
-    return frame.offsetBy(dx: edge == .right ? travel : -travel, dy: 0)
   }
 
   func show(on screen: NSScreen? = nil) {
@@ -177,17 +170,14 @@ final class PanelController {
     onWillShow?()
     transition += 1
     hiding = false
-    let target = Self.frame(
-      in: visible ?? screenUnderPointer().visibleFrame, edge: preferences.edge)
+    let screen = visible ?? screenUnderPointer().visibleFrame
+    let target = frame(onVisible: screen)
     restingFrame = target
-    if reduceMotion {
-      panel.setFrameAtOnce(target, display: false)
-      panel.alphaValue = 0
-    } else {
-      panel.setFrameAtOnce(
-        Self.offscreenFrame(from: target, edge: preferences.edge), display: false)
-      panel.alphaValue = 0
+    let start = slideEdge(of: target, in: screen).map {
+      Self.offscreenFrame(from: target, edge: $0)
     }
+    panel.setFrameAtOnce(start ?? target, display: false)
+    panel.alphaValue = 0
     visibility.revealBeforeOrderingFront()
     if makeKey {
       panel.makeKeyAndOrderFront(nil)
@@ -199,7 +189,8 @@ final class PanelController {
 
   private func refocus(on visible: CGRect?) {
     let plan = Self.showPlan(
-      isShown: true, panelFrame: panel.frame, requestedVisible: visible, edge: preferences.edge)
+      isShown: true, panelFrame: panel.frame, requestedVisible: visible, edge: preferences.edge,
+      position: preferences.panelPosition)
     onWillShow?()
     visibility.revealBeforeOrderingFront()
     panel.makeKeyAndOrderFront(nil)
@@ -231,19 +222,35 @@ final class PanelController {
   func hide() {
     guard isShown else { return }
     lostKey.clear()
+    let dragged = panel.cancelDrag()
     onWillHide?()
     hiding = true
-    let base = restingFrame ?? panel.frame
+    let base = dragged ? panel.frame : restingFrame ?? panel.frame
     restingFrame = nil
     transition += 1
     let current = transition
-    let target =
-      reduceMotion ? panel.frame : Self.offscreenFrame(from: base, edge: preferences.edge)
+    let side = ScreenList.visibleFrame(for: base, among: screens()).flatMap {
+      slideEdge(of: base, in: $0)
+    }
+    let target = side.map { Self.offscreenFrame(from: base, edge: $0) } ?? base
     animate(frame: target, alpha: 0) { [weak self] in
       guard let self, self.transition == current else { return }
       self.panel.orderOut(nil)
       self.hiding = false
     }
+  }
+
+  private func dragEnded() {
+    guard isShown, let visible = ScreenList.visibleFrame(for: panel.frame, among: screens())
+    else { return }
+    let target = Self.dropped(panel.frame, in: visible)
+    transition += 1
+    restingFrame = target
+    preferences.panelPosition = PanelPosition(frame: target, in: visible)
+    let edge = Self.edge(of: target, in: visible, current: preferences.edge)
+    if edge != preferences.edge { preferences.edge = edge }
+    place(target)
+    onMove?()
   }
 
   private func followEdge() {
@@ -259,22 +266,44 @@ final class PanelController {
   }
 
   private func moveToEdge() {
+    let edge = preferences.edge
     guard isShown, let resting = restingFrame,
       let visible = ScreenList.visibleFrame(for: resting, among: screens())
     else {
-      onEdgeMove?()
+      if let position = preferences.panelPosition, position.moved(to: edge) != position {
+        preferences.panelPosition = position.moved(to: edge)
+      }
+      onMove?()
       return
     }
-    let target = Self.frame(in: visible, edge: preferences.edge)
+    guard let position = preferences.panelPosition else {
+      move(to: Self.frame(in: visible, edge: edge), from: resting)
+      return
+    }
+    let target = Self.moved(resting, to: edge, in: visible)
+    let moved = PanelPosition(frame: target, in: visible)
+    if moved != position { preferences.panelPosition = moved }
+    move(to: target, from: resting)
+  }
+
+  private func move(to target: CGRect, from resting: CGRect) {
     guard target != resting else { return }
     transition += 1
     restingFrame = target
+    place(target)
+    onMove?()
+  }
+
+  private func place(_ target: CGRect) {
     if reduceMotion {
       panel.setFrameAtOnce(target, display: true)
     } else {
       animate(frame: target, alpha: 1, completion: nil)
     }
-    onEdgeMove?()
+  }
+
+  private func slideEdge(of frame: CGRect, in visible: CGRect) -> PanelEdge? {
+    reduceMotion ? nil : Self.slideEdge(of: frame, in: visible, preferring: preferences.edge)
   }
 
   private var reduceMotion: Bool { reducesMotion() }

@@ -50,8 +50,20 @@ enum StandardKey: Equatable {
   case belongsToFrontApp
 }
 
+struct PanelDrag {
+  let pointer: CGPoint
+  let origin: CGPoint
+  var moved = false
+}
+
 final class ThoughtsPanel: NSPanel {
+  static let dragThreshold: CGFloat = 3
+
   var onCancel: (() -> Void)?
+  var onDragStart: (() -> Bool)?
+  var onDragEnd: (() -> Void)?
+  private(set) var findingGrabArea = false
+  private var drag: PanelDrag?
   var onOpenSettings: (() -> Void)?
   var pasteboard: NSPasteboard = .general
   var onPaste: ((NSPasteboard) -> Bool)?
@@ -85,6 +97,62 @@ final class ThoughtsPanel: NSPanel {
 
   override func cancelOperation(_ sender: Any?) {
     onCancel?()
+  }
+
+  override func sendEvent(_ event: NSEvent) {
+    switch event.type {
+    case .leftMouseDown:
+      grabPanel(atWindow: event.locationInWindow, pointer: NSEvent.mouseLocation)
+    case .leftMouseDragged:
+      if dragPanel(to: NSEvent.mouseLocation) { return }
+    case .leftMouseUp:
+      super.sendEvent(event)
+      endDrag()
+      return
+    default:
+      break
+    }
+    super.sendEvent(event)
+  }
+
+  func isGrabArea(atWindow point: CGPoint) -> Bool {
+    guard let content = contentView else { return false }
+    findingGrabArea = true
+    defer { findingGrabArea = false }
+    return content.hitTest(content.superview?.convert(point, from: nil) ?? point) is PanelGrabView
+  }
+
+  @discardableResult
+  func grabPanel(atWindow point: CGPoint, pointer: CGPoint) -> Bool {
+    drag = nil
+    guard isGrabArea(atWindow: point), onDragStart?() == true else { return false }
+    drag = PanelDrag(pointer: pointer, origin: frame.origin)
+    return true
+  }
+
+  func dragPanel(to pointer: CGPoint) -> Bool {
+    guard var drag else { return false }
+    let dx = pointer.x - drag.pointer.x
+    let dy = pointer.y - drag.pointer.y
+    if !drag.moved {
+      guard hypot(dx, dy) >= Self.dragThreshold else { return false }
+      drag.moved = true
+      self.drag = drag
+      setFrameAtOnce(frame)
+    }
+    setFrameOrigin(CGPoint(x: drag.origin.x + dx, y: drag.origin.y + dy))
+    return true
+  }
+
+  func endDrag() {
+    guard let drag else { return }
+    self.drag = nil
+    if drag.moved { onDragEnd?() }
+  }
+
+  func cancelDrag() -> Bool {
+    defer { drag = nil }
+    return drag?.moved == true
   }
 
   static func editAction(for event: NSEvent) -> Selector? {

@@ -20,6 +20,7 @@ struct ThoughtListView: View {
           .padding(.bottom, 8)
           .padding(.horizontal, 12)
           .frame(minHeight: proxy.size.height, alignment: .bottom)
+          .background { PanelGrabArea() }
         }
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom)

@@ -59,6 +59,7 @@ struct PanelRootView: View {
     .padding(.top, 12)
     .padding(.bottom, 10)
     .padding(.horizontal, 12)
+    .background { PanelGrabArea() }
   }
 
   @ViewBuilder
@@ -68,8 +69,12 @@ struct PanelRootView: View {
         ThoughtListView(model: list)
       } else if list.isSearching {
         NoMatchesView()
+          .allowsHitTesting(false)
+          .background { PanelGrabArea() }
       } else {
         EmptyListView(preferences: preferences)
+          .allowsHitTesting(false)
+          .background { PanelGrabArea() }
       }
     }
     .overlay {
@@ -103,5 +108,6 @@ struct PanelRootView: View {
 
   private var composer: some View {
     InputView(list: list, input: input, boxHeight: $inputBoxHeight)
+      .background { PanelGrabArea() }
   }
 }

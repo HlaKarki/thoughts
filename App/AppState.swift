@@ -104,9 +104,10 @@ final class AppState {
     }
     let chip = EdgeChipPanel(
       edge: { [panel] in panel.edge },
-      shownPanelFrame: { [panel] in panel.isShown ? panel.restingFrame : nil })
+      shownPanelFrame: { [panel] in panel.isShown ? panel.restingFrame : nil },
+      plannedPanelFrame: { [panel] in panel.frame(onVisible: $0) })
     self.chip = chip
-    panel.onEdgeMove = { [preview, chip] in
+    panel.onMove = { [preview, chip] in
       preview.reposition()
       chip.reposition()
     }

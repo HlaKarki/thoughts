@@ -47,6 +47,7 @@ final class EdgeChipPanel {
   private let hosting: ChipHostingView
   private let edge: () -> PanelEdge
   private let shownPanelFrame: @MainActor () -> CGRect?
+  private let plannedPanelFrame: @MainActor (CGRect) -> CGRect?
   private let pointer: @MainActor () -> CGPoint
   private let visibleFrame: @MainActor (CGPoint) -> CGRect
   private let orderFront: @MainActor (NSWindow) -> Void
@@ -62,6 +63,7 @@ final class EdgeChipPanel {
   init(
     edge: @escaping () -> PanelEdge,
     shownPanelFrame: @escaping @MainActor () -> CGRect? = { nil },
+    plannedPanelFrame: @escaping @MainActor (CGRect) -> CGRect? = { _ in nil },
     pointer: @escaping @MainActor () -> CGPoint = { NSEvent.mouseLocation },
     visibleFrame: @escaping @MainActor (CGPoint) -> CGRect = EdgeChipPanel.visibleFrame(
       containing:),
@@ -70,6 +72,7 @@ final class EdgeChipPanel {
   ) {
     self.edge = edge
     self.shownPanelFrame = shownPanelFrame
+    self.plannedPanelFrame = plannedPanelFrame
     self.pointer = pointer
     self.visibleFrame = visibleFrame
     self.orderFront = orderFront
@@ -195,7 +198,7 @@ final class EdgeChipPanel {
     let visible = visibleFrame(Self.screenPoint(panel: shown, pointer: pointer()))
     return Self.frames(
       size: ChipSurface<EmptyView>.size, visible: visible, edge: edge(),
-      panel: shown)
+      panel: shown ?? plannedPanelFrame(visible))
   }
 
   static func screenPoint(panel: CGRect?, pointer: CGPoint) -> CGPoint {

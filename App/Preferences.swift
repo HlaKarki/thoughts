@@ -11,6 +11,16 @@ final class Preferences {
     didSet { defaults.set(edge.rawValue, forKey: Key.edge) }
   }
 
+  var panelPosition: PanelPosition? {
+    didSet {
+      guard let data = panelPosition.flatMap({ try? JSONEncoder().encode($0) }) else {
+        defaults.removeObject(forKey: Key.panelPosition)
+        return
+      }
+      defaults.set(data, forKey: Key.panelPosition)
+    }
+  }
+
   var keepOpen: Bool {
     didSet { defaults.set(keepOpen, forKey: Key.keepOpen) }
   }
@@ -46,6 +56,9 @@ final class Preferences {
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
     edge = defaults.string(forKey: Key.edge).flatMap(PanelEdge.init(rawValue:)) ?? .right
+    panelPosition = defaults.data(forKey: Key.panelPosition).flatMap {
+      try? JSONDecoder().decode(PanelPosition.self, from: $0)
+    }
     keepOpen = defaults.bool(forKey: Key.keepOpen)
     firstRunDone = defaults.bool(forKey: Key.firstRunDone)
     gesture =
@@ -86,6 +99,7 @@ final class Preferences {
 
   private enum Key {
     static let edge = "panelEdge"
+    static let panelPosition = "panelPosition"
     static let keepOpen = "keepOpen"
     static let firstRunDone = "firstRunDone"
     static let gesture = "captureGesture"

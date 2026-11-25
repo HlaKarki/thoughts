@@ -12,6 +12,7 @@ struct LiveEdgeTests {
   final class Rig {
     let fixture: ListFixture
     let preferences: Preferences
+    let defaults: UserDefaults
     let screen: (frame: CGRect, visible: CGRect)
     let controller: PanelController
     let preview: PreviewWindowController
@@ -28,6 +29,7 @@ struct LiveEdgeTests {
         source: Source(app: "Editor", bundleID: "com.example.editor", window: "users.ts"))
       try fixture.reload()
       let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+      self.defaults = defaults
       let preferences = Preferences(defaults: defaults)
       preferences.edge = edge
       self.preferences = preferences
@@ -50,11 +52,12 @@ struct LiveEdgeTests {
       chip = EdgeChipPanel(
         edge: { controller.edge },
         shownPanelFrame: { controller.isShown ? controller.restingFrame : nil },
+        plannedPanelFrame: { controller.frame(onVisible: $0) },
         visibleFrame: { _ in screen.visible }, orderFront: { _ in })
       fixture.model.onPreviewChange = { [preview] in preview.update(showing: $0) }
       controller.onWillShow = { [unowned self] in willShow += 1 }
       controller.onWillHide = { [unowned self] in willHide += 1 }
-      controller.onEdgeMove = { [preview, chip] in
+      controller.onMove = { [preview, chip] in
         self.moves += 1
         preview.reposition()
         chip.reposition()

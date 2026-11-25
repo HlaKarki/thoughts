@@ -29,7 +29,9 @@ struct InputView: View {
         hasEntries: !list.visible.isEmpty,
         inputIsEmpty: input.text.isEmpty,
         hasAttachment: input.attachment != nil,
-        isPreviewing: list.isPreviewing, feedback: list.shownFeedback)
+        isPreviewing: list.isPreviewing, feedback: list.shownFeedback
+      )
+      .allowsHitTesting(false)
     }
     .padding(.top, 10)
     .padding(.bottom, 12)
