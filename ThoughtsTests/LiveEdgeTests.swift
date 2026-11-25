@@ -9,11 +9,25 @@ import ThoughtsCore
 @Suite(.serialized)
 struct LiveEdgeTests {
   @MainActor
+  final class Displays {
+    var list: [ScreenFrames]
+
+    init(_ list: [ScreenFrames]) {
+      self.list = list
+    }
+
+    func visibleFrame(containing point: CGPoint, or fallback: CGRect) -> CGRect {
+      list.first { $0.frame.contains(point) }?.visible ?? fallback
+    }
+  }
+
+  @MainActor
   final class Rig {
     let fixture: ListFixture
     let preferences: Preferences
     let defaults: UserDefaults
     let screen: (frame: CGRect, visible: CGRect)
+    let displays: Displays
     let controller: PanelController
     let preview: PreviewWindowController
     let chip: EdgeChipPanel
@@ -22,7 +36,7 @@ struct LiveEdgeTests {
     private(set) var willHide = 0
     private(set) var moves = 0
 
-    init(edge: PanelEdge, reducesMotion: Bool = false) throws {
+    init(edge: PanelEdge, reducesMotion: Bool = false, screens: [ScreenFrames]? = nil) throws {
       fixture = try ListFixture()
       shot = try fixture.addScreenshot(
         note: "Rename fetchUser before the PR", daysAgo: 0.3,
@@ -33,14 +47,17 @@ struct LiveEdgeTests {
       let preferences = Preferences(defaults: defaults)
       preferences.edge = edge
       self.preferences = preferences
-      let screen = PreviewPlacementTests.offscreen(CGSize(width: 1728, height: 1117))
+      let screen =
+        screens?.first ?? PreviewPlacementTests.offscreen(CGSize(width: 1728, height: 1117))
       self.screen = screen
+      let displays = Displays(screens ?? [screen])
+      self.displays = displays
       let hosting = NSHostingView(
         rootView: PanelRootView(preferences: preferences, list: fixture.model, input: fixture.input)
       )
       hosting.sizingOptions = []
       let controller = PanelController(
-        content: hosting, preferences: preferences, screens: { [screen] },
+        content: hosting, preferences: preferences, screens: { displays.list },
         reducesMotion: { reducesMotion })
       self.controller = controller
       preview = PreviewWindowController(
@@ -48,12 +65,13 @@ struct LiveEdgeTests {
         anchor: {
           controller.isShown ? (controller.restingFrame ?? controller.frame, controller.edge) : nil
         },
-        screens: { [screen] })
+        screens: { displays.list })
       chip = EdgeChipPanel(
         edge: { controller.edge },
         shownPanelFrame: { controller.isShown ? controller.restingFrame : nil },
         plannedPanelFrame: { controller.frame(onVisible: $0) },
-        visibleFrame: { _ in screen.visible }, orderFront: { _ in })
+        visibleFrame: { displays.visibleFrame(containing: $0, or: screen.visible) },
+        orderFront: { _ in })
       fixture.model.onPreviewChange = { [preview] in preview.update(showing: $0) }
       controller.onWillShow = { [unowned self] in willShow += 1 }
       controller.onWillHide = { [unowned self] in willHide += 1 }

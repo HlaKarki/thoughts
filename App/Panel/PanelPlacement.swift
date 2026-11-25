@@ -123,6 +123,17 @@ extension PanelController {
     }
   }
 
+  static func slideEdge(
+    of frame: CGRect, in visible: CGRect, preferring edge: PanelEdge,
+    among screens: [ScreenFrames]
+  ) -> PanelEdge? {
+    [edge, edge == .left ? .right : .left].first { side in
+      slideEdge(of: frame, in: visible, preferring: side) == side
+        && !ScreenList.movesOntoAnotherScreen(
+          from: frame, to: offscreenFrame(from: frame, edge: side), among: screens)
+    }
+  }
+
   static func moved(_ frame: CGRect, to edge: PanelEdge, in visible: CGRect) -> CGRect {
     guard side(of: frame, in: visible) != edge else { return frame }
     let size = size(in: visible)

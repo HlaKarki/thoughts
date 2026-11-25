@@ -7,8 +7,19 @@ enum ScreenList {
     NSScreen.screens.map { ($0.frame, $0.visibleFrame) }
   }
 
+  static func screen(for window: CGRect, among screens: [ScreenFrames]) -> ScreenFrames? {
+    screens.min { rank($0.frame, for: window) < rank($1.frame, for: window) }
+  }
+
   static func visibleFrame(for window: CGRect, among screens: [ScreenFrames]) -> CGRect? {
-    screens.min { rank($0.frame, for: window) < rank($1.frame, for: window) }?.visible
+    screen(for: window, among: screens)?.visible
+  }
+
+  static func movesOntoAnotherScreen(
+    from start: CGRect, to end: CGRect, among screens: [ScreenFrames]
+  ) -> Bool {
+    let home = screen(for: start, among: screens)?.frame
+    return screens.contains { $0.frame != home && $0.frame.intersects(end) }
   }
 
   private static func rank(_ screen: CGRect, for window: CGRect) -> (CGFloat, CGFloat) {

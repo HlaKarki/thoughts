@@ -167,10 +167,10 @@ final class PanelController {
       if makeKey { refocus(on: visible) }
       return
     }
+    guard let screen = visible ?? screenUnderPointer() else { return }
     onWillShow?()
     transition += 1
     hiding = false
-    let screen = visible ?? screenUnderPointer().visibleFrame
     let target = frame(onVisible: screen)
     restingFrame = target
     let start = slideEdge(of: target, in: screen).map {
@@ -303,7 +303,9 @@ final class PanelController {
   }
 
   private func slideEdge(of frame: CGRect, in visible: CGRect) -> PanelEdge? {
-    reduceMotion ? nil : Self.slideEdge(of: frame, in: visible, preferring: preferences.edge)
+    reduceMotion
+      ? nil
+      : Self.slideEdge(of: frame, in: visible, preferring: preferences.edge, among: screens())
   }
 
   private var reduceMotion: Bool { reducesMotion() }
@@ -318,10 +320,10 @@ final class PanelController {
     hide()
   }
 
-  private func screenUnderPointer() -> NSScreen {
+  private func screenUnderPointer() -> CGRect? {
     let pointer = NSEvent.mouseLocation
-    return NSScreen.screens.first { NSMouseInRect(pointer, $0.frame, false) }
-      ?? NSScreen.main ?? NSScreen.screens[0]
+    let list = screens()
+    return (list.first { NSMouseInRect(pointer, $0.frame, false) } ?? list.first)?.visible
   }
 
   private func animate(frame: CGRect, alpha: CGFloat, completion: (@MainActor () -> Void)?) {
