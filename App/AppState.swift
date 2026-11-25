@@ -111,6 +111,7 @@ final class AppState {
       chip.reposition()
     }
     let sound = SavedSound(preferences: preferences)
+    sound.start()
     let clipboard = ClipboardWatcher(
       isOwnChange: { [pasteboard] in pasteboard.ownChangeCounts.contains($0) },
       frontmost: { tracker.frontmost.flatMap { $0.bundleID == tracker.ownBundleID ? nil : $0 } },
