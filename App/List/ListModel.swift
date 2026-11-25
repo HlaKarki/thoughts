@@ -98,6 +98,7 @@ final class ListModel {
     }
   }
   var menuHighlight = 0
+  let hover = RowHover()
   private(set) var editing: EditSession?
   var focus: Focus = .input {
     didSet {
@@ -199,6 +200,10 @@ final class ListModel {
 
   var menuItems: [ActionItem] {
     ActionCatalog.filter(ActionCatalog.items(for: selectedEntries), by: menuQuery)
+  }
+
+  var hoveredRow: String? {
+    isMenuOpen ? nil : hover.row
   }
 
   var previewThought: Thought? {
@@ -639,6 +644,7 @@ final class ListModel {
 
   func panelDidHide() {
     isPanelShown = false
+    hover.clear()
     pendingReveal = []
     isPreviewing = false
     isMenuOpen = false

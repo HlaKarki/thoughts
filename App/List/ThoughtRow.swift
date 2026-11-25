@@ -4,6 +4,7 @@ import ThoughtsCore
 struct RowFrame<Content: View>: View {
   let time: String
   let selected: Bool
+  var hovered = false
   @ViewBuilder let content: Content
   @Environment(\.colorScheme) private var colorScheme
 
@@ -21,12 +22,21 @@ struct RowFrame<Content: View>: View {
     .padding(.vertical, 8)
     .padding(.horizontal, 6)
     .background {
-      if selected {
+      if selected || hovered {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
-          .fill(Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.08))
+          .fill(Color.primary.opacity(fillOpacity))
       }
     }
     .contentShape(Rectangle())
+  }
+
+  private var fillOpacity: Double {
+    switch (selected, colorScheme == .dark) {
+    case (true, true): 0.12
+    case (true, false): 0.08
+    case (false, true): 0.06
+    case (false, false): 0.04
+    }
   }
 }
 
@@ -34,6 +44,7 @@ struct ThoughtRow: View {
   let thought: Thought
   let time: String
   let selected: Bool
+  var hovered = false
   var terms: [String]?
   var imageExcerpt: String?
 
@@ -41,7 +52,7 @@ struct ThoughtRow: View {
   private static let doneTextOpacity = 0.7
 
   var body: some View {
-    RowFrame(time: time, selected: selected) {
+    RowFrame(time: time, selected: selected, hovered: hovered) {
       VStack(alignment: .leading, spacing: 2) {
         switch thought.content {
         case .text(let text):

@@ -80,6 +80,12 @@ struct PanelRootView: View {
     .overlay(alignment: .bottom) {
       if case .image(_, let preview) = input.attachment {
         AttachmentPreview(image: preview, onRemove: { input.removeAttachment() })
+          .onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .named(RowHover.space))
+          } action: {
+            list.hover.cover($0)
+          }
+          .onDisappear { list.hover.cover(nil) }
           .padding(.horizontal, 12)
           .padding(.bottom, AttachmentPreview.verticalInset)
           .transition(.opacity)
@@ -88,6 +94,11 @@ struct PanelRootView: View {
     .overlay {
       if input.isDropTargeted { DropTargetView().transition(.opacity) }
     }
+    .overlay {
+      PointerTracker { list.hover.pointerMoved(to: $0) }
+        .allowsHitTesting(false)
+    }
+    .coordinateSpace(.named(RowHover.space))
   }
 
   private var composer: some View {

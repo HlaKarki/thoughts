@@ -5,9 +5,10 @@ struct WarningRow: View {
   let reason: String
   let time: String
   let selected: Bool
+  var hovered = false
 
   var body: some View {
-    RowFrame(time: time, selected: selected) {
+    RowFrame(time: time, selected: selected, hovered: hovered) {
       HStack(alignment: .top, spacing: 8) {
         Image(systemName: "exclamationmark.triangle.fill")
           .font(.system(size: 12))
