@@ -184,7 +184,10 @@ final class AppState {
     let settings = SettingsWindowController {
       let model = SettingsModel(
         preferences: preferences, services: services, login: .live, storage: moving)
-      model.onStorageRepointed = { [list] in list.storageRepointed() }
+      model.onStorageRepointed = { [list, offers] in
+        list.storageRepointed()
+        offers.storageRepointed()
+      }
       return model
     }
     self.settings = settings

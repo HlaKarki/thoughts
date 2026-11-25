@@ -128,18 +128,35 @@ final class OfferCenter {
     }
   }
 
+  func storageRepointed() {
+    guard started else { return }
+    applyPreferences()
+  }
+
   private func applyPreferences() {
     screenshots.update(folders: preferences.offersEnabled ? folders() : [])
+    if !preferences.offersEnabled, queue.current != nil {
+      _ = queue.take()
+      clear()
+    }
+  }
+
+  private func method(changedFrom method: CaptureMethod) {
+    guard preferences.captureMethod != method, queue.current != nil else { return }
+    onChange(queue.current, thumbnail)
   }
 
   private func track() {
+    let before = preferences.captureMethod
     withObservationTracking {
       _ = preferences.offersEnabled
       _ = preferences.watchedFolders
+      _ = preferences.captureMethod
     } onChange: { [weak self] in
       Task { @MainActor in
         guard let self, self.started else { return }
         self.applyPreferences()
+        self.method(changedFrom: before)
         self.track()
       }
     }
@@ -157,6 +174,7 @@ final class OfferCenter {
   }
 
   private func apply(_ signal: OfferSignal, source: Source?) async {
+    guard preferences.offersEnabled else { return }
     let update = queue.add(signal, source: source)
     let offer: Offer
     switch update {
