@@ -12,6 +12,10 @@ struct ClipboardAccessRow: View {
     }
   }
 
+  static func showsSettingsButton(for behavior: NSPasteboard.AccessBehavior) -> Bool {
+    behavior != .alwaysAllow
+  }
+
   var body: some View {
     HStack(spacing: 12) {
       Text("Paste from other apps")
@@ -21,7 +25,9 @@ struct ClipboardAccessRow: View {
       Text(Self.title(for: model.clipboardAccess))
         .font(.system(size: 13))
         .foregroundStyle(Color(nsColor: .secondaryLabelColor))
-      Button("Open Privacy & Security") { model.openClipboardSettings() }
+      if Self.showsSettingsButton(for: model.clipboardAccess) {
+        Button("Open Privacy & Security") { model.openClipboardSettings() }
+      }
     }
     .padding(.horizontal, 12)
     .padding(.bottom, 12)

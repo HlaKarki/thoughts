@@ -105,6 +105,12 @@ struct SettingsModelTests {
       ])
   }
 
+  @Test func theSettingsButtonShowsOnlyWhereTheListHasThoughts() {
+    #expect(!ClipboardAccessRow.showsSettingsButton(for: .alwaysAllow))
+    #expect(ClipboardAccessRow.showsSettingsButton(for: .alwaysDeny))
+    #expect(ClipboardAccessRow.showsSettingsButton(for: .default))
+  }
+
   @Test func addedFoldersSkipDuplicatesOfTheScreenshotLocation() async throws {
     let system = FakeSystem()
     let model = try SettingsFixtures.settings(
