@@ -3,6 +3,8 @@ import SwiftUI
 
 @MainActor
 final class FirstRunWindowController {
+  static let styleMask: NSWindow.StyleMask = [.titled, .closable, .fullSizeContentView]
+
   private var window: NSWindow?
   private let makeModel: @MainActor () -> FirstRunModel
 
@@ -36,7 +38,7 @@ final class FirstRunWindowController {
   private func makeWindow(model: FirstRunModel) -> NSWindow {
     let window = NSWindow(
       contentRect: CGRect(origin: .zero, size: FirstRunView.size),
-      styleMask: [.titled, .closable, .fullSizeContentView],
+      styleMask: Self.styleMask,
       backing: .buffered,
       defer: false)
     window.titlebarAppearsTransparent = true

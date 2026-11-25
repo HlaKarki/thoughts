@@ -71,6 +71,7 @@ final class AppState {
     let content = DropDestinationView(content: hosting)
     let panel = PanelController(content: content, preferences: preferences)
     self.panel = panel
+    panel.onOpenSettings = { shared.settings.perform() }
     let entry = PanelEntry(panel)
     self.entry = entry
     let menuBarMenu = MenuBarMenu(shared: shared)

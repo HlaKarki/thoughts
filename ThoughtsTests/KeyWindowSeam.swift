@@ -7,6 +7,8 @@ enum KeyWindowSeam {
   nonisolated(unsafe) private static var original: IMP?
   nonisolated(unsafe) private static var originalActive: IMP?
   nonisolated(unsafe) private static var window: NSWindow?
+  nonisolated(unsafe) private static var originalPublic: IMP?
+  private static let publicSelector = NSSelectorFromString("keyWindow")
 
   private typealias Getter = @convention(c) (AnyObject, Selector) -> Unmanaged<NSWindow>?
   private typealias Flag = @convention(c) (AnyObject, Selector) -> Bool
@@ -17,6 +19,11 @@ enum KeyWindowSeam {
     let active = try #require(class_getInstanceMethod(type(of: target), activeSelector))
     window = target
     guard original == nil else { return }
+    if let publicMethod = class_getInstanceMethod(NSApplication.self, publicSelector) {
+      originalPublic = method_getImplementation(publicMethod)
+      let publicBlock: @convention(block) (AnyObject) -> AnyObject? = { _ in window }
+      method_setImplementation(publicMethod, imp_implementationWithBlock(publicBlock))
+    }
     original = method_getImplementation(method)
     let block: @convention(block) (AnyObject) -> AnyObject? = { _ in window }
     method_setImplementation(method, imp_implementationWithBlock(block))
@@ -38,6 +45,12 @@ enum KeyWindowSeam {
     {
       method_setImplementation(active, originalActive)
       self.originalActive = nil
+    }
+    if let originalPublic,
+      let publicMethod = class_getInstanceMethod(NSApplication.self, publicSelector)
+    {
+      method_setImplementation(publicMethod, originalPublic)
+      self.originalPublic = nil
     }
     guard let original, let method = class_getInstanceMethod(NSApplication.self, selector)
     else { return }

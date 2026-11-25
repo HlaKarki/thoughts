@@ -66,6 +66,11 @@ final class PanelController {
     set { panel.onPaste = newValue }
   }
 
+  var onOpenSettings: (() -> Void)? {
+    get { panel.onOpenSettings }
+    set { panel.onOpenSettings = newValue }
+  }
+
   var undoManager: UndoManager { panel.sharedUndoManager }
 
   var onNothingToDo: ((HistoryDirection) -> Void)? {

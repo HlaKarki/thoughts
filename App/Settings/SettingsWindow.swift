@@ -3,6 +3,8 @@ import SwiftUI
 
 @MainActor
 final class SettingsWindowController {
+  static let styleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable]
+
   private var window: NSWindow?
   private var model: SettingsModel?
   private let makeModel: @MainActor () -> SettingsModel
@@ -24,7 +26,7 @@ final class SettingsWindowController {
   private func makeWindow(model: SettingsModel) -> NSWindow {
     let window = NSWindow(
       contentRect: CGRect(origin: .zero, size: SettingsView.size),
-      styleMask: [.titled, .closable, .miniaturizable],
+      styleMask: Self.styleMask,
       backing: .buffered,
       defer: false)
     window.title = String(localized: "Thoughts Settings")

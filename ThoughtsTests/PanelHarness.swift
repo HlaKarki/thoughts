@@ -6,6 +6,11 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+final class Tally {
+  var count = 0
+}
+
+@MainActor
 final class PanelHarness {
   enum Key {
     case up
@@ -53,7 +58,7 @@ final class PanelHarness {
     private static let letterCodes: [Character: UInt16] = [
       "a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c": 8, "v": 9, "b": 11,
       "q": 12, "w": 13, "e": 14, "r": 15, "y": 16, "t": 17, "o": 31, "u": 32, "i": 34, "p": 35,
-      "l": 37, "j": 38, "k": 40, "n": 45, "m": 46, " ": 49,
+      "l": 37, "j": 38, "k": 40, "n": 45, "m": 46, " ": 49, ",": 43,
     ]
   }
 
@@ -72,6 +77,8 @@ final class PanelHarness {
   private(set) var activations = 0
   private(set) var isolationChecks = 0
   private(set) var submitting = 0
+  private let settingsAsked = Tally()
+  private var keyWindow: NSWindow?
   let startedActive: Bool
   private let startedFront: Bool
   private let host = Bundle.main.bundleIdentifier ?? "the test host"
@@ -87,6 +94,7 @@ final class PanelHarness {
   private static let settleBound: Duration = .seconds(2)
   private static var busy = false
 
+  var settingsRequests: Int { settingsAsked.count }
   var list: ListModel { fixture.model }
   var input: InputModel { fixture.input }
 
@@ -113,8 +121,12 @@ final class PanelHarness {
     let preferences = Preferences(defaults: defaults)
     let list = fixture.model
     let input = fixture.input
+    let settingsAsked = settingsAsked
+    let shared = SharedMenuItems(
+      updates: UpdateMenuItem(), openSettings: { settingsAsked.count += 1 },
+      checkForUpdates: nil)
     hosting = NSHostingView(
-      rootView: PanelRootView(preferences: preferences, list: list, input: input))
+      rootView: PanelRootView(preferences: preferences, list: list, input: input, shared: shared))
     hosting.sizingOptions = []
     let content = DropDestinationView(content: hosting)
     panel = ThoughtsPanel(content: content)
@@ -137,6 +149,7 @@ final class PanelHarness {
       NSWorkspace.shared.frontmostApplication?.processIdentifier
       == ProcessInfo.processInfo.processIdentifier
     panel.onCancel = { [weak self] in self?.hideRequests += 1 }
+    panel.onOpenSettings = { shared.settings.perform() }
     panel.onNothingToDo = { [actions] in actions.nothingToDo($0) }
     panel.defersHistory = { [weak self, actions] direction in
       self?.historySteps.append(direction)
@@ -211,6 +224,16 @@ final class PanelHarness {
     await settle("after show")
   }
 
+  func route(keysTo window: NSWindow) throws {
+    keyWindow = window
+    try KeyWindowSeam.install(window)
+  }
+
+  func routeKeysToThePanel() throws {
+    keyWindow = nil
+    try KeyWindowSeam.install(panel)
+  }
+
   func seed(_ texts: [String]) throws {
     for (offset, text) in texts.enumerated() {
       try fixture.addText(text, daysAgo: Double(texts.count - offset))
@@ -251,7 +274,7 @@ final class PanelHarness {
     }
     return NSEvent.keyEvent(
       with: kind, location: .zero, modifierFlags: flags.union(key.deviceFlags),
-      timestamp: nextStamp(), windowNumber: panel.windowNumber, context: nil,
+      timestamp: nextStamp(), windowNumber: (keyWindow ?? panel).windowNumber, context: nil,
       characters: key.characters, charactersIgnoringModifiers: key.characters, isARepeat: false,
       keyCode: code)
   }

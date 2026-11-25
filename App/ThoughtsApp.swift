@@ -1,20 +1,20 @@
 import AppKit
-import SwiftUI
 
 @main
-struct ThoughtsApp: App {
-  @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-
-  var body: some Scene {
-    Settings {
-      EmptyView()
-    }
+@MainActor
+enum ThoughtsMain {
+  static func main() {
+    let delegate = AppDelegate()
+    let app = NSApplication.shared
+    app.delegate = delegate
+    withExtendedLifetime(delegate) { app.run() }
   }
 }
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
   private var state: AppState?
+  private var appMenu: AppMenu?
   private var launchURLs: [URL] = []
 
   static var runsUnderTests: Bool {
@@ -27,6 +27,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     do {
       let state = try AppState()
       self.state = state
+      let appMenu = AppMenu(shared: state.shared)
+      self.appMenu = appMenu
+      appMenu.install()
       let kind = LaunchKind.current(openedURLs: !launchURLs.isEmpty)
       switch LaunchAction.decide(firstRunDone: state.preferences.firstRunDone, kind: kind) {
       case .firstRun: state.firstRun.show()

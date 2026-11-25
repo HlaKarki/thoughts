@@ -45,8 +45,14 @@ final class PasteFieldEditor: NSTextView {
   }
 }
 
+enum StandardKey: Equatable {
+  case openSettings
+  case belongsToFrontApp
+}
+
 final class ThoughtsPanel: NSPanel {
   var onCancel: (() -> Void)?
+  var onOpenSettings: (() -> Void)?
   var pasteboard: NSPasteboard = .general
   var onPaste: ((NSPasteboard) -> Bool)?
   var onNothingToDo: ((HistoryDirection) -> Void)?
@@ -96,6 +102,16 @@ final class ThoughtsPanel: NSPanel {
     }
   }
 
+  static func standardKey(for event: NSEvent) -> StandardKey? {
+    let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+      .subtracting([.capsLock, .numericPad, .function])
+    guard flags.contains(.command), !flags.contains(.control),
+      let key = event.charactersIgnoringModifiers?.lowercased()
+    else { return nil }
+    if key == ",", flags == .command { return .openSettings }
+    return ["q", "h", "m", "w"].contains(key) ? .belongsToFrontApp : nil
+  }
+
   static func historyDirection(for event: NSEvent) -> HistoryDirection? {
     switch editAction(for: event) {
     case Selector(("undo:")): .undo
@@ -105,6 +121,15 @@ final class ThoughtsPanel: NSPanel {
   }
 
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    switch Self.standardKey(for: event) {
+    case .openSettings:
+      onOpenSettings?()
+      return true
+    case .belongsToFrontApp:
+      return true
+    case nil:
+      break
+    }
     if let direction = Self.historyDirection(for: event) { return step(direction) }
     if let action = Self.editAction(for: event), send(action) { return true }
     return super.performKeyEquivalent(with: event)
