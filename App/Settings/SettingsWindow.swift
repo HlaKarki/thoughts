@@ -26,7 +26,7 @@ final class SettingsWindowController {
     window.makeKeyAndOrderFront(nil)
   }
 
-  private func makeWindow(model: SettingsModel) -> NSWindow {
+  func makeWindow(model: SettingsModel) -> NSWindow {
     let window = NSWindow(
       contentRect: CGRect(origin: .zero, size: SettingsView.size),
       styleMask: Self.styleMask,
@@ -34,6 +34,7 @@ final class SettingsWindowController {
       defer: false)
     window.title = String(localized: "Thoughts Settings")
     window.isReleasedWhenClosed = false
+    window.animationBehavior = .none
     let hosting = NSHostingView(rootView: SettingsView(model: model))
     hosting.sizingOptions = []
     window.contentView = hosting

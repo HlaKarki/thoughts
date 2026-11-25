@@ -27,4 +27,18 @@ struct WindowMotionTests {
     #expect(window.frame == jump, "the slide took the window to \(window.frame)")
     window.orderOut(nil)
   }
+
+  @Test func theSettingsAndFirstRunWindowsOpenAndCloseWithoutTheSystemAnimation() throws {
+    let preferences = try SettingsFixtures.preferences()
+    let settings = SettingsWindowController {
+      try! SettingsFixtures.settings(system: FakeSystem(), preferences: preferences)
+    }
+    let firstRun = FirstRunWindowController {
+      try! SettingsFixtures.firstRun(system: FakeSystem(), preferences: preferences)
+    }
+    let model = try SettingsFixtures.settings(system: FakeSystem(), preferences: preferences)
+    #expect(settings.makeWindow(model: model).animationBehavior == .none)
+    let first = try SettingsFixtures.firstRun(system: FakeSystem(), preferences: preferences)
+    #expect(firstRun.makeWindow(model: first).animationBehavior == .none)
+  }
 }

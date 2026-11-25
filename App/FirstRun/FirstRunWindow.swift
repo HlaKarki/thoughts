@@ -39,7 +39,7 @@ final class FirstRunWindowController {
     window = nil
   }
 
-  private func makeWindow(model: FirstRunModel) -> NSWindow {
+  func makeWindow(model: FirstRunModel) -> NSWindow {
     let window = NSWindow(
       contentRect: CGRect(origin: .zero, size: FirstRunView.size),
       styleMask: Self.styleMask,
@@ -48,6 +48,7 @@ final class FirstRunWindowController {
     window.titlebarAppearsTransparent = true
     window.titleVisibility = .hidden
     window.isReleasedWhenClosed = false
+    window.animationBehavior = .none
     let hosting = NSHostingView(rootView: FirstRunView(model: model))
     hosting.sizingOptions = []
     window.contentView = hosting
