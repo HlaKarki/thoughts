@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Testing
+import ThoughtsCore
 
 @testable import Thoughts
 
@@ -25,7 +26,13 @@ final class CloseAsks: NSObject, NSWindowDelegate {
 @MainActor
 final class MenuTally: NSObject {
   var hides = 0
+  var hidesOthers = 0
+  var showsAll = 0
   @objc func hide(_ sender: Any?) { hides += 1 }
+  @objc func hideOthers(_ sender: Any?) { hidesOthers += 1 }
+  @objc func showAll(_ sender: Any?) { showsAll += 1 }
+
+  var total: Int { hides + hidesOthers + showsAll }
 }
 
 @MainActor
@@ -48,11 +55,30 @@ struct StandardKeysTests {
         checkForUpdates: nil, quit: { quits.count += 1 })
       menu = AppMenu(shared: shared, appName: "Thoughts")
       menu.install()
-      let hideItem = menu.menu.items[0].submenu?.items.first {
-        $0.keyEquivalent == "h" && $0.keyEquivalentModifierMask == .command
+      let rewired: [String: Selector] = [
+        NSStringFromSelector(#selector(NSApplication.hide(_:))): #selector(MenuTally.hide(_:)),
+        NSStringFromSelector(#selector(NSApplication.hideOtherApplications(_:))):
+          #selector(MenuTally.hideOthers(_:)),
+        NSStringFromSelector(#selector(NSApplication.unhideAllApplications(_:))):
+          #selector(MenuTally.showAll(_:)),
+      ]
+      for item in menu.menu.items.compactMap(\.submenu).flatMap(\.items) {
+        guard let action = item.action, let replacement = rewired[NSStringFromSelector(action)]
+        else { continue }
+        item.target = hide
+        item.action = replacement
       }
-      hideItem?.target = hide
-      hideItem?.action = #selector(MenuTally.hide(_:))
+    }
+
+    var itemsAimedAtTheHost: [String] {
+      let dangerous = [
+        #selector(NSApplication.hide(_:)), #selector(NSApplication.hideOtherApplications(_:)),
+        #selector(NSApplication.unhideAllApplications(_:)), #selector(NSApplication.terminate(_:)),
+      ].map(NSStringFromSelector)
+      return menu.menu.items.compactMap(\.submenu).flatMap(\.items).filter {
+        $0.target === NSApp
+          && $0.action.map { dangerous.contains(NSStringFromSelector($0)) } == true
+      }.map(\.title)
     }
 
     func restore() {
@@ -134,12 +160,95 @@ struct StandardKeysTests {
         }
       }
       #expect(rig.quits.count == 0)
-      #expect(rig.hide.hides == 0)
+      #expect(rig.hide.total == 0)
       #expect(rig.settings.count == 0)
       #expect(harness.settingsRequests == 0)
       #expect(harness.hideRequests == 0)
       #expect(harness.panel.isVisible)
       #expect(harness.input.text.isEmpty)
+    }
+  }
+
+  @Test func noMenuItemCanHideOrQuitTheTestHost() {
+    let rig = Rig()
+    defer { rig.restore() }
+    #expect(rig.itemsAimedAtTheHost.isEmpty)
+    let titles = rig.menu.menu.items.compactMap(\.submenu).flatMap(\.items).map(\.title)
+    #expect(titles.contains("Hide Others"))
+    #expect(titles.contains("Show All"))
+  }
+
+  @Test(arguments: [false, true])
+  func everyPanelKeyDoesTheSameWithTheMenuInstalled(_ installed: Bool) async throws {
+    let rig = installed ? Rig() : nil
+    defer { rig?.restore() }
+    #expect(NSApp.mainMenu === rig?.menu.menu)
+    try await PanelHarness.run { harness in
+      let page = try #require(URL(string: "https://example.com/page"))
+      try harness.fixture.addText("older", daysAgo: 3)
+      let middle = try harness.fixture.addText(
+        "middle", daysAgo: 2, source: Source(bundleID: "com.example.browser", url: page))
+      let newest = try harness.fixture.addText("newest", daysAgo: 1)
+      try harness.fixture.reload()
+      try await harness.show()
+      let list = harness.list
+      await harness.press(.up)
+      #expect(list.selection == [newest.file.lastPathComponent])
+      #expect(list.focus == .list)
+      await harness.press(.up)
+      #expect(list.selection == [middle.file.lastPathComponent])
+      await harness.press(.down)
+      await harness.press(.up)
+      #expect(list.selection == [middle.file.lastPathComponent])
+
+      await harness.press(.character("k"), .command)
+      #expect(list.isMenuOpen)
+      await harness.press(.character("k"), .command)
+      #expect(!list.isMenuOpen)
+      #expect(list.focus == .list)
+
+      await harness.press(.character("c"), .command)
+      #expect(harness.board.string(forType: .string) == "middle")
+      await harness.press(.character("C"), [.command, .shift])
+      #expect(harness.board.string(forType: .string) == middle.file.path)
+      await harness.press(.character("o"), .command)
+      #expect(harness.opener.urls == [page])
+      await harness.press(.character("r"), .command)
+      #expect(harness.opener.revealed == [[middle.file]])
+
+      await harness.press(.returnKey, .command)
+      await harness.actions.pending?.value
+      let stored = try harness.fixture.store.entries().compactMap(\.thought)
+      #expect(stored.first { $0.id == middle.id }?.done != nil)
+
+      await harness.press(.space)
+      #expect(list.isPreviewing)
+      await harness.press(.escape)
+      #expect(!list.isPreviewing)
+      #expect(list.focus == .list)
+
+      await harness.press(.character("f"), .command)
+      #expect(list.focus == .search)
+      await harness.press(.escape)
+      #expect(list.focus != .search)
+
+      await harness.press(.up)
+      #expect(list.selection.count == 1)
+      await harness.press(.delete, .command)
+      await harness.actions.pending?.value
+      #expect(try harness.storedTexts.count == 2)
+      await harness.press(.character("z"), .command)
+      await harness.actions.pending?.value
+      #expect(try harness.storedTexts.sorted() == ["middle", "newest", "older"])
+
+      #expect(harness.settingsRequests == 0)
+      #expect(harness.hideRequests == 0)
+      #expect(harness.foreignKeys == 0)
+      if let rig {
+        #expect(rig.quits.count == 0)
+        #expect(rig.settings.count == 0)
+        #expect(rig.hide.total == 0)
+      }
     }
   }
 
