@@ -441,6 +441,10 @@ final class PanelHarness {
     return true
   }
 
+  static func showsOnScreen(_ window: CGRect, screens: [CGRect]) -> Bool {
+    !window.isEmpty && screens.contains { $0.intersects(window) }
+  }
+
   static func ownWindowsOnScreens() -> [CGRect] {
     let pid = ProcessInfo.processInfo.processIdentifier
     var count: UInt32 = 0
@@ -454,7 +458,7 @@ final class PanelHarness {
       guard (info[kCGWindowOwnerPID as String] as? pid_t) == pid,
         let bounds = info[kCGWindowBounds as String] as? NSDictionary,
         let rect = CGRect(dictionaryRepresentation: bounds),
-        screens.contains(where: { $0.intersects(rect) })
+        showsOnScreen(rect, screens: screens)
       else { return nil }
       return rect
     }

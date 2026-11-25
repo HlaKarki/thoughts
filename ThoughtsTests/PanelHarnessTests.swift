@@ -102,4 +102,15 @@ struct PanelHarnessTests {
       #expect(image.pixelsHigh == Int(PanelController.maxHeight) * SnapshotRenderer.scale)
     }
   }
+
+  @Test func theScreenCheckCountsOnlyWindowsWithAnAreaThatTouchesAScreen() {
+    let screens = [CGRect(x: 0, y: 0, width: 1728, height: 1117)]
+    let chip = CGRect(x: 100, y: 100, width: 300, height: 60)
+    #expect(PanelHarness.showsOnScreen(chip, screens: screens))
+    #expect(PanelHarness.showsOnScreen(chip.offsetBy(dx: -350, dy: 0), screens: screens))
+    #expect(!PanelHarness.showsOnScreen(.zero, screens: screens))
+    #expect(
+      !PanelHarness.showsOnScreen(CGRect(x: 10, y: 10, width: 0, height: 40), screens: screens))
+    #expect(!PanelHarness.showsOnScreen(chip.offsetBy(dx: 6000, dy: 0), screens: screens))
+  }
 }
