@@ -345,10 +345,15 @@ private final class SlowRecognizer: TextRecognizing, Sendable {
   defer { recognizer.release() }
   #expect(await eventually { recognizer.total >= 1 })
 
-  let stopping = Task.detached { live.stop() }
-  try await Task.sleep(for: .milliseconds(100))
-  recognizer.release()
-  await stopping.value
+  await withCheckedContinuation { stopped in
+    DispatchQueue.global().async {
+      live.stop()
+      stopped.resume()
+    }
+    DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) {
+      recognizer.release()
+    }
+  }
   let stopped = recognizer.total
   #expect(stopped < count)
   try await Task.sleep(for: .milliseconds(300))
