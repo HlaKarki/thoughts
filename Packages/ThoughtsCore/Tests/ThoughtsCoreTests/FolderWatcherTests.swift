@@ -517,14 +517,8 @@ private func checkNewImagesArriveBeforeTheirRecognition(gap: Duration?) async th
   defer { live.stop() }
   #expect(await eventually(seconds: 30) { recognizer.total >= 1 })
 
-  let before = recognizer.total
-  for number in 0..<60 {
-    try "outside \(number)".write(
-      to: scratch.folder.appendingPathComponent("outside-\(number).md"), atomically: true,
-      encoding: .utf8)
-    try await Task.sleep(for: .milliseconds(100))
-  }
-  #expect(await eventually(seconds: 30) { recognizer.total - before >= 24 })
+  _ = try await writeOutsideFilesUntil(
+    recognizer, folder: scratch.folder, total: recognizer.total + 24)
 
   #expect(await eventually(seconds: 30) { recognizer.total >= count })
   try await Task.sleep(for: .milliseconds(500))
