@@ -54,6 +54,7 @@ final class EdgeChipPanel {
   private var hideTask: Task<Void, Never>?
   private(set) var isShown = false
   private(set) var shownFrame: CGRect?
+  var windowFrame: CGRect { window.frame }
 
   init(
     edge: @escaping () -> PanelEdge,
@@ -74,33 +75,58 @@ final class EdgeChipPanel {
   }
 
   static func chipFrame(size: CGSize, visible: CGRect, edge: PanelEdge) -> CGRect {
-    let y = visible.minY + bottomInset
+    frames(size: size, visible: visible, edge: edge).chip
+  }
+
+  static func frames(size: CGSize, visible: CGRect, edge: PanelEdge) -> (
+    chip: CGRect, window: CGRect
+  ) {
+    let panel = PanelController.frame(in: visible, edge: edge)
     let atEdge: CGFloat =
       switch edge {
       case .right: visible.maxX - edgeInset - size.width
       case .left: visible.minX + edgeInset
       }
-    let chip = CGRect(x: atEdge, y: y, width: size.width, height: size.height)
-    let panel = PanelController.frame(in: visible, edge: edge)
-    guard chip.insetBy(dx: -panelGap, dy: -panelGap).intersects(panel) else { return chip }
-    let beside: CGFloat =
-      switch edge {
-      case .right: panel.minX - panelGap - size.width
-      case .left: panel.maxX + panelGap
-      }
-    return CGRect(x: beside, y: y, width: size.width, height: size.height)
+    var chip = CGRect(
+      x: atEdge, y: visible.minY + bottomInset, width: size.width, height: size.height)
+    if chip.insetBy(dx: -panelGap, dy: -panelGap).intersects(panel) {
+      chip.origin.x =
+        switch edge {
+        case .right: max(panel.minX - panelGap - size.width, visible.minX)
+        case .left: min(panel.maxX + panelGap, visible.maxX - size.width)
+        }
+    }
+    let outer = chip.insetBy(dx: -shadowMargin, dy: -shadowMargin).intersection(visible)
+    var (minX, maxX, minY, maxY) = (outer.minX, outer.maxX, outer.minY, outer.maxY)
+    if chip.maxX <= panel.minX {
+      maxX = min(maxX, panel.minX)
+    } else if chip.minX >= panel.maxX {
+      minX = max(minX, panel.maxX)
+    } else if chip.maxY <= panel.minY {
+      maxY = min(maxY, panel.minY)
+    } else if chip.minY >= panel.maxY {
+      minY = max(minY, panel.maxY)
+    }
+    return (chip, CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY))
+  }
+
+  static func padding(around chip: CGRect, in window: CGRect) -> EdgeInsets {
+    EdgeInsets(
+      top: window.maxY - chip.maxY, leading: chip.minX - window.minX,
+      bottom: chip.minY - window.minY, trailing: window.maxX - chip.maxX)
   }
 
   func show(
     _ content: some View, hideAfter lifetime: TimeInterval? = nil, onClick: (() -> Void)? = nil
   ) {
     hideTask?.cancel()
-    hosting.rootView = AnyView(content.padding(Self.shadowMargin))
+    let placed = placement()
+    hosting.rootView = AnyView(
+      content.padding(Self.padding(around: placed.chip, in: placed.window)))
     hosting.onClick = onClick
     window.ignoresMouseEvents = onClick == nil
-    let chip = placement()
-    shownFrame = chip
-    let target = Self.window(around: chip)
+    shownFrame = placed.chip
+    let target = placed.window
     transition += 1
     if isShown {
       window.setFrame(target, display: true)
@@ -139,15 +165,11 @@ final class EdgeChipPanel {
     edge() == .right ? Self.slide : -Self.slide
   }
 
-  private func placement() -> CGRect {
-    Self.chipFrame(
+  private func placement() -> (chip: CGRect, window: CGRect) {
+    Self.frames(
       size: ChipSurface<EmptyView>.size,
       visible: visibleFrame(Self.screenPoint(panel: shownPanelFrame(), pointer: pointer())),
       edge: edge())
-  }
-
-  private static func window(around chip: CGRect) -> CGRect {
-    chip.insetBy(dx: -shadowMargin, dy: -shadowMargin)
   }
 
   static func screenPoint(panel: CGRect?, pointer: CGPoint) -> CGPoint {
