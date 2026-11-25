@@ -15,6 +15,8 @@ final class OfferCenter {
   private let sound: SavedSound
   private let accessBehavior: @MainActor () -> NSPasteboard.AccessBehavior
   private let now: () -> Date
+  private let notifications: NotificationCenter
+  private var shortcutObserver: (any NSObjectProtocol)?
   private var chain: Task<Void, Never>?
   private var expiry: Task<Void, Never>?
   private var started = false
@@ -32,7 +34,8 @@ final class OfferCenter {
     pasteboard: NSPasteboard = .general,
     location: ScreenshotLocation = ScreenshotLocation(),
     accessBehavior: (@MainActor () -> NSPasteboard.AccessBehavior)? = nil,
-    now: @escaping () -> Date = Date.init
+    now: @escaping () -> Date = Date.init,
+    notifications: NotificationCenter = .default
   ) {
     self.preferences = preferences
     self.input = input
@@ -44,6 +47,7 @@ final class OfferCenter {
     self.location = location
     self.accessBehavior = accessBehavior ?? { [pasteboard] in pasteboard.accessBehavior }
     self.now = now
+    self.notifications = notifications
   }
 
   var current: Offer? { queue.current }
@@ -56,10 +60,17 @@ final class OfferCenter {
     clipboard.start()
     applyPreferences()
     track()
+    shortcutObserver = notifications.addObserver(
+      forName: .captureShortcutChanged, object: nil, queue: .main
+    ) { [weak self] _ in
+      MainActor.assumeIsolated { self?.shortcutChanged() }
+    }
   }
 
   func stop() {
     started = false
+    shortcutObserver.map(notifications.removeObserver)
+    shortcutObserver = nil
     clipboard.stop()
     screenshots.stop()
     chain?.cancel()
@@ -139,6 +150,11 @@ final class OfferCenter {
       _ = queue.take()
       clear()
     }
+  }
+
+  private func shortcutChanged() {
+    guard started, case .shortcut = preferences.captureMethod, queue.current != nil else { return }
+    onChange(queue.current, thumbnail)
   }
 
   private func method(changedFrom method: CaptureMethod) {

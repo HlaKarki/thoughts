@@ -24,7 +24,9 @@ struct OfferCenterTests {
     let temp: TempFolder
   }
 
-  static func rig(behavior: NSPasteboard.AccessBehavior = .ask) throws -> Rig {
+  static func rig(
+    behavior: NSPasteboard.AccessBehavior = .ask, notifications: NotificationCenter = .default
+  ) throws -> Rig {
     let fixture = try ListFixture()
     let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
     let name = "thoughts.tests.\(UUID().uuidString)"
@@ -40,7 +42,7 @@ struct OfferCenterTests {
       sound: SavedSound(preferences: preferences, player: { plays.count += 1 }),
       source: { page }, pasteboard: board,
       location: ScreenshotLocation(defaults: nil, home: temp.url),
-      accessBehavior: { behavior })
+      accessBehavior: { behavior }, notifications: notifications)
     center.onChange = { offer, _ in plays.changes.append(offer) }
     return Rig(
       fixture: fixture, board: board, center: center, preferences: preferences, plays: plays,

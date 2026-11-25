@@ -44,6 +44,53 @@ struct LiveOfferTests {
     #expect(rig.center.current?.id == id)
   }
 
+  @Test func reRecordingTheCaptureShortcutUpdatesTheOfferThatIsUp() async throws {
+    let notifications = NotificationCenter()
+    let rig = try OfferCenterTests.rig(notifications: notifications)
+    defer {
+      rig.center.stop()
+      rig.board.releaseGlobally()
+    }
+    rig.preferences.captureMethod = .shortcut
+    try await Self.withOffer(rig)
+    let before = rig.plays.changes.count
+    let id = rig.center.current?.id
+    notifications.post(name: .captureShortcutChanged, object: nil)
+    #expect(
+      await PanelHarness.waitUntil { rig.plays.changes.count == before + 1 },
+      "the chip was not told about the new shortcut")
+    #expect(rig.plays.changes.last??.id == id)
+    #expect(rig.center.current?.id == id)
+  }
+
+  @Test func aShortcutChangeLeavesAnOfferAloneWhenTheGestureIsTheMethod() async throws {
+    let notifications = NotificationCenter()
+    let rig = try OfferCenterTests.rig(notifications: notifications)
+    defer {
+      rig.center.stop()
+      rig.board.releaseGlobally()
+    }
+    rig.preferences.captureMethod = .doubleTap(.shift)
+    try await Self.withOffer(rig)
+    let before = rig.plays.changes.count
+    notifications.post(name: .captureShortcutChanged, object: nil)
+    try? await Task.sleep(for: .milliseconds(300))
+    #expect(rig.plays.changes.count == before)
+  }
+
+  @Test func aShortcutChangeAfterStopDoesNothing() async throws {
+    let notifications = NotificationCenter()
+    let rig = try OfferCenterTests.rig(notifications: notifications)
+    defer { rig.board.releaseGlobally() }
+    rig.preferences.captureMethod = .shortcut
+    try await Self.withOffer(rig)
+    rig.center.stop()
+    let before = rig.plays.changes.count
+    notifications.post(name: .captureShortcutChanged, object: nil)
+    try? await Task.sleep(for: .milliseconds(300))
+    #expect(rig.plays.changes.count == before)
+  }
+
   @Test func movingTheStorageFolderUpdatesWhatIsWatched() async throws {
     let rig = try OfferCenterTests.rig()
     defer { rig.board.releaseGlobally() }
