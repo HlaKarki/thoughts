@@ -5,6 +5,7 @@ on:
 jobs:
   check:
     runs-on: macos-26
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Select Xcode
@@ -25,6 +26,10 @@ jobs:
         run: git ls-files -z --cached --others --exclude-standard '*.swift' | xargs -0 xcrun swift-format lint --strict
       - name: Core tests
         run: swift test --package-path Packages/ThoughtsCore --only-use-versions-from-resolved-file
+      - name: Core tests on one thread pool
+        env:
+          LIBDISPATCH_COOPERATIVE_POOL_STRICT: "1"
+        run: swift test --package-path Packages/ThoughtsCore --only-use-versions-from-resolved-file
       - name: Comment checker tests
         run: swift test --package-path Tools/CommentCheck --only-use-versions-from-resolved-file
       - name: App build
@@ -34,6 +39,8 @@ jobs:
           cp Config/Package.resolved Thoughts.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
           xcodebuild -project Thoughts.xcodeproj -scheme Thoughts -configuration Debug -onlyUsePackageVersionsFromResolvedFile CODE_SIGNING_ALLOWED=NO build
       - name: App tests
+        env:
+          TEST_RUNNER_LIBDISPATCH_COOPERATIVE_POOL_STRICT: "1"
         run: xcodebuild test -project Thoughts.xcodeproj -scheme Thoughts -configuration Debug -destination 'platform=macOS' -onlyUsePackageVersionsFromResolvedFile
   site:
     runs-on: ubuntu-24.04
