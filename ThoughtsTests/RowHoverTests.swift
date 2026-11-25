@@ -84,6 +84,46 @@ struct RowHoverTests {
     #expect(model.selection == [names[2]])
   }
 
+  @Test func theMenuHighlightFollowsPointerMovesAndKeysButNotRowsMovingUnderAStillPointer()
+    throws
+  {
+    let fixture = try ListFixture()
+    try fixture.addText("one", daysAgo: 1)
+    try fixture.reload()
+    let model = fixture.model
+    let name = try #require(model.visible.first?.fileName)
+    model.select(name, extend: false)
+    model.perform(.actionsMenu)
+    let items = model.menuItems
+    #expect(items.count >= 4)
+    func place(shift: CGFloat) {
+      for (offset, item) in items.enumerated() {
+        model.placeMenuRow(
+          item.id, at: CGRect(x: 6, y: 6 + 30 * CGFloat(offset) + shift, width: 240, height: 30))
+      }
+    }
+    place(shift: 0)
+    #expect(model.menuHighlight == 0)
+    model.menuPointerMoved(to: CGPoint(x: 100, y: 6 + 30 * 2 + 15))
+    #expect(model.menuHighlight == 2)
+    model.perform(.menuMove(1))
+    #expect(model.menuHighlight == 3)
+    model.menuPointerMoved(to: CGPoint(x: 101, y: 6 + 30 * 2 + 15))
+    #expect(model.menuHighlight == 2)
+    model.perform(.menuMove(-1))
+    #expect(model.menuHighlight == 1)
+    place(shift: -30)
+    #expect(model.menuHighlight == 1)
+    model.menuPointerMoved(to: nil)
+    #expect(model.menuHighlight == 1)
+    model.menuPointerMoved(to: CGPoint(x: 100, y: 400))
+    #expect(model.menuHighlight == 1)
+    #expect(model.selection == [name])
+    model.perform(.menuClose)
+    model.menuPointerMoved(to: CGPoint(x: 100, y: 6 + 15))
+    #expect(model.menuHighlight == 1)
+  }
+
   @Test func theTrackerWatchesThePointerInAPanelThatIsNotKeyAndLetsClicksThrough() {
     let view = PointerTracker.TrackerView(frame: CGRect(x: 0, y: 0, width: 360, height: 600))
     let area = view.trackingAreas.first

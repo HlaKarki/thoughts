@@ -7,6 +7,7 @@ struct ActionsMenu: View {
 
   static let width: CGFloat = 252
   static let rowHeight: CGFloat = 30
+  static let space = "thoughts.actions"
 
   @Environment(\.colorScheme) private var colorScheme
 
@@ -28,9 +29,20 @@ struct ActionsMenu: View {
               .frame(height: 1)
           }
           row(item, highlighted: offset == list.menuHighlight, offset: offset)
+            .onGeometryChange(for: CGRect.self) {
+              $0.frame(in: .named(Self.space))
+            } action: {
+              list.placeMenuRow(item.id, at: $0)
+            }
+            .onDisappear { list.placeMenuRow(item.id, at: nil) }
         }
       }
       .padding(6)
+      .overlay {
+        PointerTracker { list.menuPointerMoved(to: $0) }
+          .allowsHitTesting(false)
+      }
+      .coordinateSpace(.named(Self.space))
       Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 1)
       LineField(
         text: $list.menuQuery, placeholder: String(localized: "Search actions"),
@@ -85,9 +97,6 @@ struct ActionsMenu: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
-    .onHover { inside in
-      if inside, list.menuHighlight != offset { list.menuHighlight = offset }
-    }
     .accessibilityLabel(Text(verbatim: item.title))
     .accessibilityAddTraits(highlighted ? .isSelected : [])
   }

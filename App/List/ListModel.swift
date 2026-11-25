@@ -99,6 +99,7 @@ final class ListModel {
   }
   var menuHighlight = 0
   let hover = RowHover()
+  @ObservationIgnored private var menuRows = PointerMap<String>()
   private(set) var editing: EditSession?
   var focus: Focus = .input {
     didSet {
@@ -204,6 +205,17 @@ final class ListModel {
 
   var hoveredRow: String? {
     isMenuOpen ? nil : hover.row
+  }
+
+  func placeMenuRow(_ id: String, at frame: CGRect?) {
+    menuRows.place(id, at: frame)
+  }
+
+  func menuPointerMoved(to point: CGPoint?) {
+    guard isMenuOpen, let id = menuRows.item(at: point),
+      let row = menuItems.firstIndex(where: { $0.id == id }), row != menuHighlight
+    else { return }
+    menuHighlight = row
   }
 
   var previewThought: Thought? {

@@ -203,4 +203,45 @@ struct HoverPanelTests {
       #expect(harness.list.selection.isEmpty)
     }
   }
+
+  @Test func movingThePointerOverAMenuRowMovesTheHighlightAndKeysStillMoveIt() async throws {
+    try await PanelHarness.run { harness in
+      try harness.seed(["one", "two", "three"])
+      try await harness.show()
+      await harness.press(.up)
+      let selected = harness.list.selection
+      await harness.press(.character("k"), .command)
+      #expect(harness.list.isMenuOpen)
+      #expect(harness.list.menuHighlight == 0)
+      let trackers = PanelHarness.views(of: PointerTracker.TrackerView.self, in: harness.hosting)
+      #expect(trackers.count == 2)
+      let menu = try #require(trackers.min { $0.frame.width < $1.frame.width })
+      let list = try Self.listTracker(harness)
+      let items = harness.list.menuItems
+      func point(_ row: Int, nudge: CGFloat = 0) -> CGPoint {
+        let separators = items.prefix(row + 1).dropFirst().filter(\.destructive).count
+        let y = 6 + ActionsMenu.rowHeight * CGFloat(row) + CGFloat(separators) + 15
+        return menu.convert(CGPoint(x: 100 + nudge, y: y), to: nil)
+      }
+      list.track(windowPoint: point(2))
+      menu.track(windowPoint: point(2))
+      await harness.settle("after the pointer moved over the third menu row")
+      #expect(harness.list.menuHighlight == 2)
+      #expect(harness.list.hoveredRow == nil)
+      await harness.press(.down)
+      #expect(harness.list.menuHighlight == 3)
+      menu.track(windowPoint: point(2, nudge: 1))
+      await harness.settle("after the pointer moved inside the third row")
+      #expect(harness.list.menuHighlight == 2)
+      await harness.press(.up)
+      #expect(harness.list.menuHighlight == 1)
+      await harness.type("c")
+      await harness.settle("after filtering under a still pointer")
+      #expect(harness.list.menuHighlight == 0)
+      menu.track(windowPoint: nil)
+      #expect(harness.list.menuHighlight == 0)
+      #expect(harness.list.isMenuOpen)
+      #expect(harness.list.selection == selected)
+    }
+  }
 }
