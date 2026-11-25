@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SwiftUI
 import Testing
 import ThoughtsCore
 
@@ -109,6 +110,20 @@ struct SettingsModelTests {
     #expect(!ClipboardAccessRow.showsSettingsButton(for: .alwaysAllow))
     #expect(ClipboardAccessRow.showsSettingsButton(for: .alwaysDeny))
     #expect(ClipboardAccessRow.showsSettingsButton(for: .default))
+  }
+
+  @Test func thePasteRowKeepsItsHeightWithOrWithoutTheButton() throws {
+    func height(_ access: NSPasteboard.AccessBehavior) throws -> CGFloat {
+      let system = FakeSystem()
+      system.access = access
+      let model = try SettingsFixtures.settings(
+        system: system, preferences: SettingsFixtures.preferences())
+      return NSHostingView(rootView: ClipboardAccessRow(model: model)).fittingSize.height
+    }
+    let allowed = try height(.alwaysAllow)
+    #expect(allowed > 0)
+    #expect(try height(.default) == allowed)
+    #expect(try height(.alwaysDeny) == allowed)
   }
 
   @Test func addedFoldersSkipDuplicatesOfTheScreenshotLocation() async throws {

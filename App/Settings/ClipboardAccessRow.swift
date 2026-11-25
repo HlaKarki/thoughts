@@ -25,9 +25,11 @@ struct ClipboardAccessRow: View {
       Text(Self.title(for: model.clipboardAccess))
         .font(.system(size: 13))
         .foregroundStyle(Color(nsColor: .secondaryLabelColor))
-      if Self.showsSettingsButton(for: model.clipboardAccess) {
-        Button("Open Privacy & Security") { model.openClipboardSettings() }
-      }
+      let showsButton = Self.showsSettingsButton(for: model.clipboardAccess)
+      Button("Open Privacy & Security") { model.openClipboardSettings() }
+        .opacity(showsButton ? 1 : 0)
+        .disabled(!showsButton)
+        .accessibilityHidden(!showsButton)
     }
     .padding(.horizontal, 12)
     .padding(.bottom, 12)
