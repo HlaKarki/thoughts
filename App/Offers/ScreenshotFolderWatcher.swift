@@ -27,6 +27,7 @@ final class ScreenshotFolderWatcher {
   private let now: () -> Date
   private let settle: Duration
   private let queue = DispatchQueue(label: "thoughts.screenshot-folders")
+  private let listing = BlockingQueue("thoughts.screenshot-folders.listing")
   private var watches: [String: Watch] = [:]
   private var updating: Task<Void, Never>?
   private var generation = 0
@@ -55,12 +56,13 @@ final class ScreenshotFolderWatcher {
   func update(folders: [URL]) {
     let storage = storageFolder()
     let previous = updating
+    let listing = listing
     generation += 1
     let generation = generation
     updating = Task { [weak self] in
       await previous?.value
       guard self?.generation == generation else { return }
-      let wanted = await Task.detached { Self.wanted(folders, storage: storage) }.value
+      let wanted = await listing.run { Self.wanted(folders, storage: storage) }
       guard let self, self.generation == generation else { return }
       for key in self.watches.keys where wanted[key] == nil { self.end(key) }
       for (key, folder) in wanted.sorted(by: { $0.key < $1.key }) where self.watches[key] == nil {
@@ -93,7 +95,7 @@ final class ScreenshotFolderWatcher {
     let started = now()
     let list = listFolder
     let queue = queue
-    let opened = await Task.detached { [weak self] () -> (Set<String>, FolderWatcher)? in
+    let opened = await listing.run { [weak self] () -> (Set<String>, FolderWatcher)? in
       let existing = Set(list(folder))
       let watcher = FolderWatcher(folder: folder, queue: queue) { [weak self] urls in
         Task { @MainActor in self?.handle(urls, key: key) }
@@ -104,7 +106,7 @@ final class ScreenshotFolderWatcher {
         return nil
       }
       return (existing, watcher)
-    }.value
+    }
     guard let opened else { return }
     let (existing, watcher) = opened
     guard self.generation == generation, watches[key] == nil else {

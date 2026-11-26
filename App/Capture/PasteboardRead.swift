@@ -7,10 +7,12 @@ struct PasteboardRead: @unchecked Sendable {
     case skipped
   }
 
+  private static let queue = BlockingQueue("thoughts.pasteboard-read", concurrent: true)
+
   let pasteboard: NSPasteboard
 
   func run<T: Sendable>(_ read: @escaping @Sendable (NSPasteboard) -> T) async -> T {
-    await Task.detached { [self] in read(pasteboard) }.value
+    await Self.queue.run { [self] in read(pasteboard) }
   }
 
   func run<T: Sendable>(

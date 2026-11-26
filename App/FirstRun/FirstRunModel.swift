@@ -20,6 +20,7 @@ final class FirstRunModel {
   @ObservationIgnored private let poller: PermissionPoller
   @ObservationIgnored private let captureShortcutText: @MainActor () -> String?
   @ObservationIgnored private var requestedFolders: Set<String> = []
+  @ObservationIgnored private let folderQueue = BlockingQueue("thoughts.first-run.folders")
   @ObservationIgnored var onAccessibilityGranted: @MainActor () -> Void = {}
   @ObservationIgnored var onFinish: @MainActor () -> Void = {}
 
@@ -127,9 +128,9 @@ final class FirstRunModel {
     let folders = watchedFolders.filter { requestedFolders.insert($0.standardized.path).inserted }
     guard !folders.isEmpty else { return }
     let read = services.readFolder
-    await Task.detached {
+    await folderQueue.run {
       for folder in folders { read(folder) }
-    }.value
+    }
   }
 
   private func enter(_ target: FirstRunStep) {

@@ -55,6 +55,7 @@ final class Hold: @unchecked Sendable {
   private let first: Int
   private var count = 0
   private var released = false
+  private var times: [ContinuousClock.Instant] = []
 
   init(first: Int = .max) {
     self.first = first
@@ -62,9 +63,14 @@ final class Hold: @unchecked Sendable {
 
   var arrived: Int { condition.withLock { count } }
 
+  func arrival(_ number: Int) -> ContinuousClock.Instant? {
+    condition.withLock { times.count >= number ? times[number - 1] : nil }
+  }
+
   func pass() {
     condition.withLock {
       count += 1
+      times.append(.now)
       guard count <= first else { return }
       let deadline = Date().addingTimeInterval(5)
       while !released, condition.wait(until: deadline) {}

@@ -46,6 +46,8 @@ final class ListModel {
   @ObservationIgnored private let live: LiveIndex
   @ObservationIgnored private let location: StorageLocation
   @ObservationIgnored private let probe: StorageProbe
+  @ObservationIgnored private let probing = BlockingQueue(
+    "thoughts.storage-probe", concurrent: true)
   @ObservationIgnored private let mounts: MountSignal
   @ObservationIgnored private var isRetryingStorage = false
   @ObservationIgnored private var keepsFeedback = false
@@ -699,10 +701,10 @@ final class ListModel {
   private func probeStorage() async {
     let epoch = storageEpoch
     let probe = probe
-    let missing = await Task.detached { () -> URL? in
+    let missing = await probing.run { () -> URL? in
       guard let folder = probe.folder() else { return nil }
       return probe.exists(folder) ? nil : folder
-    }.value
+    }
     guard let missing, storageEpoch == epoch, !storageRecheck else { return }
     report(.storageUnavailable(missing.path))
   }
@@ -713,10 +715,10 @@ final class ListModel {
     defer { isRetryingStorage = false }
     let epoch = storageEpoch
     let probe = probe
-    let back = await Task.detached { probe.folder().map(probe.exists) ?? false }.value
+    let back = await probing.run { probe.folder().map(probe.exists) ?? false }
     guard back, storageEpoch == epoch else { return }
     do {
-      try await Task.detached { try probe.restart() }.value
+      try await probing.run { try probe.restart() }
       guard storageEpoch == epoch else { return }
       storageProblem = nil
     } catch let error as ThoughtsError {
