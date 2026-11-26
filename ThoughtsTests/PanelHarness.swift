@@ -99,12 +99,13 @@ final class PanelHarness {
   var input: InputModel { fixture.input }
 
   static func run(
-    laidOut: Bool = true, _ body: (PanelHarness) async throws -> Void
+    laidOut: Bool = true, storageRetry: Duration = .seconds(3600),
+    _ body: (PanelHarness) async throws -> Void
   ) async throws {
     while busy { try await Task.sleep(for: .milliseconds(20)) }
     busy = true
     defer { busy = false }
-    let harness = try PanelHarness(laidOut: laidOut)
+    let harness = try PanelHarness(laidOut: laidOut, storageRetry: storageRetry)
     do {
       try await body(harness)
     } catch {
@@ -115,8 +116,8 @@ final class PanelHarness {
     harness.verifyIsolation()
   }
 
-  private init(laidOut: Bool) throws {
-    fixture = try ListFixture()
+  private init(laidOut: Bool, storageRetry: Duration) throws {
+    fixture = try ListFixture(storageRetry: { try await Task.sleep(for: storageRetry) })
     let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
     let preferences = Preferences(defaults: defaults)
     let list = fixture.model

@@ -276,6 +276,29 @@ private func makeWatcher(
     deliveries.failures.allSatisfy { if case .storageUnavailable = $0 { true } else { false } })
 }
 
+@Test func renamedFolderIsReportedAsUnavailableAndKeepsItsRows() async throws {
+  let scratch = Scratch()
+  let deliveries = Deliveries()
+  let index = try scratch.makeIndex()
+  _ = try scratch.store.add(NewThought(content: .text("kept"), source: nil, created: Date()))
+  let live = LiveIndex(location: scratch.location, index: index, recognizer: nil)
+  try live.start { deliveries.record($0) }
+  defer { live.stop() }
+  #expect(await eventually { (try? index.entries(includeCleared: true).count) == 1 })
+  let away = scratch.root.appendingPathComponent("Away")
+  try FileManager.default.moveItem(at: scratch.folder, to: away)
+  #expect(await eventually { !deliveries.failures.isEmpty })
+  #expect(
+    deliveries.failures.allSatisfy { if case .storageUnavailable = $0 { true } else { false } })
+  #expect(try index.entries(includeCleared: true).count == 1)
+  try FileManager.default.moveItem(at: away, to: scratch.folder)
+  try live.restart()
+  try "back".write(
+    to: scratch.folder.appendingPathComponent("20260101-000000-back.md"), atomically: true,
+    encoding: .utf8)
+  #expect(await eventually { (try? index.entries(includeCleared: true).count) == 2 })
+}
+
 private final class SlowRecognizer: TextRecognizing, Sendable {
   private let seen = Mutex<[String: Int]>([:])
   private let delay: TimeInterval

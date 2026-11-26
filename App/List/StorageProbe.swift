@@ -18,10 +18,15 @@ struct MountSignal {
   var observe: @MainActor (@escaping @MainActor () -> Void) -> Void
 
   static let live = MountSignal { handler in
-    NSWorkspace.shared.notificationCenter.addObserver(
-      forName: NSWorkspace.didMountNotification, object: nil, queue: .main
-    ) { _ in
-      MainActor.assumeIsolated { handler() }
+    let names = [
+      NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification,
+      NSWorkspace.didRenameVolumeNotification,
+    ]
+    for name in names {
+      NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) {
+        _ in
+        MainActor.assumeIsolated { handler() }
+      }
     }
   }
 }

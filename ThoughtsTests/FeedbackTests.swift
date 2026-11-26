@@ -156,6 +156,7 @@ struct FeedbackTests {
   @Test func theStorageProblemStaysBehindTransientResults() async throws {
     let (fixture, gate) = try Self.rig()
     let model = fixture.model
+    try FileManager.default.removeItem(at: fixture.folder)
     model.receive(.failure(.storageUnavailable("/example/home/Thoughts")))
     #expect(model.shownFeedback?.kind == .message)
     let problem = model.shownFeedback?.text

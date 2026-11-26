@@ -51,6 +51,7 @@ final class ListModel {
   @ObservationIgnored private var keepsFeedback = false
   @ObservationIgnored private var feedbackTask: Task<Void, Never>?
   @ObservationIgnored private let feedbackDelay: @Sendable (Duration) async throws -> Void
+  @ObservationIgnored private let storageRetry: @Sendable () async throws -> Void
   @ObservationIgnored private var birthDates: [String: Date] = [:]
   @ObservationIgnored private var searchTask: Task<Void, Never>?
   @ObservationIgnored private var queuedSelect: (name: String, extend: Bool)?
@@ -67,8 +68,19 @@ final class ListModel {
     didSet {
       guard storageProblem != oldValue else { return }
       storageFeedback = storageProblem.map { Feedback(kind: .message, text: $0) }
+      if storageProblem == nil {
+        storageWatch?.cancel()
+        storageWatch = nil
+        if let oldValue, feedback?.text == oldValue { feedback = nil }
+      } else {
+        isPreviewing = false
+        closeMenu()
+        watchForStorage()
+      }
     }
   }
+  @ObservationIgnored private var storageWatch: Task<Void, Never>?
+  @ObservationIgnored private var isCheckingStorage = false
   private var storageFeedback: Feedback?
   @ObservationIgnored private var isPanelShown = false
   private(set) var addedCount = 0
@@ -123,6 +135,9 @@ final class ListModel {
     mounts: MountSignal = .live,
     feedbackDelay: @escaping @Sendable (Duration) async throws -> Void = {
       try await Task.sleep(for: $0)
+    },
+    storageRetry: @escaping @Sendable () async throws -> Void = {
+      try await Task.sleep(for: .seconds(2))
     }
   ) {
     self.index = index
@@ -132,6 +147,7 @@ final class ListModel {
     self.mounts = mounts
     self.searchDelay = searchDelay
     self.feedbackDelay = feedbackDelay
+    self.storageRetry = storageRetry
   }
 
   var editText: String {
@@ -267,7 +283,7 @@ final class ListModel {
     load()
     mounts.observe { [weak self] in
       guard let self else { return }
-      Task { await self.retryStorage() }
+      Task { await self.checkStorage() }
     }
     do {
       try live.start { [weak self] result in
@@ -360,6 +376,10 @@ final class ListModel {
   }
 
   func perform(_ command: KeyCommand) {
+    if let storageProblem, Self.needsStorage(command) {
+      tell(storageProblem)
+      return
+    }
     switch command {
     case .move(let delta):
       guard !visible.isEmpty else { return }
@@ -641,7 +661,7 @@ final class ListModel {
     isPanelShown = true
     hover.clear()
     armFeedbackEnd()
-    if storageProblem != nil { Task { await retryStorage() } }
+    Task { await checkStorage() }
   }
 
   var shownFeedback: Feedback? {
@@ -652,12 +672,27 @@ final class ListModel {
     storageProblem = nil
   }
 
+  func checkStorage() async {
+    guard storageProblem == nil else { return await retryStorage() }
+    guard !isCheckingStorage else { return }
+    isCheckingStorage = true
+    defer { isCheckingStorage = false }
+    let probe = probe
+    let missing = await Task.detached { () -> URL? in
+      guard let folder = probe.folder() else { return nil }
+      return probe.exists(folder) ? nil : folder
+    }.value
+    guard let missing, storageProblem == nil else { return }
+    report(.storageUnavailable(missing.path))
+  }
+
   func retryStorage() async {
     guard storageProblem != nil, !isRetryingStorage else { return }
-    guard let folder = probe.folder(), probe.exists(folder) else { return }
     isRetryingStorage = true
     defer { isRetryingStorage = false }
     let probe = probe
+    let back = await Task.detached { probe.folder().map(probe.exists) ?? false }.value
+    guard back, storageProblem != nil else { return }
     do {
       try await Task.detached { try probe.restart() }.value
       storageProblem = nil
@@ -698,6 +733,39 @@ final class ListModel {
       guard let self, self.feedback?.id == current.id else { return }
       self.feedback = nil
     }
+  }
+
+  private func watchForStorage() {
+    guard storageWatch == nil else { return }
+    storageWatch = Task { [weak self, storageRetry] in
+      while true {
+        do { try await storageRetry() } catch { return }
+        guard let self, self.storageProblem != nil else { return }
+        await self.retryStorage()
+      }
+    }
+  }
+
+  private static func needsStorage(_ command: KeyCommand) -> Bool {
+    switch command {
+    case .edit, .saveEdit, .toggleDone, .copy, .copyPath, .preview, .openSource, .showInFinder,
+      .delete, .clearDone, .actionsMenu, .menuRun:
+      true
+    default:
+      false
+    }
+  }
+
+  func dragProvider(for thought: Thought) -> NSItemProvider {
+    if let storageProblem {
+      tell(storageProblem)
+      return NSItemProvider()
+    }
+    guard let provider = DragOut.provider(for: thought) else {
+      tell(String(localized: "That image file isn't there anymore"))
+      return NSItemProvider()
+    }
+    return provider
   }
 
   func receive(_ result: Result<IndexChanges, ThoughtsError>) {

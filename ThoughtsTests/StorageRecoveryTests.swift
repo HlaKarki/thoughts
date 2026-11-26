@@ -208,17 +208,18 @@ struct StorageProblemTests {
     var fire: @MainActor () -> Void = {}
   }
 
-  static func rig() throws -> Rig {
+  static func rig(gone: Bool = true, retry: Duration = .seconds(3600)) throws -> Rig {
     let log = CallLog()
-    let present = Flag(false)
+    let present = Flag(!gone)
     let box = MountBox()
     let probe = StorageProbe(
       folder: { URL(fileURLWithPath: "/example/home/Thoughts", isDirectory: true) },
       exists: { _ in present.value },
       restart: { log.add("restart") })
     let fixture = try ListFixture(
-      probe: probe, mounts: MountSignal { handler in box.fire = handler })
-    fixture.model.receive(.failure(.storageUnavailable("/example/home/Thoughts")))
+      probe: probe, mounts: MountSignal { handler in box.fire = handler },
+      storageRetry: { try await Task.sleep(for: retry) })
+    if gone { fixture.model.receive(.failure(.storageUnavailable("/example/home/Thoughts"))) }
     return Rig(fixture: fixture, log: log, present: present, mounts: box)
   }
 
@@ -302,6 +303,81 @@ struct StorageProblemTests {
     await ListFixture.settle()
     #expect(rig.log.events == ["restart"])
     #expect(rig.fixture.model.storageProblem == nil)
+  }
+
+  @Test func anEjectWhileThoughtsRunsShowsTheMessage() async throws {
+    let rig = try Self.rig(gone: false)
+    let model = rig.fixture.model
+    model.start()
+    await ListFixture.settle()
+    #expect(model.storageProblem == nil)
+    rig.present.value = false
+    rig.mounts.fire()
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { model.storageProblem != nil })
+    #expect(model.shownFeedback?.text == Self.message)
+    #expect(rig.log.events.isEmpty)
+  }
+
+  @Test func showingThePanelNoticesTheFolderIsGone() async throws {
+    let rig = try Self.rig(gone: false)
+    let model = rig.fixture.model
+    model.panelDidShow()
+    await ListFixture.settle()
+    #expect(model.storageProblem == nil)
+    model.panelDidHide()
+    rig.present.value = false
+    model.panelDidShow()
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { model.storageProblem != nil })
+    #expect(model.shownFeedback?.text == Self.message)
+  }
+
+  @Test func theListComesBackOnItsOwnWhenTheFolderReturns() async throws {
+    let rig = try Self.rig(retry: .milliseconds(20))
+    let model = rig.fixture.model
+    try await Task.sleep(for: .milliseconds(200))
+    #expect(rig.log.events.isEmpty)
+    rig.present.value = true
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { model.storageProblem == nil })
+    #expect(rig.log.events == ["restart"])
+    #expect(model.shownFeedback == nil)
+  }
+
+  @Test func rowsWaitForTheFolderInsteadOfActingOnFilesThatAreGone() async throws {
+    let rig = try Self.rig(retry: .milliseconds(20))
+    let model = rig.fixture.model
+    let thought = try rig.fixture.addText("Call the landlord", daysAgo: 1)
+    try rig.fixture.reload()
+    var sent: [KeyCommand] = []
+    model.onCommand = { sent.append($0) }
+    let commands: [KeyCommand] = [
+      .copy, .copyPath, .delete, .toggleDone, .showInFinder, .openSource, .clearDone, .preview,
+      .actionsMenu, .edit,
+    ]
+    for command in commands {
+      model.select(thought.file.lastPathComponent, extend: false)
+      model.perform(command)
+      #expect(model.shownFeedback?.text == Self.message, "\(command) said something else")
+    }
+    #expect(sent.isEmpty)
+    #expect(!model.isMenuOpen)
+    #expect(!model.isPreviewing)
+    #expect(model.editing == nil)
+    #expect(model.visible.map(\.fileName) == [thought.file.lastPathComponent])
+    let dragged = model.dragProvider(for: thought)
+    #expect(dragged.registeredTypeIdentifiers.isEmpty)
+    rig.present.value = true
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { model.storageProblem == nil })
+  }
+
+  @Test func theLiveSignalHearsAnUnmountAndAVolumeRename() async throws {
+    var heard = 0
+    MountSignal.live.observe { heard += 1 }
+    let center = NSWorkspace.shared.notificationCenter
+    let info = ["NSDevicePath": "/Volumes/ThoughtsTestsNoSuchDrive"]
+    center.post(name: NSWorkspace.didUnmountNotification, object: nil, userInfo: info)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { heard == 1 })
+    center.post(name: NSWorkspace.didRenameVolumeNotification, object: nil, userInfo: info)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { heard == 2 })
   }
 }
 

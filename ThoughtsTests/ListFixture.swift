@@ -48,6 +48,9 @@ final class ListFixture {
     probe: StorageProbe? = nil, mounts: MountSignal = MountSignal { _ in },
     feedbackDelay: @escaping @Sendable (Duration) async throws -> Void = {
       try await Task.sleep(for: $0)
+    },
+    storageRetry: @escaping @Sendable () async throws -> Void = {
+      try await Task.sleep(for: .seconds(3600))
     }
   ) throws {
     cleanup = TempFolder()
@@ -65,7 +68,7 @@ final class ListFixture {
     sync = IndexSync(store: store, index: index, recognizer: recognizer)
     model = ListModel(
       index: index, live: live, location: location, searchDelay: searchDelay, probe: probe,
-      mounts: mounts, feedbackDelay: feedbackDelay)
+      mounts: mounts, feedbackDelay: feedbackDelay, storageRetry: storageRetry)
     input = InputModel(
       location: location, now: { Self.now }, onFailure: { [model] in model.tell($0) })
   }
