@@ -209,13 +209,19 @@ struct StorageProblemTests {
     var fire: @MainActor () -> Void = {}
   }
 
-  static func rig(gone: Bool = true, retry: Duration = .seconds(3600)) throws -> Rig {
+  static func rig(
+    gone: Bool = true, retry: Duration = .seconds(3600), hold: Hold? = nil
+  ) throws -> Rig {
     let log = CallLog()
     let present = Flag(!gone)
     let box = MountBox()
     let probe = StorageProbe(
       folder: { URL(fileURLWithPath: "/example/home/Thoughts", isDirectory: true) },
-      exists: { _ in present.value },
+      exists: { _ in
+        let answer = present.value
+        hold?.pass()
+        return answer
+      },
       restart: { log.add("restart") })
     let fixture = try ListFixture(
       probe: probe, mounts: MountSignal { handler in box.fire = handler },
@@ -341,6 +347,76 @@ struct StorageProblemTests {
     #expect(await PanelHarness.waitUntil(within: .seconds(2)) { model.storageProblem == nil })
     #expect(rig.log.events == ["restart"])
     #expect(model.shownFeedback == nil)
+  }
+
+  @Test func anUnmountDuringACheckThatSawTheFolderIsNotLost() async throws {
+    let hold = Hold(first: 1)
+    defer { hold.release() }
+    let rig = try Self.rig(gone: false, hold: hold)
+    let model = rig.fixture.model
+    model.start()
+    model.panelDidShow()
+    await hold.waitForArrivals(1)
+    rig.present.value = false
+    rig.mounts.fire()
+    await ListFixture.settle()
+    hold.release()
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { model.storageProblem != nil })
+    #expect(model.shownFeedback?.text == Self.message)
+  }
+
+  @Test func aMissingFolderSeenBeforeARepointNeverShows() async throws {
+    let hold = Hold(first: 1)
+    defer { hold.release() }
+    let rig = try Self.rig(gone: false, hold: hold)
+    let model = rig.fixture.model
+    rig.present.value = false
+    model.panelDidShow()
+    await hold.waitForArrivals(1)
+    rig.present.value = true
+    model.storageRepointed()
+    hold.release()
+    await ListFixture.settle()
+    #expect(model.storageProblem == nil)
+    #expect(model.shownFeedback == nil)
+  }
+
+  @Test func aMissingFolderSeenBeforeItCameBackNeverShows() async throws {
+    let hold = Hold(first: 1)
+    defer { hold.release() }
+    let rig = try Self.rig(gone: false, hold: hold)
+    let model = rig.fixture.model
+    model.start()
+    rig.present.value = false
+    model.panelDidShow()
+    await hold.waitForArrivals(1)
+    rig.present.value = true
+    rig.mounts.fire()
+    await ListFixture.settle()
+    hold.release()
+    await ListFixture.settle()
+    #expect(hold.arrived == 2)
+    #expect(model.storageProblem == nil)
+    #expect(model.shownFeedback == nil)
+  }
+
+  @Test func aMissingFolderSeenBeforeARecoveryNeverShows() async throws {
+    let hold = Hold(first: 1)
+    defer { hold.release() }
+    let rig = try Self.rig(gone: false, hold: hold)
+    let model = rig.fixture.model
+    rig.present.value = false
+    model.panelDidShow()
+    await hold.waitForArrivals(1)
+    model.receive(.failure(.storageUnavailable("/example/home/Thoughts")))
+    rig.present.value = true
+    await model.retryStorage()
+    #expect(model.storageProblem == nil)
+    hold.release()
+    await ListFixture.settle()
+    #expect(model.storageProblem == nil)
+    #expect(model.shownFeedback == nil)
+    #expect(rig.log.events == ["restart"])
   }
 
   @Test func rowsWaitForTheFolderInsteadOfActingOnFilesThatAreGone() async throws {

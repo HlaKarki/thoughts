@@ -67,6 +67,7 @@ final class ListModel {
   private(set) var storageProblem: String? {
     didSet {
       guard storageProblem != oldValue else { return }
+      storageEpoch += 1
       storageFeedback = storageProblem.map { Feedback(kind: .message, text: $0) }
       if storageProblem == nil {
         storageWatch?.cancel()
@@ -80,7 +81,9 @@ final class ListModel {
     }
   }
   @ObservationIgnored private var storageWatch: Task<Void, Never>?
-  @ObservationIgnored private var isCheckingStorage = false
+  @ObservationIgnored private var storageCheck: Task<Void, Never>?
+  @ObservationIgnored private var storageRecheck = false
+  @ObservationIgnored private var storageEpoch = 0
   private var storageFeedback: Feedback?
   @ObservationIgnored private var isPanelShown = false
   private(set) var addedCount = 0
@@ -669,20 +672,36 @@ final class ListModel {
   }
 
   func storageRepointed() {
+    storageEpoch += 1
     storageProblem = nil
   }
 
   func checkStorage() async {
-    guard storageProblem == nil else { return await retryStorage() }
-    guard !isCheckingStorage else { return }
-    isCheckingStorage = true
-    defer { isCheckingStorage = false }
+    storageRecheck = true
+    if let storageCheck { return await storageCheck.value }
+    let check = Task { [weak self] in
+      while let self, self.storageRecheck {
+        self.storageRecheck = false
+        if self.storageProblem == nil {
+          await self.probeStorage()
+        } else {
+          await self.retryStorage()
+        }
+      }
+      self?.storageCheck = nil
+    }
+    storageCheck = check
+    await check.value
+  }
+
+  private func probeStorage() async {
+    let epoch = storageEpoch
     let probe = probe
     let missing = await Task.detached { () -> URL? in
       guard let folder = probe.folder() else { return nil }
       return probe.exists(folder) ? nil : folder
     }.value
-    guard let missing, storageProblem == nil else { return }
+    guard let missing, storageEpoch == epoch, !storageRecheck else { return }
     report(.storageUnavailable(missing.path))
   }
 
@@ -690,16 +709,20 @@ final class ListModel {
     guard storageProblem != nil, !isRetryingStorage else { return }
     isRetryingStorage = true
     defer { isRetryingStorage = false }
+    let epoch = storageEpoch
     let probe = probe
     let back = await Task.detached { probe.folder().map(probe.exists) ?? false }.value
-    guard back, storageProblem != nil else { return }
+    guard back, storageEpoch == epoch else { return }
     do {
       try await Task.detached { try probe.restart() }.value
+      guard storageEpoch == epoch else { return }
       storageProblem = nil
     } catch let error as ThoughtsError {
+      guard storageEpoch == epoch else { return }
       if case .storageUnavailable = error { return }
       tell(Self.message(for: error))
     } catch {
+      guard storageEpoch == epoch else { return }
       tell(error.localizedDescription)
     }
   }
@@ -741,7 +764,7 @@ final class ListModel {
       while true {
         do { try await storageRetry() } catch { return }
         guard let self, self.storageProblem != nil else { return }
-        await self.retryStorage()
+        await self.checkStorage()
       }
     }
   }
