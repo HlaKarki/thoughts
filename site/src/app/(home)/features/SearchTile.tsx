@@ -99,7 +99,9 @@ export function SearchTile() {
         ))}
         <Collapse element="li" xstyle={[styles.narrowed, loop.run, styles.loop, styles.narrowing]}>
           <MiniRow element="div" time={tile.newest.time}>
-            <Highlighted text={tile.newest.text} />
+            <span>
+              <Highlighted text={tile.newest.text} />
+            </span>
           </MiniRow>
         </Collapse>
       </MiniPanel>
