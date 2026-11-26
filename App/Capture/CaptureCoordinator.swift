@@ -117,7 +117,7 @@ final class CaptureCoordinator {
     case .saveClipboardImage:
       return await saveClipboardImage(held, recordedSource, expecting: current.changeCount)
     case .alreadySaved(let file):
-      return .alreadySaved(input.thought(at: file))
+      return .alreadySaved(await input.thought(at: file))
     case .clipboardRefused:
       return .failed(Self.pasteRefusedMessage)
     case .copyFallback, .readClipboard, .nothingToSave:

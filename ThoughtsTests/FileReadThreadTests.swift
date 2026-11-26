@@ -231,4 +231,20 @@ struct FileReadThreadTests {
     #expect(rig.board.data(forType: .png) != nil)
     #expect(rig.fixture.model.feedback?.text == "Copied")
   }
+
+  @Test func theCaptureKeyReadsAnAlreadySavedThoughtOffTheMainThread() async throws {
+    let fixture = try ListFixture()
+    let saved = try fixture.addText("kept", daysAgo: 1)
+    let log = ThreadLog()
+    let input = InputModel(
+      location: fixture.location,
+      readThought: { file in
+        log.note()
+        return InputModel.storedThought(at: file)
+      },
+      onFailure: { _ in })
+    let found = await input.thought(at: saved.file)
+    #expect(log.onMain == [false])
+    #expect(found?.id == saved.id)
+  }
 }

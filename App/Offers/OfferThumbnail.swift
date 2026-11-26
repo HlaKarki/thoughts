@@ -4,9 +4,10 @@ import ImageIO
 enum OfferThumbnail {
   static let side = 40
   static let scale = 2
+  private static let reading = BlockingQueue("thoughts.offer-thumbnail.read", concurrent: true)
 
   static func make(file: URL) async -> NSImage? {
-    await Task.detached { image(from: CGImageSourceCreateWithURL(file as CFURL, nil)) }.value
+    await reading.run { image(from: CGImageSourceCreateWithURL(file as CFURL, nil)) }
   }
 
   static func make(data: Data) async -> NSImage? {

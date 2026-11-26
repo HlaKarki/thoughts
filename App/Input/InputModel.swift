@@ -47,6 +47,7 @@ final class InputModel {
   @ObservationIgnored private let onFailure: (String) -> Void
   @ObservationIgnored private var attachmentChangeCount: Int?
   @ObservationIgnored private var ledger = SavedLedger()
+  @ObservationIgnored private let readThought: @Sendable (URL) -> Thought?
   @ObservationIgnored private(set) var pasteRead: Task<Void, Never>?
   @ObservationIgnored private var composerVersion = 0
   @ObservationIgnored private let files = BlockingQueue("thoughts.input.files", concurrent: true)
@@ -54,10 +55,12 @@ final class InputModel {
   init(
     location: StorageLocation,
     now: @escaping () -> Date = Date.init,
+    readThought: @escaping @Sendable (URL) -> Thought? = InputModel.storedThought,
     onFailure: @escaping (String) -> Void
   ) {
     self.location = location
     self.now = now
+    self.readThought = readThought
     self.onFailure = onFailure
   }
 
@@ -161,7 +164,12 @@ final class InputModel {
     ledger.pruned { FileManager.default.fileExists(atPath: $0.path) }
   }
 
-  func thought(at file: URL) -> Thought? {
+  func thought(at file: URL) async -> Thought? {
+    let readThought = readThought
+    return await files.run { readThought(file) }
+  }
+
+  nonisolated static func storedThought(at file: URL) -> Thought? {
     let store = ThoughtStore(folder: file.deletingLastPathComponent())
     guard case .thought(let thought)? = try? store.entry(at: file) else { return nil }
     return thought
@@ -170,7 +178,7 @@ final class InputModel {
   @discardableResult
   func save(_ new: NewThought, pasteboardChangeCount: Int?) async throws -> Thought {
     let store = ThoughtStore(folder: try location.resolve())
-    let saved = try await Task.detached { try store.add(new) }.value
+    let saved = try await files.run { try store.add(new) }
     var text: String?
     if case .text(let value) = new.content { text = value }
     ledger.record(

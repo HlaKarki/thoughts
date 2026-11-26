@@ -3,6 +3,8 @@ import ThoughtsCore
 
 @MainActor
 final class ThoughtActions {
+  private static let storeWork = BlockingQueue("thoughts.actions.store")
+
   let list: ListModel
   private let location: StorageLocation
   private let pasteboard: PasteboardWriter
@@ -224,7 +226,7 @@ final class ThoughtActions {
     guard let store = makeStore() else { return }
     list.markEditSaving()
     enqueue { [self, weak list] in
-      let outcome = await Task.detached { () -> EditOutcome in
+      let outcome = await Self.storeWork.run { () -> EditOutcome in
         do {
           return .saved(try store.setText(text, of: session.id, expected: session.version))
         } catch ThoughtsError.changedOnDisk {
@@ -237,7 +239,7 @@ final class ThoughtActions {
         } catch {
           return .failed(error.localizedDescription)
         }
-      }.value
+      }
       if case .saved(let saved) = outcome {
         record(
           .amend([
@@ -325,7 +327,7 @@ final class ThoughtActions {
     enqueue { [weak list] in
       let attempt: Attempt<T>
       do {
-        attempt = try await Task.detached { try work(store) }.value
+        attempt = try await Self.storeWork.run { try work(store) }
       } catch {
         attempt = Attempt(failure: error)
       }
