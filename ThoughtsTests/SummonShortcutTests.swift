@@ -4,8 +4,8 @@ import Testing
 @testable import Thoughts
 
 struct SummonShortcutTests {
-  @Test func theSummonKeyStartsAsControlOptionN() {
+  @Test func theSummonKeyStartsAsOptionN() {
     #expect(
-      KeyboardShortcuts.Name.summon.initialShortcut == .init(.n, modifiers: [.control, .option]))
+      KeyboardShortcuts.Name.summon.initialShortcut == .init(.n, modifiers: [.option]))
   }
 }
