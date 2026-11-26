@@ -23,10 +23,37 @@ struct AccessibilityTrustTests {
     }
   }
 
+  final class Gate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isOpen = false
+    private var waitCount = 0
+    private var cancelCount = 0
+
+    var waits: Int { lock.withLock { waitCount } }
+    var cancels: Int { lock.withLock { cancelCount } }
+
+    func open() {
+      lock.withLock { isOpen = true }
+    }
+
+    func wait() async throws {
+      lock.withLock { waitCount += 1 }
+      while !lock.withLock({ isOpen }) {
+        do {
+          try await Task.sleep(for: .milliseconds(5))
+        } catch {
+          lock.withLock { cancelCount += 1 }
+          throw error
+        }
+      }
+    }
+  }
+
   @MainActor
   final class Rig {
     let system = FakeSystem()
     let monitors = Monitors()
+    let gate = Gate()
     let preferences: Preferences
     let gesture: GestureMonitor
     let trust: AccessibilityTrustWatch
@@ -44,7 +71,10 @@ struct AccessibilityTrustTests {
       preferences.captureMethod = .doubleTap(.shift)
       gesture = GestureMonitor(preferences: preferences, monitors: monitors.events)
       let system = system
-      trust = AccessibilityTrustWatch(isTrusted: { system.trusted }, center: center, name: name)
+      let gate = gate
+      trust = AccessibilityTrustWatch(
+        isTrusted: { system.trusted }, center: center, name: name,
+        recheckDelay: { try await gate.wait() })
       trust.onGranted = { [gesture] in gesture.reinstall() }
       gesture.start()
       trust.start()
@@ -131,6 +161,47 @@ struct AccessibilityTrustTests {
     #expect(await PanelHarness.waitUntil { rig.monitors.installs == 2 })
     await model.watchAccessibility()
     #expect(model.state.accessibilityGranted)
+    #expect(rig.monitors.installs == 2)
+  }
+
+  @Test func aGrantThatLandsJustAfterTheNotificationIsCaughtByTheDeferredCheck() async throws {
+    let rig = try Rig(trusted: false)
+    defer { rig.stop() }
+    rig.trustChanged()
+    #expect(
+      await PanelHarness.waitUntil { rig.gate.waits == 1 }, "no deferred check was scheduled")
+    #expect(rig.monitors.installs == 1)
+    rig.system.trusted = true
+    rig.gate.open()
+    #expect(
+      await PanelHarness.waitUntil { rig.monitors.installs == 2 },
+      "the deferred check did not turn the gesture on")
+  }
+
+  @Test func stoppingBeforeTheDeferredCheckCancelsIt() async throws {
+    let rig = try Rig(trusted: false)
+    rig.trustChanged()
+    #expect(
+      await PanelHarness.waitUntil { rig.gate.waits == 1 }, "no deferred check was scheduled")
+    rig.system.trusted = true
+    rig.stop()
+    #expect(await PanelHarness.waitUntil { rig.gate.cancels == 1 }, "stop did not cancel it")
+    rig.gate.open()
+    await Self.settle()
+    #expect(rig.monitors.installs == 1)
+  }
+
+  @Test func aNewerNotificationReplacesTheDeferredCheck() async throws {
+    let rig = try Rig(trusted: false)
+    defer { rig.stop() }
+    rig.trustChanged()
+    #expect(await PanelHarness.waitUntil { rig.gate.waits == 1 })
+    rig.trustChanged()
+    #expect(await PanelHarness.waitUntil { rig.gate.waits == 2 && rig.gate.cancels == 1 })
+    rig.system.trusted = true
+    rig.gate.open()
+    #expect(await PanelHarness.waitUntil { rig.monitors.installs == 2 })
+    await Self.settle()
     #expect(rig.monitors.installs == 2)
   }
 

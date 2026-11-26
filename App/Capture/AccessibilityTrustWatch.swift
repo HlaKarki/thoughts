@@ -9,16 +9,22 @@ final class AccessibilityTrustWatch: NSObject {
   private let isTrusted: @MainActor () -> Bool
   private let center: NotificationCenter
   private let name: Notification.Name
+  private let recheckDelay: @Sendable () async throws -> Void
   private var trusted: Bool?
+  private var recheck: Task<Void, Never>?
 
   init(
     isTrusted: @escaping @MainActor () -> Bool = { AXIsProcessTrusted() },
     center: NotificationCenter = DistributedNotificationCenter.default(),
-    name: Notification.Name = AccessibilityTrustWatch.changed
+    name: Notification.Name = AccessibilityTrustWatch.changed,
+    recheckDelay: @escaping @Sendable () async throws -> Void = {
+      try await Task.sleep(for: .seconds(1))
+    }
   ) {
     self.isTrusted = isTrusted
     self.center = center
     self.name = name
+    self.recheckDelay = recheckDelay
   }
 
   func start() {
@@ -36,6 +42,8 @@ final class AccessibilityTrustWatch: NSObject {
   func stop() {
     guard trusted != nil else { return }
     center.removeObserver(self, name: name, object: nil)
+    recheck?.cancel()
+    recheck = nil
     trusted = nil
   }
 
@@ -46,7 +54,18 @@ final class AccessibilityTrustWatch: NSObject {
     if now, !was { onGranted() }
   }
 
+  private func notified() {
+    guard trusted != nil else { return }
+    check()
+    recheck?.cancel()
+    recheck = Task { [weak self, recheckDelay] in
+      do { try await recheckDelay() } catch { return }
+      guard !Task.isCancelled else { return }
+      self?.check()
+    }
+  }
+
   @objc nonisolated private func trustMayHaveChanged(_ notification: Notification) {
-    Task { @MainActor [weak self] in self?.check() }
+    Task { @MainActor [weak self] in self?.notified() }
   }
 }
