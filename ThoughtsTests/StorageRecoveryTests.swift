@@ -210,7 +210,8 @@ struct StorageProblemTests {
   }
 
   static func rig(
-    gone: Bool = true, retry: Duration = .seconds(3600), hold: Hold? = nil
+    gone: Bool = true, retry: Duration = .seconds(3600), hold: Hold? = nil,
+    restartError: ThoughtsError? = nil
   ) throws -> Rig {
     let log = CallLog()
     let present = Flag(!gone)
@@ -222,7 +223,10 @@ struct StorageProblemTests {
         hold?.pass()
         return answer
       },
-      restart: { log.add("restart") })
+      restart: {
+        log.add("restart")
+        if let restartError { throw restartError }
+      })
     let fixture = try ListFixture(
       probe: probe, mounts: MountSignal { handler in box.fire = handler },
       storageRetry: { try await Task.sleep(for: retry) })
@@ -417,6 +421,21 @@ struct StorageProblemTests {
     #expect(model.storageProblem == nil)
     #expect(model.shownFeedback == nil)
     #expect(rig.log.events == ["restart"])
+  }
+
+  @Test func aRestartThatKeepsFailingSaysWhyOnceAndKeepsTrying() async throws {
+    let rig = try Self.rig(retry: .milliseconds(20), restartError: .io("The disk is full"))
+    let model = rig.fixture.model
+    rig.present.value = true
+    var told: Set<UUID> = []
+    for _ in 0..<30 {
+      if let feedback = model.feedback { told.insert(feedback.id) }
+      try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(told.count == 1)
+    #expect(model.feedback?.text == "The disk is full")
+    #expect(rig.log.events.count > 2)
+    #expect(model.storageProblem == Self.message)
   }
 
   @Test func rowsWaitForTheFolderInsteadOfActingOnFilesThatAreGone() async throws {

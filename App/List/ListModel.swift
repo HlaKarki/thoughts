@@ -68,6 +68,7 @@ final class ListModel {
     didSet {
       guard storageProblem != oldValue else { return }
       storageEpoch += 1
+      toldRestartFailure = nil
       storageFeedback = storageProblem.map { Feedback(kind: .message, text: $0) }
       if storageProblem == nil {
         storageWatch?.cancel()
@@ -84,6 +85,7 @@ final class ListModel {
   @ObservationIgnored private var storageCheck: Task<Void, Never>?
   @ObservationIgnored private var storageRecheck = false
   @ObservationIgnored private var storageEpoch = 0
+  @ObservationIgnored private var toldRestartFailure: String?
   private var storageFeedback: Feedback?
   @ObservationIgnored private var isPanelShown = false
   private(set) var addedCount = 0
@@ -718,13 +720,17 @@ final class ListModel {
       guard storageEpoch == epoch else { return }
       storageProblem = nil
     } catch let error as ThoughtsError {
-      guard storageEpoch == epoch else { return }
       if case .storageUnavailable = error { return }
-      tell(Self.message(for: error))
+      tellRestartFailure(Self.message(for: error), epoch: epoch)
     } catch {
-      guard storageEpoch == epoch else { return }
-      tell(error.localizedDescription)
+      tellRestartFailure(error.localizedDescription, epoch: epoch)
     }
+  }
+
+  private func tellRestartFailure(_ message: String, epoch: Int) {
+    guard storageEpoch == epoch, toldRestartFailure != message else { return }
+    toldRestartFailure = message
+    tell(message)
   }
 
   func report(_ error: ThoughtsError) {
