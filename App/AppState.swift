@@ -20,6 +20,7 @@ final class AppState {
   let capture: CaptureCoordinator
   let chip: EdgeChipPanel
   let gesture: GestureMonitor
+  let trust: AccessibilityTrustWatch
   let captureShortcut: CaptureShortcut
   let clipboard: ClipboardWatcher
   let offers: OfferCenter
@@ -59,6 +60,7 @@ final class AppState {
     }
     self.input = input
     let openSettings = Trigger()
+    let trust = AccessibilityTrustWatch(isTrusted: SystemServices.live.accessibilityTrusted)
     let updater = Updater()
     self.updater = updater
     let shared = SharedMenuItems(
@@ -80,7 +82,10 @@ final class AppState {
       surface: SystemStatusItem(menu: menuBarMenu.menu), menu: menuBarMenu,
       showPanel: { entry.fromMenu(on: $0) })
     self.menuBar = menuBar
-    menuBarMenu.onOpened = { [panel] in panel.ownMenuOpened() }
+    menuBarMenu.onOpened = { [panel] in
+      trust.check()
+      panel.ownMenuOpened()
+    }
     menuBarMenu.onClosed = { [panel] in panel.ownMenuClosed($0) }
     panel.ownIconInUse = { [menuBar] in menuBar.ownIconInUse(event: NSApp.currentEvent) }
     menuBar.start()
@@ -96,7 +101,10 @@ final class AppState {
     }
     self.preview = preview
     list.onPreviewChange = { [preview] thought in preview.update(showing: thought) }
-    panel.onWillShow = { [list] in list.panelWillShow() }
+    panel.onWillShow = { [list] in
+      trust.check()
+      list.panelWillShow()
+    }
     panel.onWillRefocus = { [list] in list.panelWillRefocus() }
     let chip = EdgeChipPanel(
       edge: { [panel] in panel.edge },
@@ -188,11 +196,14 @@ final class AppState {
       return model
     }
     self.settings = settings
-    openSettings.fire = { settings.show() }
+    openSettings.fire = {
+      trust.check()
+      settings.show()
+    }
     firstRun = FirstRunWindowController {
       let model = FirstRunModel(
         preferences: preferences, services: services, storage: choosing)
-      model.onAccessibilityGranted = { gesture.reinstall() }
+      model.onAccessibilityGranted = { trust.check() }
       model.onFinish = {
         gate.firstRunFinished()
         panel.show()
@@ -201,6 +212,7 @@ final class AppState {
     }
     let shortcut = CaptureShortcut(preferences: preferences)
     self.gesture = gesture
+    self.trust = trust
     captureShortcut = shortcut
     let save: (NewThought) async throws -> Void = { [input] in
       try await input.save($0, pasteboardChangeCount: nil)
@@ -213,6 +225,8 @@ final class AppState {
       panel: panel, importer: importer, save: save, source: { [input] in await input.source() })
     gesture.onGesture = { [weak self] in self?.gestureFired() }
     gesture.start()
+    trust.onGranted = { [gesture] in gesture.reinstall() }
+    trust.start()
     shortcut.onFire = { [weak self] in self?.gestureFired() }
     shortcut.start()
     offers.onChange = { [weak self] offer, thumbnail in self?.present(offer, thumbnail: thumbnail) }
@@ -293,6 +307,7 @@ final class AppState {
     menuBar.stop()
     captureTask?.cancel()
     acceptTask?.cancel()
+    trust.stop()
     gesture.stop()
     captureShortcut.stop()
     offers.stop()
