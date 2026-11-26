@@ -6,16 +6,16 @@ import { TypedText } from '@/components/TypedText'
 import { features } from '@/content/features'
 import { loop } from '@/styles/loop'
 import { color, font, leading, media, size } from '@/styles/tokens.stylex'
-import { reveal } from '@/styles/sequence.stylex'
+import { sequence } from '@/styles/sequence.stylex'
 import { Tile } from './Tile'
 
 const tile = features.agents.tile
 
 const typing = stylex.keyframes({
-  '0%': { opacity: 1, maxWidth: reveal.widthShown },
-  '4%': { opacity: 0, maxWidth: reveal.widthShown },
-  '4.01%, 9%': { opacity: 1, maxWidth: reveal.widthHidden },
-  '26%, 100%': { opacity: 1, maxWidth: reveal.widthShown },
+  '0%': { opacity: 1, [sequence.typed]: 47 },
+  '4%': { opacity: 0, [sequence.typed]: 47 },
+  '4.01%, 9%': { opacity: 1, [sequence.typed]: 0 },
+  '26%, 100%': { opacity: 1, [sequence.typed]: 47 },
 })
 
 const cursorWhileTyping = stylex.keyframes({
@@ -44,7 +44,7 @@ export function AgentsTile() {
         <div {...stylex.props(styles.session)}>
           <span {...stylex.props(styles.command)}>
             <span {...stylex.props(styles.prompt)}>{tile.prompt}</span>
-            <TypedText text={tile.command} wrapWords charXstyle={[loop.short, styles.typing]} />
+            <TypedText text={tile.command} wrapWords xstyle={[loop.short, styles.typing]} />
             <span {...stylex.props(styles.cursor, styles.inlineCursor, loop.short, styles.cursorWhileTyping)} />
           </span>
           <span {...stylex.props(styles.text, loop.short, styles.printing)}>{tile.output}</span>

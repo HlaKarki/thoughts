@@ -8,16 +8,16 @@ import { features } from '@/content/features'
 import type { Rich } from '@/content/types'
 import { loop } from '@/styles/loop'
 import { color, font, leading, media, size } from '@/styles/tokens.stylex'
-import { reveal } from '@/styles/sequence.stylex'
+import { sequence } from '@/styles/sequence.stylex'
 import { Tile } from './Tile'
 
 const tile = features.search.tile
 
 const typing = stylex.keyframes({
-  '0%': { opacity: 1, maxWidth: reveal.widthShown },
-  '4%': { opacity: 0, maxWidth: reveal.widthShown },
-  '4.01%, 11%': { opacity: 1, maxWidth: reveal.widthHidden },
-  '20%, 100%': { opacity: 1, maxWidth: reveal.widthShown },
+  '0%': { opacity: 1, [sequence.typed]: 9 },
+  '4%': { opacity: 0, [sequence.typed]: 9 },
+  '4.01%, 11%': { opacity: 1, [sequence.typed]: 0 },
+  '20%, 100%': { opacity: 1, [sequence.typed]: 9 },
 })
 
 const narrowed = stylex.keyframes({
@@ -74,7 +74,7 @@ export function SearchTile() {
         search={
           <span {...stylex.props(styles.query)}>
             <span {...stylex.props(styles.queryText)}>
-              <TypedText text={tile.query} charXstyle={[loop.short, styles.typing]} />
+              <TypedText text={tile.query} xstyle={[loop.short, styles.typing]} />
             </span>
             <span {...stylex.props(styles.caret)} />
           </span>

@@ -6,16 +6,16 @@ import { TypedText } from '@/components/TypedText'
 import { features } from '@/content/features'
 import { loop } from '@/styles/loop'
 import { color, font, leading, media, size } from '@/styles/tokens.stylex'
-import { reveal } from '@/styles/sequence.stylex'
+import { sequence } from '@/styles/sequence.stylex'
 import { Tile } from './Tile'
 
 const tile = features.markdown.tile
 
 const typing = stylex.keyframes({
-  '0%': { opacity: 1, maxWidth: reveal.widthShown },
-  '4%': { opacity: 0, maxWidth: reveal.widthShown },
-  '4.01%, 11%': { opacity: 1, maxWidth: reveal.widthHidden },
-  '26%, 100%': { opacity: 1, maxWidth: reveal.widthShown },
+  '0%': { opacity: 1, [sequence.typed]: 59 },
+  '4%': { opacity: 0, [sequence.typed]: 59 },
+  '4.01%, 11%': { opacity: 1, [sequence.typed]: 0 },
+  '26%, 100%': { opacity: 1, [sequence.typed]: 59 },
 })
 
 const grow = stylex.keyframes({
@@ -31,7 +31,7 @@ export function MarkdownTile() {
         <div {...stylex.props(styles.file)}>
           <span {...stylex.props(styles.text)}>{tile.frontMatter}</span>
           <span {...stylex.props(styles.text, styles.edited)}>
-            <TypedText text={tile.typed} wrapWords charXstyle={[loop.short, styles.typing]} />
+            <TypedText text={tile.typed} wrapWords xstyle={[loop.short, styles.typing]} />
             <span {...stylex.props(styles.caret)} />
           </span>
         </div>
