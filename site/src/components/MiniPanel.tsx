@@ -10,15 +10,16 @@ type PanelProps = {
   readonly children: ReactNode
   readonly xstyle?: stylex.StyleXStyles
   readonly listXstyle?: stylex.StyleXStyles
+  readonly composerCaretXstyle?: stylex.StyleXStyles
 }
 
-export function MiniPanel({ search, children, xstyle, listXstyle }: PanelProps) {
+export function MiniPanel({ search, children, xstyle, listXstyle, composerCaretXstyle }: PanelProps) {
   return (
     <GlassPanel scale="mini" xstyle={[styles.panel, xstyle]}>
       <div {...stylex.props(styles.header)}>
         <div {...stylex.props(styles.field)}>
           <Search size={9} strokeWidth={2} xstyle={styles.fieldIcon} />
-          {search ?? <span {...stylex.props(styles.bar, styles.fieldBar, styles.searchBar)} />}
+          {search ?? <MiniSearchPlaceholder />}
         </div>
         <span {...stylex.props(styles.menu)}>
           <MoreDots width={11} height={3} r={1.8} xstyle={styles.fieldIcon} />
@@ -27,12 +28,16 @@ export function MiniPanel({ search, children, xstyle, listXstyle }: PanelProps) 
       <ul {...stylex.props(styles.list, listXstyle)}>{children}</ul>
       <div {...stylex.props(styles.composer)}>
         <div {...stylex.props(styles.composerField)}>
-          <span {...stylex.props(styles.caret)} />
+          <span {...stylex.props(styles.caret, composerCaretXstyle)} />
           <span {...stylex.props(styles.bar, styles.fieldBar, styles.composerBar)} />
         </div>
       </div>
     </GlassPanel>
   )
+}
+
+export function MiniSearchPlaceholder({ xstyle }: { readonly xstyle?: stylex.StyleXStyles }) {
+  return <span {...stylex.props(styles.bar, styles.fieldBar, styles.searchBar, xstyle)} />
 }
 
 type RowProps = {
@@ -60,9 +65,10 @@ type BarsProps = {
   readonly dim?: boolean
   readonly element?: 'li' | 'div'
   readonly xstyle?: stylex.StyleXStyles
+  readonly children?: ReactNode
 }
 
-export function MiniBarsRow({ widths, dim = false, element, xstyle }: BarsProps) {
+export function MiniBarsRow({ widths, dim = false, element, xstyle, children }: BarsProps) {
   return (
     <MiniRow element={element} xstyle={xstyle} time={<span {...stylex.props(styles.bar, styles.timeBar)} />}>
       <span {...stylex.props(styles.bars)}>
@@ -70,8 +76,13 @@ export function MiniBarsRow({ widths, dim = false, element, xstyle }: BarsProps)
           <span key={index} {...stylex.props(styles.bar, styles.lineBar, dim && styles.dimBar, styles.width(width))} />
         ))}
       </span>
+      {children}
     </MiniRow>
   )
+}
+
+export function MiniSourceBar({ width }: { readonly width: number }) {
+  return <span {...stylex.props(styles.bar, styles.sourceBar, styles.width(width))} />
 }
 
 const styles = stylex.create({
@@ -207,6 +218,12 @@ const styles = stylex.create({
   timeBar: {
     width: 14,
     height: 4,
+    borderRadius: radius.r2,
+    backgroundColor: color.barTime,
+  },
+  sourceBar: {
+    height: 4,
+    marginTop: 5,
     borderRadius: radius.r2,
     backgroundColor: color.barTime,
   },

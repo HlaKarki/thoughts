@@ -33,14 +33,26 @@ type Features = {
   }>
   readonly search: Card<{
     readonly label: string
+    readonly findKeys: readonly [string, string]
+    readonly clearKey: string
     readonly query: string
-    readonly matches: ReadonlyArray<{
+    readonly message: {
       readonly text: string
       readonly source: string
       readonly time: string
-    }>
-    readonly newest: {
+    }
+    readonly screenshot: {
+      readonly eyebrow: string
+      readonly heading: string
+      readonly body: string
+      readonly source: string
+      readonly imageText: string
+      readonly excerpt: string
+      readonly time: string
+    }
+    readonly earlier: {
       readonly text: string
+      readonly source: string
       readonly time: string
     }
   }>
@@ -116,21 +128,29 @@ export const features: Features = {
       'Start typing and the list narrows to the thoughts that match, including the text inside screenshots. Esc clears the search.',
     ],
     tile: {
-      label: `A search for ${searchQuery} finds a message from Slack and one from Messages.`,
+      label: `⌘F moves to the search field, and typing ${searchQuery} narrows the list to a message from Slack and a screenshot of a building notice, found by the text inside it. Esc clears the search.`,
+      findKeys: ['⌘', 'F'],
+      clearKey: 'esc',
       query: searchQuery,
-      matches: [
-        {
-          text: thoughts.review.text,
-          source: sourceLine(sources.slack),
-          time: thoughts.review.time,
-        },
-        {
-          text: thoughts.water.text,
-          source: sourceLine(sources.messages),
-          time: thoughts.water.time,
-        },
-      ],
-      newest: thoughts.table,
+      message: {
+        text: thoughts.review.text,
+        source: sourceLine(sources.slack),
+        time: thoughts.review.time,
+      },
+      screenshot: {
+        eyebrow: 'Building office',
+        heading: 'Water shut off',
+        body: `We need to repair a pipe. This ${searchQuery} the water will be off from 9 am to noon.`,
+        source: sourceLine(sources.mail),
+        imageText: 'Text in image',
+        excerpt: `…This ${searchQuery} the water will be off from 9 am to noon.`,
+        time: '10:12',
+      },
+      earlier: {
+        text: thoughts.table.text,
+        source: sourceLine(sources.messages),
+        time: thoughts.table.time,
+      },
     },
   },
   markdown: {

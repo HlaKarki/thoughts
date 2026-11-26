@@ -1,12 +1,13 @@
 import * as stylex from '@stylexjs/stylex'
 import { SavedChip } from '@/components/Chip'
+import { Key } from '@/components/Key'
 import { MiniBarsRow, MiniPanel, MiniRow } from '@/components/MiniPanel'
 import { MiniLine, MiniPage, MiniSelection } from '@/components/MiniPage'
 import { MiniWindow } from '@/components/MiniWindow'
 import { features } from '@/content/features'
 import { layout } from '@/styles/layout'
 import { loop } from '@/styles/loop'
-import { color, font, leading, media, motion, radius, size } from '@/styles/tokens.stylex'
+import { color, media, motion } from '@/styles/tokens.stylex'
 import { Tile } from './Tile'
 
 const tile = features.selection.tile
@@ -97,12 +98,12 @@ export function SelectionTile() {
         </MiniWindow>
         <div {...stylex.props(styles.keys)}>
           <div {...stylex.props(styles.keyGroup, loop.run, styles.loop, styles.shiftKeys)}>
-            <kbd {...stylex.props(styles.key, loop.run, styles.loop, styles.pressFirst)}>{tile.key}</kbd>
-            <kbd {...stylex.props(styles.key, loop.run, styles.loop, styles.pressSecond)}>{tile.key}</kbd>
+            <Key xstyle={[loop.run, styles.loop, styles.pressFirst]}>{tile.key}</Key>
+            <Key xstyle={[loop.run, styles.loop, styles.pressSecond]}>{tile.key}</Key>
           </div>
           <div {...stylex.props(styles.keyGroup, styles.summonGroup, loop.run, styles.loop, styles.summonKeys)}>
-            <kbd {...stylex.props(styles.key, loop.run, styles.loop, styles.pressOption)}>{tile.summonKeys[0]}</kbd>
-            <kbd {...stylex.props(styles.key, loop.run, styles.loop, styles.pressN)}>{tile.summonKeys[1]}</kbd>
+            <Key xstyle={[loop.run, styles.loop, styles.pressOption]}>{tile.summonKeys[0]}</Key>
+            <Key xstyle={[loop.run, styles.loop, styles.pressN]}>{tile.summonKeys[1]}</Key>
           </div>
         </div>
       </div>
@@ -173,23 +174,6 @@ const styles = stylex.create({
   },
   summonKeys: {
     animationName: { default: null, [media.motion]: summonKeysShown },
-  },
-  key: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 28,
-    height: 28,
-    borderRadius: radius.r6,
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: color.keyBorder,
-    backgroundColor: color.key,
-    boxShadow: color.keyShadow,
-    color: color.keyText,
-    fontFamily: font.text,
-    fontSize: size.s14,
-    lineHeight: leading.l16,
   },
   pressFirst: {
     animationName: { default: null, [media.motion]: pressFirst },

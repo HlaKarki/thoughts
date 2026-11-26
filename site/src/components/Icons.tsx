@@ -70,6 +70,18 @@ export function Search({ xstyle, size = 14, strokeWidth = 1.5 }: IconProps & { r
   )
 }
 
+export function ClearSearch({ xstyle, size = 14 }: IconProps & { readonly size?: number }) {
+  return (
+    <svg {...svgProps(size, size, '0 0 14 14', xstyle)}>
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M7 0a7 7 0 1 1 0 14A7 7 0 0 1 7 0ZM8.66 4.28L9.72 5.34L8.06 7L9.72 8.66L8.66 9.72L7 8.06L5.34 9.72L4.28 8.66L5.94 7L4.28 5.34L5.34 4.28L7 5.94Z"
+      />
+    </svg>
+  )
+}
+
 export function ControlCenter({ xstyle }: IconProps) {
   return (
     <svg {...svgProps(16, 14, '0 0 16 14', xstyle)}>
