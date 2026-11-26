@@ -17,8 +17,8 @@ const tile = features.search.tile
 const shot = tile.screenshot
 
 const typing = stylex.keyframes({
-  '0%, 21.847%': { [sequence.typed]: 0, animationTimingFunction: motion.steady },
-  '32.976%': { [sequence.typed]: 9, animationTimingFunction: motion.atOnce },
+  '0%, 21.83%': { [sequence.typed]: 0, animationTimingFunction: motion.steady },
+  '32.96%': { [sequence.typed]: 9, animationTimingFunction: motion.atOnce },
   '72.63%, 100%': { [sequence.typed]: 0 },
 })
 
