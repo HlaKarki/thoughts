@@ -40,9 +40,38 @@ struct ScreenshotLocation {
     return URL(fileURLWithPath: expanded, isDirectory: true).standardized
   }
 
+  func observe(_ onChange: @escaping @MainActor @Sendable () -> Void) -> ScreenshotLocationObserver?
+  {
+    defaults.map { ScreenshotLocationObserver(defaults: $0, onChange: onChange) }
+  }
+
   static func folderExists(_ url: URL) -> Bool {
     var isDirectory: ObjCBool = false
     return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
       && isDirectory.boolValue
+  }
+}
+
+final class ScreenshotLocationObserver: NSObject {
+  private let defaults: UserDefaults
+  private let onChange: @MainActor @Sendable () -> Void
+
+  init(defaults: UserDefaults, onChange: @escaping @MainActor @Sendable () -> Void) {
+    self.defaults = defaults
+    self.onChange = onChange
+    super.init()
+    defaults.addObserver(self, forKeyPath: ScreenshotLocation.key, options: [], context: nil)
+  }
+
+  deinit {
+    defaults.removeObserver(self, forKeyPath: ScreenshotLocation.key)
+  }
+
+  override func observeValue(
+    forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?,
+    context: UnsafeMutableRawPointer?
+  ) {
+    let onChange = onChange
+    Task { @MainActor in onChange() }
   }
 }

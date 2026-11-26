@@ -17,6 +17,7 @@ final class OfferCenter {
   private let now: () -> Date
   private let notifications: NotificationCenter
   private var shortcutObserver: (any NSObjectProtocol)?
+  private var locationObserver: ScreenshotLocationObserver?
   private var chain: Task<Void, Never>?
   private var expiry: Task<Void, Never>?
   private var started = false
@@ -58,6 +59,7 @@ final class OfferCenter {
     clipboard.onSignal = { [weak self] in self?.receive($0) }
     screenshots.onFile = { [weak self] file, date in self?.receive(.file(file, at: date)) }
     clipboard.start()
+    locationObserver = location.observe { [weak self] in self?.locationChanged() }
     applyPreferences()
     track()
     shortcutObserver = notifications.addObserver(
@@ -71,6 +73,7 @@ final class OfferCenter {
     started = false
     shortcutObserver.map(notifications.removeObserver)
     shortcutObserver = nil
+    locationObserver = nil
     clipboard.stop()
     screenshots.stop()
     chain?.cancel()
@@ -143,6 +146,11 @@ final class OfferCenter {
   }
 
   func storageRepointed() {
+    guard started else { return }
+    applyPreferences()
+  }
+
+  private func locationChanged() {
     guard started else { return }
     applyPreferences()
   }

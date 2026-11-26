@@ -123,6 +123,59 @@ struct LiveOfferTests {
     #expect(await watches())
   }
 
+  @Test func aScreenshotLocationAnotherProcessWritesIsWatchedWithoutARestart() async throws {
+    let rig = try OfferCenterTests.rig()
+    defer { rig.board.releaseGlobally() }
+    let domain = "thoughts.tests.\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: domain))
+    defer { Self.forget(domain) }
+    let first = rig.temp.url.appendingPathComponent("Shots", isDirectory: true)
+    let second = rig.temp.url.appendingPathComponent("Later", isDirectory: true)
+    for folder in [first, second] {
+      try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    }
+    let watcher = ScreenshotFolderWatcher(storageFolder: { rig.fixture.folder })
+    let center = OfferCenter(
+      preferences: rig.preferences, input: rig.fixture.input,
+      clipboard: ClipboardWatcher(pasteboard: rig.board, accessBehavior: { .ask }),
+      screenshots: watcher, sound: SavedSound(preferences: rig.preferences, player: {}),
+      source: { nil }, pasteboard: rig.board,
+      location: ScreenshotLocation(defaults: defaults, home: rig.temp.url),
+      accessBehavior: { .ask })
+    center.start()
+    defer { center.stop() }
+    func watching() -> [String] { watcher.watchedFolders.map(ScreenshotFolderWatcher.key) }
+    await watcher.caughtUp()
+    #expect(watching().isEmpty)
+    #expect(try Self.runDefaults(["write", domain, ScreenshotLocation.key, first.path]) == 0)
+    #expect(
+      await PanelHarness.waitUntil { watching() == [ScreenshotFolderWatcher.key(first)] },
+      "the new screenshot location was not watched")
+    #expect(try Self.runDefaults(["write", domain, ScreenshotLocation.key, second.path]) == 0)
+    #expect(
+      await PanelHarness.waitUntil { watching() == [ScreenshotFolderWatcher.key(second)] },
+      "the moved screenshot location was not watched")
+  }
+
+  static func runDefaults(_ arguments: [String]) throws -> Int32 {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
+    process.arguments = arguments
+    process.standardOutput = FileHandle.nullDevice
+    process.standardError = FileHandle.nullDevice
+    try process.run()
+    process.waitUntilExit()
+    return process.terminationStatus
+  }
+
+  static func forget(_ domain: String) {
+    _ = try? runDefaults(["delete", domain])
+    UserDefaults.standard.removePersistentDomain(forName: domain)
+    let plist = FileManager.default.homeDirectoryForCurrentUser
+      .appendingPathComponent("Library/Preferences/\(domain).plist")
+    try? FileManager.default.removeItem(at: plist)
+  }
+
   final class Box: @unchecked Sendable {
     var url: URL
 
