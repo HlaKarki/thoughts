@@ -13,7 +13,7 @@ struct SystemServices: Sendable {
   var reveal: @MainActor (URL) -> Void
   var pasteboardAccess: @MainActor () -> NSPasteboard.AccessBehavior
   var chooseFolder: @MainActor (_ message: String, _ start: URL?) async -> URL?
-  var readFolder: @MainActor (URL) -> Void
+  var readFolder: @Sendable (URL) -> Void
 
   static var accessibilityPaneName: String {
     if #available(macOS 27, *) {

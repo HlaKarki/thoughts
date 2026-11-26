@@ -12,7 +12,9 @@ final class FakeSystem {
   private(set) var requested = 0
   private(set) var opened: [URL] = []
   private(set) var revealed: [URL] = []
-  private(set) var read: [URL] = []
+  let folderReads = FolderReads()
+
+  var read: [URL] { folderReads.urls }
 
   var services: SystemServices {
     SystemServices(
@@ -22,7 +24,32 @@ final class FakeSystem {
       reveal: { self.revealed.append($0) },
       pasteboardAccess: { self.access },
       chooseFolder: { _, _ in self.picks.isEmpty ? nil : self.picks.removeFirst() },
-      readFolder: { self.read.append($0) })
+      readFolder: { [folderReads] in folderReads.read($0) })
+  }
+}
+
+final class FolderReads: @unchecked Sendable {
+  private let lock = NSLock()
+  private var seen: [(url: URL, onMain: Bool)] = []
+  private let release = DispatchSemaphore(value: 0)
+  private var holds = false
+
+  var urls: [URL] { lock.withLock { seen.map(\.url) } }
+  var anyOnMain: Bool { lock.withLock { seen.contains { $0.onMain } } }
+
+  func holdEachRead() {
+    lock.withLock { holds = true }
+  }
+
+  func releaseHeldReads() {
+    lock.withLock { holds = false }
+    for _ in 0..<8 { release.signal() }
+  }
+
+  func read(_ url: URL) {
+    lock.withLock { seen.append((url, Thread.isMainThread)) }
+    guard lock.withLock({ holds }) else { return }
+    _ = release.wait(timeout: .now() + 2)
   }
 }
 

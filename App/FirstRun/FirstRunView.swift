@@ -24,7 +24,11 @@ struct FirstRunView: View {
     .frame(width: Self.size.width, height: Self.size.height)
     .background(palette.firstRunWindow)
     .task(id: model.step) {
-      if model.step == .accessibility { await model.watchAccessibility() }
+      switch model.step {
+      case .accessibility: await model.watchAccessibility()
+      case .clipboard: await model.readWatchedFolders()
+      default: break
+      }
     }
   }
 

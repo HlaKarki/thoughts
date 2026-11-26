@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import ServiceManagement
+import SwiftUI
 import Testing
 import ThoughtsCore
 
@@ -91,7 +92,17 @@ struct FirstRunFlowTests {
     #expect(system.opened == [SystemServices.accessibilityPane])
   }
 
-  @Test func clipboardStepReadsEachWatchedFolderOnce() throws {
+  @Test func stepFiveIsUpBeforeAnyWatchedFolderIsRead() throws {
+    let system = FakeSystem()
+    system.trusted = true
+    let model = try SettingsFixtures.firstRun(
+      system: system, preferences: SettingsFixtures.preferences())
+    for _ in 0..<4 { model.advance() }
+    #expect(model.step == .clipboard)
+    #expect(system.read.isEmpty)
+  }
+
+  @Test func stepFiveReadsEachWatchedFolderOnceOffTheMainThread() async throws {
     let system = FakeSystem()
     system.trusted = true
     let preferences = try SettingsFixtures.preferences()
@@ -99,8 +110,51 @@ struct FirstRunFlowTests {
     preferences.watchedFolders = [extra]
     let model = try SettingsFixtures.firstRun(system: system, preferences: preferences)
     for _ in 0..<4 { model.advance() }
-    #expect(model.step == .clipboard)
+    await model.readWatchedFolders()
     #expect(system.read.map(\.path) == ["/example/home/Desktop", extra.path])
+    #expect(!system.folderReads.anyOnMain)
+  }
+
+  @Test func aFolderReadWaitingOnMacOSNeverHoldsUpTheWindow() async throws {
+    let system = FakeSystem()
+    system.trusted = true
+    system.folderReads.holdEachRead()
+    defer { system.folderReads.releaseHeldReads() }
+    let model = try SettingsFixtures.firstRun(
+      system: system, preferences: SettingsFixtures.preferences())
+    for _ in 0..<3 { model.advance() }
+    let clock = ContinuousClock()
+    let started = clock.now
+    model.advance()
+    let reading = Task { await model.readWatchedFolders() }
+    try await Task.sleep(for: .milliseconds(50))
+    let held = clock.now - started
+    #expect(held < .milliseconds(500), "the main thread waited \(held) on a folder read")
+    #expect(model.step == .clipboard)
+    system.folderReads.releaseHeldReads()
+    await reading.value
+    #expect(system.read.map(\.path) == ["/example/home/Desktop"])
+  }
+
+  @Test func theStepFiveViewStartsTheFolderReadOnceItIsUp() async throws {
+    let system = FakeSystem()
+    system.trusted = true
+    let model = try SettingsFixtures.firstRun(
+      system: system, preferences: SettingsFixtures.preferences())
+    for _ in 0..<3 { model.advance() }
+    let window = NSWindow(
+      contentRect: CGRect(origin: .zero, size: FirstRunView.size), styleMask: [.borderless],
+      backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    window.contentView = NSHostingView(rootView: FirstRunView(model: model))
+    defer { window.close() }
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(system.read.isEmpty)
+    model.advance()
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { !system.read.isEmpty })
+    #expect(system.read.map(\.path) == ["/example/home/Desktop"])
+    #expect(!system.folderReads.anyOnMain)
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
   @Test func clipboardNoteShowsOnlyWhenMacOSWillAsk() throws {

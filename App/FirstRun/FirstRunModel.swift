@@ -122,12 +122,19 @@ final class FirstRunModel {
     }
   }
 
+  func readWatchedFolders() async {
+    let folders = watchedFolders
+    let read = services.readFolder
+    await Task.detached {
+      for folder in folders { read(folder) }
+    }.value
+  }
+
   private func enter(_ target: FirstRunStep) {
     step = target
     switch target {
     case .clipboard:
       clipboardAccess = services.pasteboardAccess()
-      for folder in watchedFolders { services.readFolder(folder) }
     default:
       break
     }
