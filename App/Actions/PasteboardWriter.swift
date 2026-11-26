@@ -8,6 +8,7 @@ final class PasteboardWriter {
   private let pasteboard: NSPasteboard
   private let readImage: @Sendable (URL) -> ImageFile
   private(set) var ownChangeCounts: Set<Int> = []
+  private var claims = 0
   var onOwnChange: (Int) -> Void = { _ in }
 
   init(
@@ -37,12 +38,23 @@ final class PasteboardWriter {
     case unreadable
   }
 
+  struct Claim: Equatable, Sendable {
+    fileprivate let changeCount: Int
+    fileprivate let number: Int
+  }
+
+  func claim() -> Claim {
+    claims += 1
+    return Claim(changeCount: pasteboard.changeCount, number: claims)
+  }
+
   @discardableResult
-  func write(imageAt url: URL) async -> ImageWrite {
+  func write(imageAt url: URL, claim: Claim) async -> ImageWrite {
     let readImage = readImage
-    let before = pasteboard.changeCount
     let read = await Self.reading.run { readImage(url) }
-    guard pasteboard.changeCount == before else { return .superseded }
+    guard claim.number == claims, pasteboard.changeCount == claim.changeCount else {
+      return .superseded
+    }
     let png: Data
     switch read {
     case .png(let data): png = data

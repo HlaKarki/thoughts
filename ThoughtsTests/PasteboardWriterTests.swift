@@ -19,7 +19,7 @@ struct PasteboardWriterTests {
     let png = try ListFixture.png()
     try png.write(to: file)
     let writer = PasteboardWriter(pasteboard: board)
-    await writer.write(imageAt: file)
+    await writer.write(imageAt: file, claim: writer.claim())
     #expect(board.data(forType: .png) == png)
     #expect(board.string(forType: .fileURL) == file.absoluteString)
     #expect(board.string(forType: .string) == nil)
@@ -32,7 +32,8 @@ struct PasteboardWriterTests {
     let file = folder.url.appendingPathComponent("shot.tiff")
     let tiff = try #require(NSBitmapImageRep(data: try ListFixture.png())?.tiffRepresentation)
     try tiff.write(to: file)
-    await PasteboardWriter(pasteboard: board).write(imageAt: file)
+    let writer = PasteboardWriter(pasteboard: board)
+    await writer.write(imageAt: file, claim: writer.claim())
     let written = try #require(board.data(forType: .png))
     #expect(written.starts(with: [0x89, 0x50, 0x4E, 0x47]))
   }
@@ -50,7 +51,10 @@ struct PasteboardWriterTests {
       })
     var reported: [Int] = []
     writer.onOwnChange = { reported.append($0) }
-    let writing = Task { await writer.write(imageAt: URL(fileURLWithPath: "/example/shot.png")) }
+    let claim = writer.claim()
+    let writing = Task {
+      await writer.write(imageAt: URL(fileURLWithPath: "/example/shot.png"), claim: claim)
+    }
     await hold.waitForArrivals(1)
     board.clearContents()
     board.setString("moved", forType: .string)
@@ -60,6 +64,35 @@ struct PasteboardWriterTests {
     #expect(board.string(forType: .string) == "moved")
     #expect(board.data(forType: .png) == nil)
     #expect(reported.isEmpty)
+  }
+
+  @Test func aClaimTakenBeforeATextCopyLosesToIt() async throws {
+    let board = Self.privateBoard()
+    let png = try ListFixture.png()
+    let writer = PasteboardWriter(pasteboard: board, readImage: { _ in .png(png) })
+    let claim = writer.claim()
+    writer.write(text: "copied after the claim")
+    let outcome = await writer.write(imageAt: URL(fileURLWithPath: "/example/a.png"), claim: claim)
+    #expect(outcome == .superseded)
+    #expect(board.string(forType: .string) == "copied after the claim")
+    #expect(board.data(forType: .png) == nil)
+  }
+
+  @Test func anOlderClaimLosesToANewerOneEvenBeforeTheNewerWrites() async throws {
+    let board = Self.privateBoard()
+    let folder = TempFolder()
+    try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
+    let older = folder.url.appendingPathComponent("older.png")
+    let newer = folder.url.appendingPathComponent("newer.png")
+    try ListFixture.png().write(to: older)
+    try ListFixture.png().write(to: newer)
+    let writer = PasteboardWriter(pasteboard: board)
+    let olderClaim = writer.claim()
+    let newerClaim = writer.claim()
+    #expect(await writer.write(imageAt: older, claim: olderClaim) == .superseded)
+    #expect(board.data(forType: .png) == nil)
+    #expect(await writer.write(imageAt: newer, claim: newerClaim) == .written)
+    #expect(board.string(forType: .fileURL) == newer.absoluteString)
   }
 
   @Test func writesRecordOwnChangeCount() {

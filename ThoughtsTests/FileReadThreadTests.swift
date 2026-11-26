@@ -223,18 +223,97 @@ struct FileReadThreadTests {
     #expect(rig.fixture.model.feedback?.text == "Copied")
   }
 
-  static func heldCopy(_ rig: ThoughtActionsTests.Rig, hold: Hold) -> ThoughtActions {
+  static func heldCopy(
+    _ rig: ThoughtActionsTests.Rig, hold: Hold?, trashHold: Hold? = nil
+  ) -> ThoughtActions {
     let trashed = rig.trashed
     return ThoughtActions(
       list: rig.fixture.model, location: rig.fixture.location,
       pasteboard: PasteboardWriter(
         pasteboard: rig.board,
         readImage: { url in
-          hold.pass()
+          hold?.pass()
           return PasteboardWriter.readImage(at: url)
         }),
-      opener: rig.log.opener, trash: { try trashed.move($0) }, undoManager: UndoManager(),
+      opener: rig.log.opener,
+      trash: { file in
+        trashHold?.pass()
+        return try trashed.move(file)
+      }, undoManager: UndoManager(),
       now: { ListFixture.now })
+  }
+
+  @Test func anImageCopyQueuedBehindAHeldOneLosesToATextCopyMadeBeforeItStarts() async throws {
+    let rig = try ThoughtActionsTests.rig()
+    let hold = Hold()
+    defer { hold.release() }
+    let actions = Self.heldCopy(rig, hold: hold)
+    let first = try rig.fixture.addScreenshot(note: "", daysAgo: 3)
+    let second = try rig.fixture.addScreenshot(note: "", daysAgo: 2)
+    let text = try rig.fixture.addText("copied last", daysAgo: 1)
+    try rig.fixture.reload()
+    rig.fixture.model.panelDidShow()
+    rig.fixture.model.select(first.file.lastPathComponent, extend: false)
+    actions.perform(.copy)
+    await hold.waitForArrivals(1)
+    rig.fixture.model.select(second.file.lastPathComponent, extend: false)
+    actions.perform(.copy)
+    rig.fixture.model.select(text.file.lastPathComponent, extend: false)
+    actions.perform(.copy)
+    let copied = try #require(rig.fixture.model.feedback)
+    #expect(copied.text == "Copied")
+    hold.release()
+    await actions.pending?.value
+    #expect(rig.board.string(forType: .string) == "copied last")
+    #expect(rig.board.data(forType: .png) == nil)
+    #expect(
+      rig.fixture.model.feedback?.id == copied.id, "a queued image copy showed a second Copied")
+  }
+
+  @Test func anImageCopyQueuedBehindAHeldTrashLosesToATextCopyMadeBeforeItStarts() async throws {
+    let rig = try ThoughtActionsTests.rig()
+    let trashHold = Hold()
+    defer { trashHold.release() }
+    let actions = Self.heldCopy(rig, hold: nil, trashHold: trashHold)
+    let gone = try rig.fixture.addText("trashed first", daysAgo: 4)
+    let shot = try rig.fixture.addScreenshot(note: "", daysAgo: 2)
+    let text = try rig.fixture.addText("copied last", daysAgo: 1)
+    try rig.fixture.reload()
+    rig.fixture.model.panelDidShow()
+    rig.fixture.model.select(gone.file.lastPathComponent, extend: false)
+    actions.perform(.delete)
+    await trashHold.waitForArrivals(1)
+    rig.fixture.model.select(shot.file.lastPathComponent, extend: false)
+    actions.perform(.copy)
+    rig.fixture.model.select(text.file.lastPathComponent, extend: false)
+    actions.perform(.copy)
+    #expect(rig.fixture.model.feedback?.text == "Copied")
+    trashHold.release()
+    await actions.pending?.value
+    #expect(rig.board.string(forType: .string) == "copied last")
+    #expect(rig.board.data(forType: .png) == nil)
+    #expect(rig.fixture.model.feedback?.text == UndoTests.deleteNote)
+  }
+
+  @Test func whenTwoImageCopiesQueueTheOneChosenLastEndsUpOnTheClipboard() async throws {
+    let rig = try ThoughtActionsTests.rig()
+    let hold = Hold()
+    defer { hold.release() }
+    let actions = Self.heldCopy(rig, hold: hold)
+    let first = try rig.fixture.addScreenshot(note: "", daysAgo: 3)
+    let second = try rig.fixture.addScreenshot(note: "", daysAgo: 2)
+    try rig.fixture.reload()
+    rig.fixture.model.panelDidShow()
+    rig.fixture.model.select(first.file.lastPathComponent, extend: false)
+    actions.perform(.copy)
+    await hold.waitForArrivals(1)
+    rig.fixture.model.select(second.file.lastPathComponent, extend: false)
+    actions.perform(.copy)
+    hold.release()
+    await actions.pending?.value
+    let chosen = try #require(rig.fixture.store.imageURL(of: second))
+    #expect(rig.board.string(forType: .fileURL) == chosen.absoluteString)
+    #expect(rig.fixture.model.feedback?.text == "Copied")
   }
 
   @Test func aTextCopyMadeWhileAnImageCopyReadsStaysOnTheClipboard() async throws {

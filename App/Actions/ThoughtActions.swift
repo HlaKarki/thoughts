@@ -78,8 +78,9 @@ final class ThoughtActions {
         list.tell(String(localized: "That image file isn't there anymore"))
         return
       }
+      let claim = pasteboard.claim()
       enqueue { [pasteboard, weak list] in
-        switch await pasteboard.write(imageAt: image) {
+        switch await pasteboard.write(imageAt: image, claim: claim) {
         case .written:
           list?.confirm(String(localized: "Copied"))
         case .superseded:
