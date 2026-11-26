@@ -161,14 +161,12 @@ struct SettingsModelTests {
     #expect(abs(status - button) <= 1)
   }
 
-  @Test func theSummonKeyAndPanelEdgeControlsEndWhereTheTogglesEnd() throws {
+  @Test func theSummonKeyEndsWhereTheTogglesEnd() throws {
     let toggle = try trailingInk(
       of: SettingsRow(title: "Toggle") { Toggle("Toggle", isOn: .constant(true)).labelsHidden() })
     let summon = try trailingInk(of: SummonKeyRow())
-    let edge = try trailingInk(of: PanelEdgeRow(preferences: SettingsFixtures.preferences()))
     #expect(toggle > 0)
     #expect(abs(summon - toggle) <= 1)
-    #expect(abs(edge - toggle) <= 1)
   }
 
   @Test func addedFoldersSkipDuplicatesOfTheScreenshotLocation() async throws {

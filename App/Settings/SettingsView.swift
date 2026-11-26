@@ -104,22 +104,6 @@ struct SummonKeyRow: View {
   }
 }
 
-struct PanelEdgeRow: View {
-  @Bindable var preferences: Preferences
-
-  var body: some View {
-    SettingsRow(title: "Panel edge") {
-      Picker("Panel edge", selection: $preferences.edge) {
-        Text("Left").tag(PanelEdge.left)
-        Text("Right").tag(PanelEdge.right)
-      }
-      .labelsHidden()
-      .pickerStyle(.segmented)
-      .fixedSize()
-    }
-  }
-}
-
 struct SavingSettings: View {
   let model: SettingsModel
 
@@ -202,8 +186,6 @@ struct PanelSettings: View {
   }
 
   var body: some View {
-    PanelEdgeRow(preferences: preferences)
-    RowDivider()
     MenuBarIconSetting(preferences: preferences)
     RowDivider()
     SettingsRow(title: "Open at login") {
