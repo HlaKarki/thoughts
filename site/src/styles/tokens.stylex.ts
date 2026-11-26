@@ -86,6 +86,11 @@ export const radius = stylex.defineConsts({
 
 export const motion = stylex.defineConsts({
   easeOut: 'cubic-bezier(0.16, 1, 0.3, 1)',
+  easeIn: 'cubic-bezier(0.42, 0, 1, 1)',
+  easeInOut: 'cubic-bezier(0.645, 0.045, 0.355, 1)',
+  appEaseOut: 'cubic-bezier(0, 0, 0.58, 1)',
+  steady: 'linear',
+  atOnce: 'step-end',
   loopLong: '8s',
   loopShort: '7s',
 })
