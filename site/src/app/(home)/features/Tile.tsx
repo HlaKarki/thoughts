@@ -1,6 +1,8 @@
 import * as stylex from '@stylexjs/stylex'
-import type { ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { Grain } from '@/components/Grain'
+import { useLoopPlayback } from '@/lib/playback'
+import { loop } from '@/styles/loop'
 import { media, radius, scene } from '@/styles/tokens.stylex'
 
 type Props = {
@@ -9,8 +11,10 @@ type Props = {
 }
 
 export function Tile({ label, children }: Props) {
+  const ref = useRef<HTMLDivElement>(null)
+  const playing = useLoopPlayback(ref)
   return (
-    <div role="img" aria-label={label} {...stylex.props(styles.tile)}>
+    <div ref={ref} role="img" aria-label={label} {...stylex.props(styles.tile, playing && loop.playing)}>
       <Grain />
       <div aria-hidden {...stylex.props(styles.stage)}>
         {children}

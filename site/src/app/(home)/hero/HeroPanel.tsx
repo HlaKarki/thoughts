@@ -6,13 +6,9 @@ import { Photo } from '@/components/Photo'
 import { ThoughtRow } from '@/components/ThoughtRow'
 import { hero } from '@/content/hero'
 import { layout } from '@/styles/layout'
-import { color, font, leading, media, motion, radius, size } from '@/styles/tokens.stylex'
+import { color, font, leading, media, radius, size } from '@/styles/tokens.stylex'
 
 const panel = hero.panel
-
-const slideIn = stylex.keyframes({
-  from: { translate: 'calc(100% + 16px) 0' },
-})
 
 export function HeroPanel() {
   return (
@@ -69,11 +65,6 @@ const styles = stylex.create({
     top: { default: 106, [media.wide]: 40 },
     width: 360,
     height: { default: 812, [media.wide]: 744 },
-    animationName: { default: null, [media.motion]: slideIn },
-    animationDuration: motion.panelIn,
-    animationDelay: motion.panelDelay,
-    animationTimingFunction: motion.easeOut,
-    animationFillMode: 'backwards',
   },
   header: {
     display: 'flex',

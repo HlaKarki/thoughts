@@ -2,10 +2,9 @@ import * as stylex from '@stylexjs/stylex'
 
 export const sequence = stylex.defineVars({
   index: '0',
-  count: '1',
+  typed: stylex.types.number(1000),
 })
 
 export const reveal = stylex.defineConsts({
-  widthHidden: `calc((${sequence.index} + 1) * -1000em)`,
-  widthShown: `calc((${sequence.count} - ${sequence.index}) * 1000em)`,
+  width: `calc((${sequence.typed} - ${sequence.index} - 1) * 100em)`,
 })

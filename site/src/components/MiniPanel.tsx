@@ -9,9 +9,10 @@ type PanelProps = {
   readonly search?: ReactNode
   readonly children: ReactNode
   readonly xstyle?: stylex.StyleXStyles
+  readonly listXstyle?: stylex.StyleXStyles
 }
 
-export function MiniPanel({ search, children, xstyle }: PanelProps) {
+export function MiniPanel({ search, children, xstyle, listXstyle }: PanelProps) {
   return (
     <GlassPanel scale="mini" xstyle={[styles.panel, xstyle]}>
       <div {...stylex.props(styles.header)}>
@@ -23,7 +24,7 @@ export function MiniPanel({ search, children, xstyle }: PanelProps) {
           <MoreDots width={11} height={3} r={1.8} xstyle={styles.fieldIcon} />
         </span>
       </div>
-      <ul {...stylex.props(styles.list)}>{children}</ul>
+      <ul {...stylex.props(styles.list, listXstyle)}>{children}</ul>
       <div {...stylex.props(styles.composer)}>
         <div {...stylex.props(styles.composerField)}>
           <span {...stylex.props(styles.caret)} />

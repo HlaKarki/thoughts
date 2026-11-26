@@ -1,17 +1,15 @@
 import * as stylex from '@stylexjs/stylex'
+import { playback } from './playback.stylex'
 import { motion } from './tokens.stylex'
 
 export const loop = stylex.create({
-  long: {
-    animationDuration: motion.loopLong,
+  run: {
     animationIterationCount: 'infinite',
-    animationTimingFunction: 'linear',
     animationFillMode: 'both',
+    animationTimingFunction: motion.easeOut,
+    animationPlayState: playback.state,
   },
-  short: {
-    animationDuration: motion.loopShort,
-    animationIterationCount: 'infinite',
-    animationTimingFunction: 'linear',
-    animationFillMode: 'both',
+  playing: {
+    [playback.state]: 'running',
   },
 })

@@ -6,39 +6,64 @@ import { MiniWindow } from '@/components/MiniWindow'
 import { features } from '@/content/features'
 import { layout } from '@/styles/layout'
 import { loop } from '@/styles/loop'
-import { color, font, leading, media, radius, size } from '@/styles/tokens.stylex'
+import { color, font, leading, media, motion, radius, size } from '@/styles/tokens.stylex'
 import { Tile } from './Tile'
 
 const tile = features.selection.tile
 
 const sweep = stylex.keyframes({
-  '0%': { opacity: 1, backgroundSize: '100% 100%' },
-  '4%': { opacity: 0, backgroundSize: '100% 100%' },
-  '4.01%, 5%': { opacity: 1, backgroundSize: '0% 100%' },
-  '15%, 100%': { opacity: 1, backgroundSize: '100% 100%' },
+  '0%, 7.968%': { opacity: 1, backgroundSize: '0% 100%', animationTimingFunction: motion.easeInOut },
+  '16.932%, 91.434%': { opacity: 1, backgroundSize: '100% 100%', animationTimingFunction: motion.easeIn },
+  '95.418%': { opacity: 0, backgroundSize: '100% 100%', animationTimingFunction: motion.atOnce },
+  '95.717%, 100%': { opacity: 1, backgroundSize: '0% 100%' },
 })
 
 const pressFirst = stylex.keyframes({
-  '0%, 19.99%, 22.01%, 100%': { borderColor: color.keyBorder, translate: '0 0' },
-  '20%, 22%': { borderColor: color.accent, translate: '0 1px' },
+  '0%, 22.908%': { borderColor: color.keyBorder, translate: '0 0', animationTimingFunction: motion.easeInOut },
+  '23.506%, 24.104%': { borderColor: color.accent, translate: '0 1px', animationTimingFunction: motion.easeInOut },
+  '24.9%, 100%': { borderColor: color.keyBorder, translate: '0 0' },
 })
 
 const pressSecond = stylex.keyframes({
-  '0%, 23.99%, 26.01%, 100%': { borderColor: color.keyBorder, translate: '0 0' },
-  '24%, 26%': { borderColor: color.accent, translate: '0 1px' },
+  '0%, 25.896%': { borderColor: color.keyBorder, translate: '0 0', animationTimingFunction: motion.easeInOut },
+  '26.494%, 27.092%': { borderColor: color.accent, translate: '0 1px', animationTimingFunction: motion.easeInOut },
+  '27.888%, 100%': { borderColor: color.keyBorder, translate: '0 0' },
 })
 
 const savedChip = stylex.keyframes({
-  '0%, 26%': { opacity: 0, translate: '24px 0' },
-  '29%, 44%': { opacity: 1, translate: '0 0' },
-  '46%, 100%': { opacity: 0, translate: '0 0' },
+  '0%, 28.685%': { opacity: 0, translate: '24px 0', animationTimingFunction: motion.appEaseOut },
+  '30.677%, 52.59%': { opacity: 1, translate: '0 0', animationTimingFunction: motion.appEaseOut },
+  '54.582%, 100%': { opacity: 0, translate: '24px 0' },
 })
 
-const panelIn = stylex.keyframes({
-  '0%': { opacity: 1, translate: '0 0' },
-  '4%': { opacity: 0, translate: '0 0' },
-  '4.01%, 50%': { opacity: 1, translate: 'calc(100% + 24px) 0' },
-  '53%, 100%': { opacity: 1, translate: '0 0' },
+const shiftKeysShown = stylex.keyframes({
+  '0%, 54.582%': { opacity: 1, animationTimingFunction: motion.easeIn },
+  '58.566%, 96.016%': { opacity: 0, animationTimingFunction: motion.easeOut },
+  '100%': { opacity: 1 },
+})
+
+const summonKeysShown = stylex.keyframes({
+  '0%, 58.765%': { opacity: 0, animationTimingFunction: motion.easeOut },
+  '62.749%, 91.434%': { opacity: 1, animationTimingFunction: motion.easeIn },
+  '95.418%, 100%': { opacity: 0 },
+})
+
+const pressOption = stylex.keyframes({
+  '0%, 65.737%': { borderColor: color.keyBorder, translate: '0 0', animationTimingFunction: motion.easeInOut },
+  '66.335%, 68.725%': { borderColor: color.accent, translate: '0 1px', animationTimingFunction: motion.easeInOut },
+  '69.522%, 100%': { borderColor: color.keyBorder, translate: '0 0' },
+})
+
+const pressN = stylex.keyframes({
+  '0%, 66.932%': { borderColor: color.keyBorder, translate: '0 0', animationTimingFunction: motion.easeInOut },
+  '67.53%, 68.127%': { borderColor: color.accent, translate: '0 1px', animationTimingFunction: motion.easeInOut },
+  '68.924%, 100%': { borderColor: color.keyBorder, translate: '0 0' },
+})
+
+const panelShown = stylex.keyframes({
+  '0%': { opacity: 0, animationTimingFunction: motion.atOnce },
+  '67.53%, 91.434%': { opacity: 1, animationTimingFunction: motion.easeIn },
+  '95.418%, 100%': { opacity: 0 },
 })
 
 function Selection() {
@@ -47,7 +72,7 @@ function Selection() {
       text={tile.row}
       xstyle={styles.measure}
       linesXstyle={styles.roomForLines}
-      highlightXstyle={[loop.long, styles.sweeping]}
+      highlightXstyle={[loop.run, styles.loop, styles.sweeping]}
     />
   )
 }
@@ -71,11 +96,17 @@ export function SelectionTile() {
           </MiniPage>
         </MiniWindow>
         <div {...stylex.props(styles.keys)}>
-          <kbd {...stylex.props(styles.key, loop.long, styles.pressFirst)}>{tile.key}</kbd>
-          <kbd {...stylex.props(styles.key, loop.long, styles.pressSecond)}>{tile.key}</kbd>
+          <div {...stylex.props(styles.keyGroup, loop.run, styles.loop, styles.shiftKeys)}>
+            <kbd {...stylex.props(styles.key, loop.run, styles.loop, styles.pressFirst)}>{tile.key}</kbd>
+            <kbd {...stylex.props(styles.key, loop.run, styles.loop, styles.pressSecond)}>{tile.key}</kbd>
+          </div>
+          <div {...stylex.props(styles.keyGroup, styles.summonGroup, loop.run, styles.loop, styles.summonKeys)}>
+            <kbd {...stylex.props(styles.key, loop.run, styles.loop, styles.pressOption)}>{tile.summonKeys[0]}</kbd>
+            <kbd {...stylex.props(styles.key, loop.run, styles.loop, styles.pressN)}>{tile.summonKeys[1]}</kbd>
+          </div>
         </div>
       </div>
-      <MiniPanel xstyle={[styles.panel, loop.long, styles.panelIn]}>
+      <MiniPanel xstyle={[styles.panel, loop.run, styles.loop, styles.panelShown]}>
         <MiniBarsRow widths={[76]} xstyle={layout.narrowFlex} />
         <MiniBarsRow widths={[88]} xstyle={layout.narrowFlex} />
         <MiniBarsRow widths={[100, 44]} xstyle={layout.narrowFlex} />
@@ -86,12 +117,15 @@ export function SelectionTile() {
         <MiniBarsRow widths={[76]} />
         <MiniRow time={tile.time}>{tile.row}</MiniRow>
       </MiniPanel>
-      <SavedChip title={tile.saved} message={tile.row} xstyle={[styles.chip, loop.long, styles.chipIn]} />
+      <SavedChip title={tile.saved} message={tile.row} xstyle={[styles.chip, loop.run, styles.loop, styles.chipIn]} />
     </Tile>
   )
 }
 
 const styles = stylex.create({
+  loop: {
+    animationDuration: '10040ms',
+  },
   stack: {
     position: 'absolute',
     top: { default: 41, [media.wide]: 24 },
@@ -123,8 +157,22 @@ const styles = stylex.create({
   keys: {
     position: 'relative',
     marginTop: { default: -7, [media.wide]: 11 },
+  },
+  keyGroup: {
     display: 'flex',
     gap: 6,
+  },
+  summonGroup: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    opacity: 0,
+  },
+  shiftKeys: {
+    animationName: { default: null, [media.motion]: shiftKeysShown },
+  },
+  summonKeys: {
+    animationName: { default: null, [media.motion]: summonKeysShown },
   },
   key: {
     display: 'flex',
@@ -149,14 +197,20 @@ const styles = stylex.create({
   pressSecond: {
     animationName: { default: null, [media.motion]: pressSecond },
   },
+  pressOption: {
+    animationName: { default: null, [media.motion]: pressOption },
+  },
+  pressN: {
+    animationName: { default: null, [media.motion]: pressN },
+  },
   panel: {
     top: { default: 16, [media.wide]: 24 },
     left: { default: 182, [media.wide]: 316 },
     width: 160,
     height: { default: 368, [media.wide]: 272 },
   },
-  panelIn: {
-    animationName: { default: null, [media.motion]: panelIn },
+  panelShown: {
+    animationName: { default: null, [media.motion]: panelShown },
   },
   chip: {
     top: { default: 324, [media.wide]: 236 },
@@ -165,6 +219,5 @@ const styles = stylex.create({
   },
   chipIn: {
     animationName: { default: null, [media.motion]: savedChip },
-    animationTimingFunction: 'ease-out',
   },
 })

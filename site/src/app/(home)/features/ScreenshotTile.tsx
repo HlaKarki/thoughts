@@ -7,48 +7,43 @@ import { Photo } from '@/components/Photo'
 import { features } from '@/content/features'
 import { layout } from '@/styles/layout'
 import { loop } from '@/styles/loop'
-import { color, media } from '@/styles/tokens.stylex'
+import { color, media, motion } from '@/styles/tokens.stylex'
 import { Tile } from './Tile'
 
 const tile = features.screenshot.tile
 
 const capture = stylex.keyframes({
-  '0%, 10%': { opacity: 0, clipPath: 'inset(0 100% 100% 0)' },
-  '10.01%': { opacity: 1, clipPath: 'inset(0 100% 100% 0)' },
-  '18%, 20.99%': { opacity: 1, clipPath: 'inset(0 0 0 0)' },
-  '21%, 100%': { opacity: 0, clipPath: 'inset(0 0 0 0)' },
-})
-
-const flash = stylex.keyframes({
-  '0%, 19%': { opacity: 0 },
-  '20%': { opacity: 0.6 },
-  '21%, 100%': { opacity: 0 },
+  '0%, 10.582%': { opacity: 1, clipPath: 'inset(0 100% 100% 0)', animationTimingFunction: motion.easeInOut },
+  '21.164%': { opacity: 1, clipPath: 'inset(0 0 0 0)', animationTimingFunction: motion.atOnce },
+  '23.81%, 100%': { opacity: 1, clipPath: 'inset(0 100% 100% 0)' },
 })
 
 const offer = stylex.keyframes({
-  '0%, 24%': { opacity: 0, translate: '24px 0', scale: 1 },
-  '26%, 44.99%': { opacity: 1, translate: '0 0', scale: 1 },
-  '45%, 46.87%': { opacity: 1, translate: '0 0', scale: 0.97 },
-  '46.88%, 48%': { opacity: 1, translate: '0 0', scale: 1 },
-  '50%, 100%': { opacity: 0, translate: '0 0', scale: 1 },
+  '0%, 27.778%': { opacity: 0, translate: '24px 0', animationTimingFunction: motion.appEaseOut },
+  '30.423%, 54.233%': { opacity: 1, translate: '0 0', animationTimingFunction: motion.appEaseOut },
+  '56.878%, 100%': { opacity: 0, translate: '24px 0' },
 })
 
-const grow = stylex.keyframes({
-  '0%': { gridTemplateRows: '1fr', opacity: 1 },
-  '4%': { gridTemplateRows: '1fr', opacity: 0 },
-  '4.01%, 48%': { gridTemplateRows: '0fr', opacity: 0 },
-  '50%, 100%': { gridTemplateRows: '1fr', opacity: 1 },
+const added = stylex.keyframes({
+  '0%': { gridTemplateRows: '0fr', opacity: 0, animationTimingFunction: motion.atOnce },
+  '56.878%, 93.915%': { gridTemplateRows: '1fr', opacity: 1, animationTimingFunction: motion.atOnce },
+  '94.312%, 100%': { gridTemplateRows: '0fr', opacity: 0 },
+})
+
+const listReset = stylex.keyframes({
+  '0%, 88.624%': { opacity: 1, animationTimingFunction: motion.easeIn },
+  '93.915%, 94.709%': { opacity: 0, animationTimingFunction: motion.easeOut },
+  '100%': { opacity: 1 },
 })
 
 export function ScreenshotTile() {
+  const run = [loop.run, styles.loop]
   return (
     <Tile label={tile.label}>
       <MiniWindow title={tile.windowTitle} strongTitle xstyle={styles.window} titleXstyle={styles.title}>
-        <Photo src={tile.photo} xstyle={styles.photo}>
-          <span {...stylex.props(styles.flash, loop.long, styles.flashing)} />
-        </Photo>
+        <Photo src={tile.photo} xstyle={styles.photo} />
       </MiniWindow>
-      <MiniPanel xstyle={styles.panel}>
+      <MiniPanel xstyle={styles.panel} listXstyle={[run, styles.resetting]}>
         <MiniBarsRow widths={[96, 60]} xstyle={layout.narrowFlex} />
         <MiniBarsRow widths={[88]} xstyle={layout.narrowFlex} />
         <MiniBarsRow widths={[70]} dim xstyle={layout.narrowFlex} />
@@ -57,26 +52,29 @@ export function ScreenshotTile() {
         <MiniBarsRow widths={[88]} />
         <MiniBarsRow widths={[100, 44]} />
         <MiniBarsRow widths={[76]} />
-        <Collapse element="li" xstyle={[loop.long, styles.grow]}>
+        <Collapse element="li" xstyle={[run, styles.adding]}>
           <MiniRow element="div" time={tile.time}>
             <MiniThumbnail src={tile.photo} />
             <span {...stylex.props(styles.note)}>{tile.note}</span>
           </MiniRow>
         </Collapse>
       </MiniPanel>
-      <span {...stylex.props(styles.region, loop.long, styles.capturing)} />
+      <span {...stylex.props(styles.region, run, styles.capturing)} />
       <OfferChip
         title={tile.offerTitle}
         message={tile.offerMessage}
         keys={tile.offerKeys}
         image={tile.photo}
-        xstyle={[styles.offer, loop.long, styles.offering]}
+        xstyle={[styles.offer, run, styles.offering]}
       />
     </Tile>
   )
 }
 
 const styles = stylex.create({
+  loop: {
+    animationDuration: '7560ms',
+  },
   window: {
     top: { default: 62, [media.wide]: 24 },
     left: { default: 16, [media.wide]: 24 },
@@ -94,15 +92,6 @@ const styles = stylex.create({
     backgroundSize: { default: '222.7px 244.8px', [media.wide]: '262px 288px' },
     backgroundPosition: { default: '-29px -6px', [media.wide]: '0 -40px' },
   },
-  flash: {
-    position: 'absolute',
-    inset: 0,
-    backgroundColor: color.flash,
-    opacity: 0,
-  },
-  flashing: {
-    animationName: { default: null, [media.motion]: flash },
-  },
   panel: {
     top: { default: 16, [media.wide]: 24 },
     left: { default: 182, [media.wide]: 316 },
@@ -112,8 +101,11 @@ const styles = stylex.create({
   note: {
     paddingTop: 4,
   },
-  grow: {
-    animationName: { default: null, [media.motion]: grow },
+  adding: {
+    animationName: { default: null, [media.motion]: added },
+  },
+  resetting: {
+    animationName: { default: null, [media.motion]: listReset },
   },
   region: {
     position: 'absolute',

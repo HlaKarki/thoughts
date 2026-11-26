@@ -5,7 +5,6 @@ const DARK = '@media (prefers-color-scheme: dark)'
 export const media = stylex.defineConsts({
   wide: '@media (min-width: 1100px)',
   motion: '@media (prefers-reduced-motion: no-preference)',
-  scrollTimeline: '@supports (animation-timeline: view())',
 })
 
 export const font = stylex.defineConsts({
@@ -86,10 +85,11 @@ export const radius = stylex.defineConsts({
 
 export const motion = stylex.defineConsts({
   easeOut: 'cubic-bezier(0.16, 1, 0.3, 1)',
-  panelIn: '200ms',
-  panelDelay: '400ms',
-  loopLong: '8s',
-  loopShort: '7s',
+  easeIn: 'cubic-bezier(0.42, 0, 1, 1)',
+  easeInOut: 'cubic-bezier(0.645, 0.045, 0.355, 1)',
+  appEaseOut: 'cubic-bezier(0, 0, 0.58, 1)',
+  steady: 'linear',
+  atOnce: 'step-end',
 })
 
 export const color = stylex.defineVars({
@@ -189,7 +189,6 @@ export const color = stylex.defineVars({
 
   capture: '#FFFFFF14',
   captureBorder: '#FFFFFFCC',
-  flash: '#FFFFFF',
   cursorBlock: { default: '#00000080', [DARK]: '#E6E6E6B3' },
 
   settingsList: { default: '#FFFFFF', [DARK]: '#1C1C1E' },

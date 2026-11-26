@@ -9,10 +9,6 @@ import { MenuBar } from './hero/MenuBar'
 
 const cropHeight = { default: 1000, [media.wide]: 800 }
 
-const settle = stylex.keyframes({
-  from: { scale: 0.96, borderRadius: '8px' },
-})
-
 export function Hero() {
   return (
     <section {...stylex.props(styles.hero)}>
@@ -44,20 +40,6 @@ const styles = stylex.create({
     height: cropHeight,
     overflow: 'clip',
     borderRadius: { default: 0, [media.wide]: radius.r16 },
-    animationName: {
-      default: null,
-      [media.wide]: {
-        default: null,
-        [media.motion]: {
-          default: null,
-          [media.scrollTimeline]: settle,
-        },
-      },
-    },
-    animationTimingFunction: 'linear',
-    animationFillMode: 'both',
-    animationTimeline: 'view()',
-    animationRange: 'entry 0% entry 100%',
   },
   scene: {
     position: 'absolute',

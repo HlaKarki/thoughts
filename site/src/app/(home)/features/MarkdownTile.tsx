@@ -5,23 +5,28 @@ import { MiniWindow } from '@/components/MiniWindow'
 import { TypedText } from '@/components/TypedText'
 import { features } from '@/content/features'
 import { loop } from '@/styles/loop'
-import { color, font, leading, media, size } from '@/styles/tokens.stylex'
-import { reveal } from '@/styles/sequence.stylex'
+import { color, font, leading, media, motion, size } from '@/styles/tokens.stylex'
+import { sequence } from '@/styles/sequence.stylex'
 import { Tile } from './Tile'
 
 const tile = features.markdown.tile
 
 const typing = stylex.keyframes({
-  '0%': { opacity: 1, maxWidth: reveal.widthShown },
-  '4%': { opacity: 0, maxWidth: reveal.widthShown },
-  '4.01%, 11%': { opacity: 1, maxWidth: reveal.widthHidden },
-  '26%, 100%': { opacity: 1, maxWidth: reveal.widthShown },
+  '0%, 9.828%': { [sequence.typed]: 0, animationTimingFunction: motion.steady },
+  '53.317%, 94.349%': { [sequence.typed]: 59, animationTimingFunction: motion.atOnce },
+  '94.717%, 100%': { [sequence.typed]: 0 },
 })
 
 const grow = stylex.keyframes({
-  '0%': { gridTemplateRows: '1fr', opacity: 1 },
-  '4%, 31%': { gridTemplateRows: '0fr', opacity: 0 },
-  '34%, 100%': { gridTemplateRows: '1fr', opacity: 1 },
+  '0%': { gridTemplateRows: '0fr', opacity: 0, animationTimingFunction: motion.atOnce },
+  '59.951%, 94.349%': { gridTemplateRows: '1fr', opacity: 1, animationTimingFunction: motion.atOnce },
+  '94.717%, 100%': { gridTemplateRows: '0fr', opacity: 0 },
+})
+
+const reset = stylex.keyframes({
+  '0%, 89.435%': { opacity: 1, animationTimingFunction: motion.easeIn },
+  '94.349%, 95.086%': { opacity: 0, animationTimingFunction: motion.easeOut },
+  '100%': { opacity: 1 },
 })
 
 export function MarkdownTile() {
@@ -30,19 +35,19 @@ export function MarkdownTile() {
       <MiniWindow title={tile.fileName} xstyle={styles.window}>
         <div {...stylex.props(styles.file)}>
           <span {...stylex.props(styles.text)}>{tile.frontMatter}</span>
-          <span {...stylex.props(styles.text, styles.edited)}>
-            <TypedText text={tile.typed} wrapWords charXstyle={[loop.short, styles.typing]} />
+          <span {...stylex.props(styles.text, styles.edited, loop.run, styles.loop, styles.resetting)}>
+            <TypedText text={tile.typed} wrapWords xstyle={[loop.run, styles.loop, styles.typing]} />
             <span {...stylex.props(styles.caret)} />
           </span>
         </div>
       </MiniWindow>
-      <MiniPanel xstyle={styles.panel}>
+      <MiniPanel xstyle={styles.panel} listXstyle={[loop.run, styles.loop, styles.resetting]}>
         <MiniBarsRow widths={[100, 44]} />
         <MiniBarsRow widths={[76]} />
         <MiniRow time={tile.time}>
           <span {...stylex.props(styles.note)}>
             <span>{tile.note}</span>
-            <Collapse xstyle={[loop.short, styles.growing]}>
+            <Collapse xstyle={[loop.run, styles.loop, styles.growing]}>
               <span>{tile.typed}</span>
             </Collapse>
           </span>
@@ -54,6 +59,12 @@ export function MarkdownTile() {
 }
 
 const styles = stylex.create({
+  loop: {
+    animationDuration: '8140ms',
+  },
+  resetting: {
+    animationName: { default: null, [media.motion]: reset },
+  },
   window: {
     top: { default: 16, [media.wide]: 24 },
     left: { default: 16, [media.wide]: 24 },

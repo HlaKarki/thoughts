@@ -5,51 +5,52 @@ import { MiniLine, MiniPage } from '@/components/MiniPage'
 import { MiniWindow } from '@/components/MiniWindow'
 import { TypedText } from '@/components/TypedText'
 import { features } from '@/content/features'
-import type { Rich } from '@/content/types'
+import { type BoldWindow, typedBold } from '@/lib/searchHighlight'
 import { loop } from '@/styles/loop'
-import { color, font, leading, media, size } from '@/styles/tokens.stylex'
-import { reveal } from '@/styles/sequence.stylex'
+import { color, font, leading, media, motion, size } from '@/styles/tokens.stylex'
+import { sequence } from '@/styles/sequence.stylex'
 import { Tile } from './Tile'
 
 const tile = features.search.tile
 
 const typing = stylex.keyframes({
-  '0%': { opacity: 1, maxWidth: reveal.widthShown },
-  '4%': { opacity: 0, maxWidth: reveal.widthShown },
-  '4.01%, 11%': { opacity: 1, maxWidth: reveal.widthHidden },
-  '20%, 100%': { opacity: 1, maxWidth: reveal.widthShown },
-})
-
-const narrowed = stylex.keyframes({
-  '0%': { gridTemplateRows: '0fr', opacity: 0, marginTop: -2 },
-  '4%, 23%': { gridTemplateRows: '1fr', opacity: 1, marginTop: 0 },
-  '27%, 100%': { gridTemplateRows: '0fr', opacity: 0, marginTop: -2 },
+  '0%, 15.541%': { [sequence.typed]: 0, animationTimingFunction: motion.steady },
+  '30.011%, 90.139%': { [sequence.typed]: 9, animationTimingFunction: motion.atOnce },
+  '90.782%, 100%': { [sequence.typed]: 0 },
 })
 
 const revealed = stylex.keyframes({
-  '0%': { gridTemplateRows: '1fr', opacity: 1 },
-  '4%, 23%': { gridTemplateRows: '0fr', opacity: 0 },
-  '27%, 100%': { gridTemplateRows: '1fr', opacity: 1 },
+  '0%': { gridTemplateRows: '0fr', opacity: 0, animationTimingFunction: motion.atOnce },
+  '17.149%, 90.139%': { gridTemplateRows: '1fr', opacity: 1, animationTimingFunction: motion.atOnce },
+  '90.782%, 100%': { gridTemplateRows: '0fr', opacity: 0 },
 })
 
-const matched = stylex.keyframes({
-  '0%, 4%': { fontWeight: '600' },
-  '4.01%, 19.99%': { fontWeight: '400' },
-  '20%, 100%': { fontWeight: '600' },
+const narrowed = stylex.keyframes({
+  '0%': { gridTemplateRows: '1fr', opacity: 1, marginTop: 0, animationTimingFunction: motion.atOnce },
+  '30.118%, 90.139%': { gridTemplateRows: '0fr', opacity: 0, marginTop: -2, animationTimingFunction: motion.atOnce },
+  '90.782%, 100%': { gridTemplateRows: '1fr', opacity: 1, marginTop: 0 },
 })
 
-function Highlighted({ text }: { readonly text: Rich }) {
+const reset = stylex.keyframes({
+  '0%, 81.565%': { opacity: 1, animationTimingFunction: motion.easeIn },
+  '90.139%, 91.426%': { opacity: 0, animationTimingFunction: motion.easeOut },
+  '100%': { opacity: 1 },
+})
+
+function weightOf(windows: ReadonlyArray<BoldWindow>): string {
+  const after = (length: number) => `clamp(0, (${sequence.typed} - ${length}) * 1000, 1)`
+  const steps = windows.map(({ from, to }) => (to === null ? after(from) : `${after(from)} - ${after(to)}`))
+  return `calc(400 + 200 * (${steps.join(' + ')}))`
+}
+
+function Highlighted({ text }: { readonly text: string }) {
   return (
     <>
-      {text.map((part, index) =>
-        typeof part === 'string' ? (
-          part
-        ) : 'strong' in part ? (
-          <strong key={index} {...stylex.props(styles.match, loop.short, styles.matching)}>
-            {part.strong}
-          </strong>
-        ) : null,
-      )}
+      {typedBold(text, tile.query).map((segment, index) => (
+        <span key={index} {...stylex.props(segment.windows.length > 0 && styles.weight(weightOf(segment.windows)))}>
+          {segment.text}
+        </span>
+      ))}
     </>
   )
 }
@@ -70,17 +71,18 @@ export function SearchTile() {
         </MiniPage>
       </MiniWindow>
       <MiniPanel
-        xstyle={styles.panel}
+        xstyle={[styles.panel, loop.run, styles.loop, styles.typing]}
+        listXstyle={[loop.run, styles.loop, styles.resetting]}
         search={
-          <span {...stylex.props(styles.query)}>
+          <span {...stylex.props(styles.query, loop.run, styles.loop, styles.resetting)}>
             <span {...stylex.props(styles.queryText)}>
-              <TypedText text={tile.query} charXstyle={[loop.short, styles.typing]} />
+              <TypedText text={tile.query} />
             </span>
             <span {...stylex.props(styles.caret)} />
           </span>
         }
       >
-        <Collapse element="li" xstyle={[styles.narrowed, loop.short, styles.narrowing]}>
+        <Collapse element="li" xstyle={[styles.narrowed, loop.run, styles.loop, styles.narrowing]}>
           <MiniBarsRow element="div" widths={[100, 44]} />
         </Collapse>
         {tile.matches.map((match, index) => (
@@ -88,14 +90,18 @@ export function SearchTile() {
             <span>
               <Highlighted text={match.text} />
             </span>
-            <Collapse xstyle={[loop.short, styles.revealing]}>
-              <span {...stylex.props(styles.source)}>{match.source}</span>
+            <Collapse xstyle={[loop.run, styles.loop, styles.revealing]}>
+              <span {...stylex.props(styles.source)}>
+                <Highlighted text={match.source} />
+              </span>
             </Collapse>
           </MiniRow>
         ))}
-        <Collapse element="li" xstyle={[styles.narrowed, loop.short, styles.narrowing]}>
+        <Collapse element="li" xstyle={[styles.narrowed, loop.run, styles.loop, styles.narrowing]}>
           <MiniRow element="div" time={tile.newest.time}>
-            {tile.newest.text}
+            <span>
+              <Highlighted text={tile.newest.text} />
+            </span>
           </MiniRow>
         </Collapse>
       </MiniPanel>
@@ -104,6 +110,12 @@ export function SearchTile() {
 }
 
 const styles = stylex.create({
+  loop: {
+    animationDuration: '4665ms',
+  },
+  resetting: {
+    animationName: { default: null, [media.motion]: reset },
+  },
   window: {
     top: { default: 40, [media.wide]: 24 },
     left: { default: 16, [media.wide]: 24 },
@@ -147,12 +159,9 @@ const styles = stylex.create({
   revealing: {
     animationName: { default: null, [media.motion]: revealed },
   },
-  match: {
-    fontWeight: 600,
-  },
-  matching: {
-    animationName: { default: null, [media.motion]: matched },
-  },
+  weight: (fontWeight: string) => ({
+    fontWeight,
+  }),
   source: {
     paddingTop: 2,
     color: color.rowTime,
