@@ -163,6 +163,10 @@ export const color = stylex.defineVars({
   caret: { default: '#151515', [DARK]: '#E6E6E6' },
   thumbBorder: { default: '#00000012', [DARK]: '#FFFFFF14' },
   marker: '#FF3B30',
+  notice: '#FFFFFF',
+  noticeEyebrow: '#6E6E73',
+  noticeHeading: '#1D1D1F',
+  noticeBody: '#424245',
 
   bar: { default: '#00000026', [DARK]: '#FFFFFF33' },
   barDim: { default: '#00000012', [DARK]: '#FFFFFF14' },
