@@ -10,7 +10,7 @@ struct PasteboardWriterTests {
     NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
   }
 
-  @Test func copyImageWritesPNGAndFileURL() throws {
+  @Test func copyImageWritesPNGAndFileURL() async throws {
     let board = Self.privateBoard()
     defer { board.releaseGlobally() }
     let folder = TempFolder()
@@ -19,13 +19,13 @@ struct PasteboardWriterTests {
     let png = try ListFixture.png()
     try png.write(to: file)
     let writer = PasteboardWriter(pasteboard: board)
-    writer.write(imageAt: file)
+    await writer.write(imageAt: file)
     #expect(board.data(forType: .png) == png)
     #expect(board.string(forType: .fileURL) == file.absoluteString)
     #expect(board.string(forType: .string) == nil)
   }
 
-  @Test func copyImageConvertsOtherFormatsToPNG() throws {
+  @Test func copyImageConvertsOtherFormatsToPNG() async throws {
     let board = Self.privateBoard()
     defer { board.releaseGlobally() }
     let folder = TempFolder()
@@ -33,7 +33,7 @@ struct PasteboardWriterTests {
     let file = folder.url.appendingPathComponent("shot.tiff")
     let tiff = try #require(NSBitmapImageRep(data: try ListFixture.png())?.tiffRepresentation)
     try tiff.write(to: file)
-    PasteboardWriter(pasteboard: board).write(imageAt: file)
+    await PasteboardWriter(pasteboard: board).write(imageAt: file)
     let written = try #require(board.data(forType: .png))
     #expect(written.starts(with: [0x89, 0x50, 0x4E, 0x47]))
   }

@@ -86,6 +86,18 @@ extension SuiteTrait where Self == RecordingImageFileReads {
   static var recordingImageFileReads: Self { Self() }
 }
 
+final class ThreadLog: @unchecked Sendable {
+  private let lock = NSLock()
+  private var reads: [Bool] = []
+
+  var onMain: [Bool] { lock.withLock { reads } }
+
+  func note() {
+    let main = Thread.isMainThread
+    lock.withLock { reads.append(main) }
+  }
+}
+
 @MainActor
 @Suite(.recordingImageFileReads)
 struct FileReadThreadTests {
@@ -192,5 +204,31 @@ struct FileReadThreadTests {
       Issue.record("expected the image pasted second")
       return
     }
+  }
+
+  @Test func copyingAnImageThoughtReadsItsFileOffTheMainThread() async throws {
+    let rig = try ThoughtActionsTests.rig()
+    defer { rig.board.releaseGlobally() }
+    let log = ThreadLog()
+    let trashed = rig.trashed
+    let actions = ThoughtActions(
+      list: rig.fixture.model, location: rig.fixture.location,
+      pasteboard: PasteboardWriter(
+        pasteboard: rig.board,
+        readImage: { url in
+          log.note()
+          return PasteboardWriter.readImage(at: url)
+        }),
+      opener: rig.log.opener, trash: { try trashed.move($0) }, undoManager: UndoManager(),
+      now: { ListFixture.now })
+    let shot = try rig.fixture.addScreenshot(note: "", daysAgo: 2)
+    try rig.fixture.reload()
+    rig.fixture.model.panelDidShow()
+    rig.fixture.model.select(shot.file.lastPathComponent, extend: false)
+    actions.perform(.copy)
+    await actions.pending?.value
+    #expect(log.onMain == [false])
+    #expect(rig.board.data(forType: .png) != nil)
+    #expect(rig.fixture.model.feedback?.text == "Copied")
   }
 }

@@ -208,7 +208,7 @@ struct ActionFeedbackTests {
     #expect(rig.fixture.model.feedback?.text == "Select a thought first")
   }
 
-  @Test func copyOfAnImageWhoseFileIsGoneSaysSo() throws {
+  @Test func copyOfAnImageWhoseFileIsGoneSaysSo() async throws {
     let (rig, _) = try Self.rig()
     defer { rig.board.releaseGlobally() }
     let thought = try rig.fixture.addScreenshot(note: "", daysAgo: 1)
@@ -217,11 +217,12 @@ struct ActionFeedbackTests {
     try FileManager.default.removeItem(at: image)
     rig.fixture.model.selection = [thought.file.lastPathComponent]
     rig.actions.perform(.copy)
+    await rig.actions.pending?.value
     #expect(rig.fixture.model.feedback?.kind == .message)
     #expect(rig.fixture.model.feedback?.text == "That image file isn't there anymore")
   }
 
-  @Test func copyOfAnImageThatCannotBeConvertedSaysItCannotBeRead() throws {
+  @Test func copyOfAnImageThatCannotBeConvertedSaysItCannotBeRead() async throws {
     let (rig, _) = try Self.rig()
     defer { rig.board.releaseGlobally() }
     let thought = try rig.fixture.addScreenshot(note: "", daysAgo: 1)
@@ -230,6 +231,7 @@ struct ActionFeedbackTests {
     try Data("not an image".utf8).write(to: image)
     rig.fixture.model.selection = [thought.file.lastPathComponent]
     rig.actions.perform(.copy)
+    await rig.actions.pending?.value
     #expect(rig.fixture.model.feedback?.kind == .message)
     #expect(rig.fixture.model.feedback?.text == "That image file can't be read")
   }

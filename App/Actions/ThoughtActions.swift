@@ -70,20 +70,23 @@ final class ThoughtActions {
     switch only.content {
     case .text(let text):
       pasteboard.write(text: text)
+      list.confirm(String(localized: "Copied"))
     case .image:
-      let image = store.imageURL(of: only)
-      switch image.map({ pasteboard.write(imageAt: $0) }) ?? .missing {
-      case .written:
-        break
-      case .missing:
+      guard let image = store.imageURL(of: only) else {
         list.tell(String(localized: "That image file isn't there anymore"))
         return
-      case .unreadable:
-        list.tell(String(localized: "That image file can't be read"))
-        return
+      }
+      enqueue { [pasteboard, weak list] in
+        switch await pasteboard.write(imageAt: image) {
+        case .written:
+          list?.confirm(String(localized: "Copied"))
+        case .missing:
+          list?.tell(String(localized: "That image file isn't there anymore"))
+        case .unreadable:
+          list?.tell(String(localized: "That image file can't be read"))
+        }
       }
     }
-    list.confirm(String(localized: "Copied"))
   }
 
   private func copyPath() {
