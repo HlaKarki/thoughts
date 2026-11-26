@@ -18,6 +18,7 @@ final class MainThreadPasteboardReads: @unchecked Sendable {
   private var watched: Set<String> = []
   private var seen: [String: [String]] = [:]
   private var originals: [(method: Method, implementation: IMP)] = []
+  private var arrivals: [String: @Sendable (NSPasteboard) -> Void] = [:]
 
   private init() {}
 
@@ -85,16 +86,23 @@ final class MainThreadPasteboardReads: @unchecked Sendable {
     lock.withLock { _ = watched.insert(board.name.rawValue) }
   }
 
+  func arrive(on board: NSPasteboard, _ copy: @escaping @Sendable (NSPasteboard) -> Void) {
+    lock.withLock { arrivals[board.name.rawValue] = copy }
+  }
+
   func reads(_ board: NSPasteboard) -> [String] {
     lock.withLock {
       watched.remove(board.name.rawValue)
+      arrivals[board.name.rawValue] = nil
       return seen.removeValue(forKey: board.name.rawValue) ?? []
     }
   }
 
   func note(_ board: NSPasteboard, _ call: String) {
-    guard Thread.isMainThread else { return }
     let name = board.name.rawValue
+    let arrival = lock.withLock { arrivals.removeValue(forKey: name) }
+    arrival?(board)
+    guard Thread.isMainThread else { return }
     lock.withLock {
       guard watched.contains(name) else { return }
       seen[name, default: []].append(call)
@@ -202,5 +210,69 @@ struct PasteboardReadThreadTests {
     #expect(probe == .text("the selection"))
     #expect(onMain.isEmpty)
     #expect(PasteboardSnapshotTests.contents(of: board) == before)
+  }
+
+  nonisolated static func passwordCopy(_ board: NSPasteboard) {
+    board.clearContents()
+    board.setString("hunter2", forType: .string)
+    board.setData(Data(), forType: NSPasteboard.PasteboardType(ClipboardTypes.concealed))
+  }
+
+  @Test func aConcealedCopyLandingWhileTheCaptureKeyReadsIsNeverSaved() async throws {
+    let rig = try CaptureCoordinatorTests.textRig(text: "ls -la")
+    defer { rig.board.releaseGlobally() }
+    Self.reads.arrive(on: rig.board, Self.passwordCopy)
+    let outcome = await rig.coordinator.capture()
+    _ = Self.reads.reads(rig.board)
+    #expect(outcome == .nothingToSave)
+    #expect(try rig.fixture.store.entries().isEmpty)
+  }
+
+  @Test func aConcealedImageLandingWhileTheCaptureKeyReadsIsNeverSaved() async throws {
+    let rig = try CaptureCoordinatorTests.textRig(text: nil, kind: .image)
+    defer { rig.board.releaseGlobally() }
+    let png = try ListFixture.png()
+    rig.board.setData(png, forType: .png)
+    Self.reads.arrive(on: rig.board) { board in
+      board.clearContents()
+      board.setData(png, forType: .png)
+      board.setData(Data(), forType: NSPasteboard.PasteboardType(ClipboardTypes.concealed))
+    }
+    let outcome = await rig.coordinator.capture()
+    _ = Self.reads.reads(rig.board)
+    #expect(outcome == .nothingToSave)
+    #expect(try rig.fixture.store.entries().isEmpty)
+  }
+
+  @Test func aConcealedCopyLandingAfterTheCopyKeyIsNeverRead() async {
+    let board = PasteboardSnapshotTests.privateBoard()
+    defer { board.releaseGlobally() }
+    PasteboardSnapshotTests.fill(board)
+    let reader = SelectionReader(
+      pasteboard: board,
+      postCopy: {
+        board.clearContents()
+        board.setString("the selection", forType: .string)
+        Self.reads.arrive(on: board, Self.passwordCopy)
+      },
+      secureInput: { false })
+    let (probe, _) = await reader.copySelection()
+    _ = Self.reads.reads(board)
+    #expect(probe == .copiedNothing)
+  }
+
+  @Test func aConcealedCopyLandingBeforeTheCopyKeyStopsTheFallback() async {
+    let board = PasteboardSnapshotTests.privateBoard()
+    defer { board.releaseGlobally() }
+    PasteboardSnapshotTests.fill(board)
+    let log = CallLog()
+    let reader = SelectionReader(
+      pasteboard: board, postCopy: { log.add("copy") }, secureInput: { false })
+    Self.reads.arrive(on: board, Self.passwordCopy)
+    let (probe, counts) = await reader.copySelection()
+    _ = Self.reads.reads(board)
+    #expect(probe == .copiedNothing)
+    #expect(counts.isEmpty)
+    #expect(log.events.isEmpty)
   }
 }

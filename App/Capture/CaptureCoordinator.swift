@@ -95,7 +95,7 @@ final class CaptureCoordinator {
     }
     var held: ImageInput?
     if action == .readClipboard {
-      let read = await readClipboard()
+      let read = await readClipboard(expecting: current.changeCount)
       current.clipboardContent = read.content
       held = read.image
       action = CaptureDecision.decide(current)
@@ -153,19 +153,17 @@ final class CaptureCoordinator {
     return (after, CaptureDecision.decide(after))
   }
 
-  private func holdsExcludedCopy() -> Bool {
-    ClipboardWatcher.isExcluded(pasteboard.types ?? [])
-  }
-
-  private func readClipboard() async -> (content: ClipboardContent, image: ImageInput?) {
-    if holdsExcludedCopy() { return (.nothing, nil) }
-    let read = await PasteboardRead(pasteboard: pasteboard).run {
+  private func readClipboard(expecting changeCount: Int) async -> (
+    content: ClipboardContent, image: ImageInput?
+  ) {
+    let read = await PasteboardRead(pasteboard: pasteboard).run(expecting: changeCount) {
       board -> (content: ClipboardContent, image: ImageInput?)? in
       if let image = Self.image(in: board) { return (.image, image) }
       if !PasteboardReader.fileURLs(in: board).isEmpty { return (.nothing, nil) }
       return board.string(forType: .string).map { (.text($0), nil) }
     }
-    return read ?? (accessBehavior() == .alwaysAllow ? .nothing : .refused, nil)
+    guard case .read(let found) = read else { return (.nothing, nil) }
+    return found ?? (accessBehavior() == .alwaysAllow ? .nothing : .refused, nil)
   }
 
   private func accept() async -> CaptureOutcome {
@@ -184,9 +182,14 @@ final class CaptureCoordinator {
     guard pasteboard.changeCount == changeCount else {
       return .failed(Self.message(for: ThoughtsError.clipboardChanged))
     }
-    if held == nil, holdsExcludedCopy() { return .nothingToSave }
-    let read = PasteboardRead(pasteboard: pasteboard)
-    let found = if let held { held } else { await read.run { Self.image(in: $0) } }
+    var found = held
+    if held == nil {
+      let read = await PasteboardRead(pasteboard: pasteboard).run(expecting: changeCount) {
+        Self.image(in: $0)
+      }
+      guard case .read(let image) = read else { return .nothingToSave }
+      found = image
+    }
     guard let image = found else {
       return accessBehavior() == .alwaysAllow ? .nothingToSave : .failed(Self.pasteRefusedMessage)
     }
