@@ -6,6 +6,7 @@ type Header = {
   readonly homeLabel: string
   readonly navLabel: string
   readonly nav: ReadonlyArray<Link>
+  readonly compact: Link
 }
 
 export const header: Header = {
@@ -16,4 +17,5 @@ export const header: Header = {
     { label: 'Install', href: site.links.install },
     { label: 'Source on GitHub', href: site.links.source },
   ],
+  compact: { label: 'GitHub', href: site.links.source },
 }

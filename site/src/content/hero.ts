@@ -24,6 +24,7 @@ export type KeyHint = {
 
 type Hero = {
   readonly label: string
+  readonly caption: string
   readonly menuBar: {
     readonly app: string
     readonly menus: ReadonlyArray<string>
@@ -52,6 +53,7 @@ type Hero = {
 
 export const hero: Hero = {
   label: `The Thoughts panel sits beside a Lisbon travel guide in ${sources.guide.app}, and the sentence you selected on the page is now the newest thought.`,
+  caption: `Select text in ${sources.guide.app}, press Shift twice, and it lands in the panel.`,
   menuBar: {
     app: sources.guide.app,
     menus: ['File', 'Edit', 'View', 'History', 'Bookmarks', 'Window', 'Help'],

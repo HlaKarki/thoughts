@@ -2,6 +2,7 @@ import * as stylex from '@stylexjs/stylex'
 import { AppIcon } from '@/components/AppIcon'
 import { ButtonLink } from '@/components/ButtonLink'
 import { RichText } from '@/components/RichText'
+import { SendToMac } from '@/components/SendToMac'
 import { install } from '@/content/install'
 import { layout } from '@/styles/layout'
 import { color, font, leading, media, radius, size, space, tracking } from '@/styles/tokens.stylex'
@@ -16,11 +17,12 @@ export function Install() {
             <h2 {...stylex.props(styles.heading)}>{install.heading}</h2>
             <p {...stylex.props(styles.body)}>{install.body}</p>
           </div>
-          <div {...stylex.props(styles.download)}>
+          <div {...stylex.props(styles.download, styles.onMac)}>
             <ButtonLink link={install.download} />
             <p {...stylex.props(styles.requirement)}>{install.requirement}</p>
           </div>
         </div>
+        <SendToMac xstyle={styles.send} />
         <div {...stylex.props(styles.brew)}>
           <p {...stylex.props(styles.brewTitle)}>{install.brewTitle}</p>
           <code {...stylex.props(styles.command)}>{install.brew}</code>
@@ -81,8 +83,13 @@ const styles = stylex.create({
     fontSize: size.s15,
     lineHeight: leading.l24,
   },
+  onMac: {
+    display: { default: 'none', [media.pointer]: 'flex' },
+  },
+  send: {
+    display: { default: 'flex', [media.pointer]: 'none' },
+  },
   download: {
-    display: 'flex',
     flexDirection: 'column',
     alignItems: { default: 'start', [media.wide]: 'end' },
     flexShrink: 0,
@@ -94,7 +101,7 @@ const styles = stylex.create({
     lineHeight: leading.l16,
   },
   brew: {
-    display: 'flex',
+    display: { default: 'none', [media.pointer]: 'flex' },
     flexDirection: 'column',
     overflow: 'clip',
     borderRadius: radius.r12,
@@ -125,6 +132,7 @@ const styles = stylex.create({
     userSelect: 'all',
   },
   footnote: {
+    display: { default: 'none', [media.pointer]: 'block' },
     color: color.textMuted,
     fontSize: size.s13,
     lineHeight: leading.l20,

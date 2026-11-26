@@ -29,11 +29,15 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: 'stylesheet', href: globalCss },
+      ...(import.meta.env.DEV ? [{ rel: 'stylesheet', href: '/virtual:stylex.css' }] : []),
       { rel: 'canonical', href: site.url },
       { rel: 'icon', type: 'image/png', href: site.favicon.light, media: '(prefers-color-scheme: light)' },
       { rel: 'icon', type: 'image/png', href: site.favicon.dark, media: '(prefers-color-scheme: dark)' },
       { rel: 'apple-touch-icon', href: site.favicon.apple },
     ],
+    scripts: import.meta.env.DEV
+      ? [{ type: 'module', children: "import('/@id/virtual:stylex:runtime')" }]
+      : [],
   }),
   component: RootDocument,
   notFoundComponent: NotFound,

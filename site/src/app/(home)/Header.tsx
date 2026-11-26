@@ -1,7 +1,7 @@
 import * as stylex from '@stylexjs/stylex'
 import { AppIcon } from '@/components/AppIcon'
 import { header } from '@/content/header'
-import { color, font, leading, media, size, space } from '@/styles/tokens.stylex'
+import { color, font, leading, media, radius, size, space } from '@/styles/tokens.stylex'
 
 export function Header() {
   return (
@@ -11,6 +11,9 @@ export function Header() {
         <span {...stylex.props(styles.name)}>{header.brand}</span>
       </a>
       <nav aria-label={header.navLabel}>
+        <a href={header.compact.href} {...stylex.props(styles.compact)}>
+          {header.compact.label}
+        </a>
         <ul {...stylex.props(styles.nav)}>
           {header.nav.map((link) => (
             <li key={link.href}>
@@ -49,8 +52,19 @@ const styles = stylex.create({
     color: color.text,
     fontWeight: 600,
   },
+  compact: {
+    display: { default: 'block', [media.wide]: 'none' },
+    paddingBlock: 6,
+    paddingInline: 12,
+    borderRadius: radius.round,
+    backgroundColor: color.card,
+    color: color.textBody,
+    fontSize: size.s13,
+    fontWeight: 500,
+    lineHeight: leading.l16,
+  },
   nav: {
-    display: 'flex',
+    display: { default: 'none', [media.wide]: 'flex' },
     gap: { default: 24, [media.wide]: 32 },
   },
   link: {

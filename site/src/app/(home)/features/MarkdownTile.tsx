@@ -32,7 +32,7 @@ const reset = stylex.keyframes({
 export function MarkdownTile() {
   return (
     <Tile label={tile.label}>
-      <MiniWindow title={tile.fileName} xstyle={styles.window}>
+      <MiniWindow title={tile.fileName} xstyle={styles.window} titleXstyle={styles.fileName}>
         <div {...stylex.props(styles.file)}>
           <span {...stylex.props(styles.text)}>{tile.frontMatter}</span>
           <span {...stylex.props(styles.text, styles.edited, loop.run, styles.loop, styles.resetting)}>
@@ -66,10 +66,14 @@ const styles = stylex.create({
     animationName: { default: null, [media.motion]: reset },
   },
   window: {
-    top: { default: 16, [media.wide]: 24 },
+    top: { default: 44, [media.wide]: 24 },
     left: { default: 16, [media.wide]: 24 },
-    width: { default: 300, [media.wide]: 284 },
-    height: { default: 300, [media.wide]: 272 },
+    width: { default: 158, [media.wide]: 284 },
+    height: { default: 312, [media.wide]: 272 },
+  },
+  fileName: {
+    left: { default: 52, [media.wide]: 0 },
+    right: { default: 8, [media.wide]: 0 },
   },
   file: {
     display: 'flex',
@@ -102,7 +106,7 @@ const styles = stylex.create({
     backgroundColor: color.caret,
   },
   panel: {
-    top: { default: 72, [media.wide]: 24 },
+    top: { default: 44, [media.wide]: 24 },
     left: { default: 182, [media.wide]: 316 },
     width: 160,
     height: { default: 312, [media.wide]: 272 },

@@ -5,6 +5,7 @@ const DARK = '@media (prefers-color-scheme: dark)'
 export const media = stylex.defineConsts({
   wide: '@media (min-width: 1100px)',
   motion: '@media (prefers-reduced-motion: no-preference)',
+  pointer: '@media (hover: hover) and (pointer: fine)',
 })
 
 export const font = stylex.defineConsts({
@@ -44,6 +45,7 @@ export const leading = stylex.defineConsts({
 
 export const tracking = stylex.defineConsts({
   display: '-0.015em',
+  tight: '-0.02em',
   lead: '-0.01em',
   leadNarrow: '-0.005em',
   eyebrow: '0.04em',
