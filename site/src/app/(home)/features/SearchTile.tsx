@@ -2,7 +2,7 @@ import * as stylex from '@stylexjs/stylex'
 import { Collapse } from '@/components/Collapse'
 import { ClearSearch } from '@/components/Icons'
 import { Key } from '@/components/Key'
-import { MiniBarsRow, MiniPanel, MiniRow, MiniSearchPlaceholder } from '@/components/MiniPanel'
+import { MiniBarsRow, MiniPanel, MiniRow, MiniSearchPlaceholder, MiniSourceBar } from '@/components/MiniPanel'
 import { MiniLine, MiniPage } from '@/components/MiniPage'
 import { MiniWindow } from '@/components/MiniWindow'
 import { TypedText } from '@/components/TypedText'
@@ -159,7 +159,23 @@ export function SearchTile() {
         }
       >
         <Collapse element="li" xstyle={[styles.narrowed, run, styles.narrowing]}>
-          <MiniBarsRow element="div" widths={[100, 44]} />
+          <MiniBarsRow element="div" widths={[100, 44]}>
+            <Collapse xstyle={[run, styles.revealing]}>
+              <MiniSourceBar width={56} />
+            </Collapse>
+          </MiniBarsRow>
+        </Collapse>
+        <Collapse element="li" xstyle={[styles.narrowed, run, styles.narrowing]}>
+          <MiniRow element="div" time={tile.earlier.time}>
+            <span>
+              <Highlighted text={tile.earlier.text} />
+            </span>
+            <Collapse xstyle={[run, styles.revealing]}>
+              <span {...stylex.props(styles.source)}>
+                <Highlighted text={tile.earlier.source} />
+              </span>
+            </Collapse>
+          </MiniRow>
         </Collapse>
         <MiniRow time={tile.message.time}>
           <span>
@@ -186,13 +202,6 @@ export function SearchTile() {
             </span>
           </Collapse>
         </MiniRow>
-        <Collapse element="li" xstyle={[styles.narrowed, run, styles.narrowing]}>
-          <MiniRow element="div" time={tile.newest.time}>
-            <span>
-              <Highlighted text={tile.newest.text} />
-            </span>
-          </MiniRow>
-        </Collapse>
       </MiniPanel>
     </Tile>
   )
@@ -328,7 +337,7 @@ const styles = stylex.create({
     display: 'block',
     flexShrink: 0,
     width: 126,
-    height: 70,
+    height: 58,
     overflow: 'clip',
     borderRadius: radius.r6,
     borderWidth: 1,
@@ -343,8 +352,8 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
     width: 248,
-    height: 136,
-    paddingBlock: 16,
+    height: 112,
+    paddingBlock: 10,
     paddingInline: 18,
     fontFamily: font.text,
     transform: 'scale(0.5)',
@@ -359,16 +368,16 @@ const styles = stylex.create({
     textTransform: 'uppercase',
   },
   noticeHeading: {
-    marginTop: 5,
+    marginTop: 3,
     color: color.noticeHeading,
-    fontSize: 21,
+    fontSize: 20,
     fontWeight: 700,
-    lineHeight: '26px',
+    lineHeight: '24px',
   },
   noticeBody: {
-    marginTop: 6,
+    marginTop: 4,
     color: color.noticeBody,
     fontSize: 12,
-    lineHeight: '17px',
+    lineHeight: '16px',
   },
 })

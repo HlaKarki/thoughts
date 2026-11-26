@@ -50,8 +50,9 @@ type Features = {
       readonly excerpt: string
       readonly time: string
     }
-    readonly newest: {
+    readonly earlier: {
       readonly text: string
+      readonly source: string
       readonly time: string
     }
   }>
@@ -145,7 +146,11 @@ export const features: Features = {
         excerpt: `…This ${searchQuery} the water will be off from 9 am to noon.`,
         time: '10:12',
       },
-      newest: thoughts.table,
+      earlier: {
+        text: thoughts.table.text,
+        source: sourceLine(sources.messages),
+        time: thoughts.table.time,
+      },
     },
   },
   markdown: {

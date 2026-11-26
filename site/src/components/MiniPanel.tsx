@@ -65,9 +65,10 @@ type BarsProps = {
   readonly dim?: boolean
   readonly element?: 'li' | 'div'
   readonly xstyle?: stylex.StyleXStyles
+  readonly children?: ReactNode
 }
 
-export function MiniBarsRow({ widths, dim = false, element, xstyle }: BarsProps) {
+export function MiniBarsRow({ widths, dim = false, element, xstyle, children }: BarsProps) {
   return (
     <MiniRow element={element} xstyle={xstyle} time={<span {...stylex.props(styles.bar, styles.timeBar)} />}>
       <span {...stylex.props(styles.bars)}>
@@ -75,8 +76,13 @@ export function MiniBarsRow({ widths, dim = false, element, xstyle }: BarsProps)
           <span key={index} {...stylex.props(styles.bar, styles.lineBar, dim && styles.dimBar, styles.width(width))} />
         ))}
       </span>
+      {children}
     </MiniRow>
   )
+}
+
+export function MiniSourceBar({ width }: { readonly width: number }) {
+  return <span {...stylex.props(styles.bar, styles.sourceBar, styles.width(width))} />
 }
 
 const styles = stylex.create({
@@ -212,6 +218,12 @@ const styles = stylex.create({
   timeBar: {
     width: 14,
     height: 4,
+    borderRadius: radius.r2,
+    backgroundColor: color.barTime,
+  },
+  sourceBar: {
+    height: 4,
+    marginTop: 5,
     borderRadius: radius.r2,
     backgroundColor: color.barTime,
   },
