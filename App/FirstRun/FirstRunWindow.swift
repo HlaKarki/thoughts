@@ -8,9 +8,14 @@ final class FirstRunWindowController {
   private var window: NSWindow?
   private let makeModel: @MainActor () -> FirstRunModel
   private let front: WindowFront
+  private let returns: FrontReturn?
 
-  init(front: WindowFront = .live, makeModel: @escaping @MainActor () -> FirstRunModel) {
+  init(
+    front: WindowFront = .live, returns: FrontReturn? = nil,
+    makeModel: @escaping @MainActor () -> FirstRunModel
+  ) {
     self.front = front
+    self.returns = returns
     self.makeModel = makeModel
   }
 
@@ -30,6 +35,9 @@ final class FirstRunWindowController {
       self?.bringBack()
       granted()
     }
+    if let returns {
+      model.hooks = returns.hooks { [weak self] in self?.returnToFront() }
+    }
     let window = makeWindow(model: model)
     self.window = window
     front.bring(window)
@@ -38,6 +46,11 @@ final class FirstRunWindowController {
   private func bringBack() {
     guard let window else { return }
     front.bring(window)
+  }
+
+  private func returnToFront() {
+    guard let window else { return }
+    front.bringIfShown(window)
   }
 
   private func close() {

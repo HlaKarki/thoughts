@@ -9,19 +9,37 @@ final class SettingsWindowController {
   private var model: SettingsModel?
   private let makeModel: @MainActor () -> SettingsModel
   private let front: WindowFront
+  private let returns: FrontReturn?
 
-  init(front: WindowFront = .live, makeModel: @escaping @MainActor () -> SettingsModel) {
+  init(
+    front: WindowFront = .live, returns: FrontReturn? = nil,
+    makeModel: @escaping @MainActor () -> SettingsModel
+  ) {
     self.front = front
+    self.returns = returns
     self.makeModel = makeModel
   }
 
   func show() {
-    let model = self.model ?? makeModel()
+    let model = self.model ?? makeSettingsModel()
     self.model = model
     model.refresh()
     let window = self.window ?? makeWindow(model: model)
     self.window = window
     front.bring(window)
+  }
+
+  private func makeSettingsModel() -> SettingsModel {
+    let model = makeModel()
+    if let returns {
+      model.hooks = returns.hooks { [weak self] in self?.returnToFront() }
+    }
+    return model
+  }
+
+  private func returnToFront() {
+    guard let window else { return }
+    front.bringIfShown(window)
   }
 
   func makeWindow(model: SettingsModel) -> NSWindow {

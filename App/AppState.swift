@@ -164,6 +164,7 @@ final class AppState {
     panel.onPaste = { [list, input] pasteboard in
       list.focus == .input && input.takeImage(from: pasteboard)
     }
+    let returns = FrontReturn()
     panel.onWillHide = { [list, preview, input] in
       list.panelDidHide()
       preview.hide()
@@ -186,7 +187,7 @@ final class AppState {
     let moving = StorageMover.moving(location: location, index: index, live: live)
     let choosing = StorageMover.choosing(location: location, index: index, live: live)
     let gate = OfferGate(firstRunDone: { preferences.firstRunDone }, start: { offers.start() })
-    let settings = SettingsWindowController {
+    let settings = SettingsWindowController(returns: returns) {
       let model = SettingsModel(
         preferences: preferences, services: services, login: .live, storage: moving)
       model.onStorageRepointed = { [list, offers] in
@@ -200,7 +201,7 @@ final class AppState {
       trust.check()
       settings.show()
     }
-    firstRun = FirstRunWindowController {
+    firstRun = FirstRunWindowController(returns: returns) {
       let model = FirstRunModel(
         preferences: preferences, services: services, storage: choosing)
       model.onAccessibilityGranted = { trust.check() }

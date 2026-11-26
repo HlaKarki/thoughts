@@ -20,6 +20,8 @@ final class SettingsModel {
   @ObservationIgnored private let storage: StorageMover
   @ObservationIgnored private let screenshots: ScreenshotLocation
   @ObservationIgnored var onStorageRepointed: @MainActor () -> Void = {}
+  @ObservationIgnored var hooks = FrontReturn.Hooks()
+  @ObservationIgnored private let folderQueue = BlockingQueue("thoughts.settings.folders")
 
   init(
     preferences: Preferences,
@@ -74,10 +76,12 @@ final class SettingsModel {
   }
 
   func openLoginSettings() {
+    hooks.openedSystemSettings()
     login.openSettings()
   }
 
   func openClipboardSettings() {
+    hooks.openedSystemSettings()
     services.open(SystemServices.pasteboardPane)
   }
 
@@ -101,6 +105,11 @@ final class SettingsModel {
     watchedFolderNote = nil
     preferences.watchedFolders.append(folder)
     selectedFolder = folder
+    guard preferences.offersEnabled else { return }
+    let read = services.readFolder
+    let done = hooks.read()
+    await folderQueue.run { read(folder) }
+    done()
   }
 
   func removeSelectedFolder() {
@@ -116,6 +125,8 @@ final class SettingsModel {
     guard let target = await services.chooseFolder(message, storageFolder) else { return }
     isMoving = true
     defer { isMoving = false }
+    let done = hooks.read()
+    defer { done() }
     do {
       storageFolder = try await storage.perform(to: target)
       storageError = nil

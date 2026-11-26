@@ -23,6 +23,7 @@ final class FirstRunModel {
   @ObservationIgnored private let folderQueue = BlockingQueue("thoughts.first-run.folders")
   @ObservationIgnored var onAccessibilityGranted: @MainActor () -> Void = {}
   @ObservationIgnored var onFinish: @MainActor () -> Void = {}
+  @ObservationIgnored var hooks = FrontReturn.Hooks()
 
   init(
     preferences: Preferences,
@@ -94,9 +95,11 @@ final class FirstRunModel {
 
   func openAccessibility() {
     if accessibilityRequested {
+      hooks.openedSystemSettings()
       services.open(SystemServices.accessibilityPane)
     } else {
       accessibilityRequested = true
+      hooks.askedForAccessibility()
       services.requestAccessibility()
     }
   }
@@ -115,6 +118,8 @@ final class FirstRunModel {
     guard let target = await services.chooseFolder(message, storageFolder) else { return }
     isChangingStorage = true
     defer { isChangingStorage = false }
+    let done = hooks.read()
+    defer { done() }
     do {
       storageFolder = try await storage.perform(to: target)
       storageError = nil
@@ -128,9 +133,11 @@ final class FirstRunModel {
     let folders = watchedFolders.filter { requestedFolders.insert($0.standardized.path).inserted }
     guard !folders.isEmpty else { return }
     let read = services.readFolder
+    let done = hooks.read()
     await folderQueue.run {
       for folder in folders { read(folder) }
     }
+    done()
   }
 
   private func enter(_ target: FirstRunStep) {
