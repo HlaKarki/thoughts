@@ -10,15 +10,16 @@ type PanelProps = {
   readonly children: ReactNode
   readonly xstyle?: stylex.StyleXStyles
   readonly listXstyle?: stylex.StyleXStyles
+  readonly composerCaretXstyle?: stylex.StyleXStyles
 }
 
-export function MiniPanel({ search, children, xstyle, listXstyle }: PanelProps) {
+export function MiniPanel({ search, children, xstyle, listXstyle, composerCaretXstyle }: PanelProps) {
   return (
     <GlassPanel scale="mini" xstyle={[styles.panel, xstyle]}>
       <div {...stylex.props(styles.header)}>
         <div {...stylex.props(styles.field)}>
           <Search size={9} strokeWidth={2} xstyle={styles.fieldIcon} />
-          {search ?? <span {...stylex.props(styles.bar, styles.fieldBar, styles.searchBar)} />}
+          {search ?? <MiniSearchPlaceholder />}
         </div>
         <span {...stylex.props(styles.menu)}>
           <MoreDots width={11} height={3} r={1.8} xstyle={styles.fieldIcon} />
@@ -27,12 +28,16 @@ export function MiniPanel({ search, children, xstyle, listXstyle }: PanelProps) 
       <ul {...stylex.props(styles.list, listXstyle)}>{children}</ul>
       <div {...stylex.props(styles.composer)}>
         <div {...stylex.props(styles.composerField)}>
-          <span {...stylex.props(styles.caret)} />
+          <span {...stylex.props(styles.caret, composerCaretXstyle)} />
           <span {...stylex.props(styles.bar, styles.fieldBar, styles.composerBar)} />
         </div>
       </div>
     </GlassPanel>
   )
+}
+
+export function MiniSearchPlaceholder({ xstyle }: { readonly xstyle?: stylex.StyleXStyles }) {
+  return <span {...stylex.props(styles.bar, styles.fieldBar, styles.searchBar, xstyle)} />
 }
 
 type RowProps = {
