@@ -118,7 +118,7 @@ final class PanelHarness {
 
   private init(laidOut: Bool, storageRetry: Duration) throws {
     fixture = try ListFixture(storageRetry: { try await Task.sleep(for: storageRetry) })
-    let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+    let defaults = try Throwaway.defaults()
     let preferences = Preferences(defaults: defaults)
     let list = fixture.model
     let input = fixture.input
@@ -136,7 +136,7 @@ final class PanelHarness {
         NSSize(width: PanelController.width, height: PanelController.maxHeight))
       hosting.layoutSubtreeIfNeeded()
     }
-    board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    board = Throwaway.pasteboard()
     panel.pasteboard = board
     trash = FakeTrash(folder: fixture.root.appendingPathComponent("Trash"))
     let trash = trash
@@ -405,7 +405,6 @@ final class PanelHarness {
     monitors = []
     for observer in observers { NotificationCenter.default.removeObserver(observer) }
     observers = []
-    board.releaseGlobally()
   }
 
   func checkIsolation(_ step: String) {

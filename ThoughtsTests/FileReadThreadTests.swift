@@ -99,7 +99,7 @@ final class ThreadLog: @unchecked Sendable {
 }
 
 @MainActor
-@Suite(.recordingImageFileReads)
+@Suite(.recordingImageFileReads, .throwaway)
 struct FileReadThreadTests {
   static let reads = ImageFileReads.shared
 
@@ -114,7 +114,6 @@ struct FileReadThreadTests {
     async throws
   {
     let (fixture, _, board) = try InputModelTests.rig()
-    defer { board.releaseGlobally() }
     let folder = TempFolder()
     let file = try Self.file(named: "capture.png", in: folder)
     Self.reads.watch(file)
@@ -132,7 +131,6 @@ struct FileReadThreadTests {
 
   @Test func anImageFileThatCannotBeReadIsClaimedAndSaysSo() async throws {
     let (fixture, _, board) = try InputModelTests.rig()
-    defer { board.releaseGlobally() }
     let folder = TempFolder()
     let file = try Self.file(named: "broken.png", in: folder, data: Data("not an image".utf8))
     Self.reads.watch(file)
@@ -147,7 +145,6 @@ struct FileReadThreadTests {
 
   @Test func aReadThatLandsAfterTheClipboardChangedIsDropped() async throws {
     let (fixture, _, board) = try InputModelTests.rig()
-    defer { board.releaseGlobally() }
     let folder = TempFolder()
     let file = try Self.file(named: "capture.png", in: folder)
     let hold = Hold()
@@ -165,7 +162,6 @@ struct FileReadThreadTests {
 
   @Test func aReadThatLandsAfterTheThoughtWasAddedIsDropped() async throws {
     let (fixture, _, board) = try InputModelTests.rig()
-    defer { board.releaseGlobally() }
     let folder = TempFolder()
     let file = try Self.file(named: "capture.png", in: folder)
     let hold = Hold()
@@ -184,11 +180,7 @@ struct FileReadThreadTests {
 
   @Test func aReadThatLandsAfterAnotherImageWasPastedIsDropped() async throws {
     let (fixture, _, board) = try InputModelTests.rig()
-    let other = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer {
-      board.releaseGlobally()
-      other.releaseGlobally()
-    }
+    let other = Throwaway.pasteboard()
     let folder = TempFolder()
     let file = try Self.file(named: "capture.png", in: folder)
     let hold = Hold()
@@ -208,7 +200,6 @@ struct FileReadThreadTests {
 
   @Test func copyingAnImageThoughtReadsItsFileOffTheMainThread() async throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let log = ThreadLog()
     let trashed = rig.trashed
     let actions = ThoughtActions(

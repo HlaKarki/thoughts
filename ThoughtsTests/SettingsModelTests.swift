@@ -6,6 +6,7 @@ import ThoughtsCore
 
 @testable import Thoughts
 
+@Suite(.throwaway)
 struct StorageMoverTests {
   struct Late: Error {}
 
@@ -94,6 +95,7 @@ struct StorageMoverTests {
 }
 
 @MainActor
+@Suite(.throwaway)
 struct SettingsModelTests {
   @Test func openPrivacyAndSecurityGoesStraightToPasteFromOtherApps() throws {
     let system = FakeSystem()

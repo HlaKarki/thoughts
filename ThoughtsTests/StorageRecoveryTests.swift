@@ -21,12 +21,12 @@ final class Flag: @unchecked Sendable {
 }
 
 @MainActor
+@Suite(.throwaway)
 struct OfferGateTests {
   static func rig(firstRunDone: Bool) throws -> (
     OfferCenter, OfferGate, FolderReads, Preferences, ScreenshotFolderWatcher
   ) {
-    let name = "thoughts.tests.\(UUID().uuidString)"
-    let defaults = try #require(UserDefaults(suiteName: name))
+    let defaults = try Throwaway.defaults()
     let preferences = Preferences(defaults: defaults)
     preferences.firstRunDone = firstRunDone
     let reads = FolderReads()
@@ -37,7 +37,7 @@ struct OfferGateTests {
         return []
       })
     let temp = TempFolder()
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    let board = Throwaway.pasteboard()
     let input = InputModel(
       location: StorageLocation(
         appName: "ThoughtsTests", environment: ["THOUGHTS_DIR": temp.url.path], home: temp.url),
@@ -76,6 +76,7 @@ struct OfferGateTests {
   }
 }
 
+@Suite(.throwaway)
 struct StorageRepointTests {
   static let picked = URL(fileURLWithPath: "/example/home/Renamed", isDirectory: true)
   static let gone = URL(fileURLWithPath: "/example/home/Thoughts", isDirectory: true)
@@ -144,6 +145,7 @@ struct StorageRepointTests {
 }
 
 @MainActor
+@Suite(.throwaway)
 struct SettingsStorageRowTests {
   @Test func aMissingFolderIsShownAsMissingUntilItIsRepointed() async throws {
     let present = Flag(false)
@@ -196,6 +198,7 @@ struct SettingsStorageRowTests {
 }
 
 @MainActor
+@Suite(.throwaway)
 struct StorageProblemTests {
   struct Rig {
     let fixture: ListFixture
@@ -478,6 +481,7 @@ struct StorageProblemTests {
 }
 
 @MainActor
+@Suite(.throwaway)
 struct LaunchStorageTests {
   @Test func aLaunchWithTheFolderMissingShowsTheStorageWarning() throws {
     let root = FileManager.default.temporaryDirectory

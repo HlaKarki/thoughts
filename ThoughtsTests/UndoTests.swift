@@ -10,6 +10,7 @@ final class HoldFlag: @unchecked Sendable {
 }
 
 @MainActor
+@Suite(.throwaway)
 struct UndoTests {
   static let deleteNote = "Moved to the Trash. Press ⌘Z to put it back."
   static let clearNote = "Cleared the done thoughts. Press ⌘Z to bring them back."
@@ -28,7 +29,6 @@ struct UndoTests {
 
   @Test func deleteThenUndoThenRedoMovesBothFilesOfAScreenshotBackAndForth() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let older = try rig.fixture.addText("older", daysAgo: 4)
     let shot = try rig.fixture.addScreenshot(note: "middle", daysAgo: 3)
@@ -66,7 +66,6 @@ struct UndoTests {
 
   @Test func deletingSeveralThoughtsIsOneStepAndSaysSo() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     try rig.fixture.addText("a", daysAgo: 5)
     let second = try rig.fixture.addText("b", daysAgo: 4)
@@ -86,7 +85,6 @@ struct UndoTests {
 
   @Test func undoRightAfterDeleteBeatsTheListRefresh() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let only = try rig.fixture.addText("only", daysAgo: 1)
     try rig.fixture.reload()
@@ -101,7 +99,6 @@ struct UndoTests {
 
   @Test func clearDoneThenUndoBringsBackExactlyTheClearedThoughts() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let first = try rig.fixture.addText("finished one", daysAgo: 4, done: true)
     let open = try rig.fixture.addText("open", daysAgo: 3)
@@ -130,7 +127,6 @@ struct UndoTests {
 
   @Test func doneThenUndoKeepsTheOriginalDateAndNotDoneComesBackWithIt() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let thought = try rig.fixture.addText("one", daysAgo: 3, done: true)
     try rig.fixture.reload()
@@ -149,7 +145,6 @@ struct UndoTests {
 
   @Test func markingDoneThenUndoThenRedoUsesTheSameDate() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let thought = try rig.fixture.addText("one", daysAgo: 3)
     try rig.fixture.reload()
@@ -166,7 +161,6 @@ struct UndoTests {
 
   @Test func aSavedEditThenUndoRestoresTheTextAndRedoPutsItBack() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let thought = try rig.fixture.addText("before", daysAgo: 1)
     try rig.fixture.reload()
@@ -184,7 +178,6 @@ struct UndoTests {
 
   @Test func aSavedEditOnAScreenshotUndoesItsNote() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let shot = try rig.fixture.addScreenshot(note: "first note", daysAgo: 1)
     try rig.fixture.reload()
     EditInPlaceTests.begin(rig, shot)
@@ -201,7 +194,6 @@ struct UndoTests {
 
   @Test func undoAfterTheFileChangedOnDiskSaysSoChangesNothingAndLeavesTheStack() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let thought = try rig.fixture.addText("one", daysAgo: 3)
     try rig.fixture.reload()
@@ -223,7 +215,6 @@ struct UndoTests {
 
   @Test func undoOfAFileThatWasDeletedElsewhereSaysTheThoughtChanged() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let thought = try rig.fixture.addText("one", daysAgo: 3)
     try rig.fixture.reload()
@@ -237,7 +228,6 @@ struct UndoTests {
 
   @Test func undoWithTheFileGoneFromTheTrashSaysSoAndTheNextUndoGoesBack() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let first = try rig.fixture.addText("one", daysAgo: 3)
     let second = try rig.fixture.addText("two", daysAgo: 2)
@@ -262,7 +252,6 @@ struct UndoTests {
 
   @Test func undoWithTheNameTakenSaysSoAndKeepsTheFileThatIsThere() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let only = try rig.fixture.addText("only", daysAgo: 1)
     try rig.fixture.reload()
@@ -281,7 +270,6 @@ struct UndoTests {
 
   @Test func commandZWithNothingToUndoOrRedoSaysSoInsteadOfBeeping() throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let panel = ThoughtsPanel(content: NSView())
     panel.onNothingToDo = { [actions = rig.actions] in actions.nothingToDo($0) }
     let undo = try PanelKeyEquivalentTests.event("z", .command, code: 6, window: panel.windowNumber)
@@ -302,7 +290,7 @@ struct UndoTests {
     let actions = ThoughtActions(
       list: fixture.model, location: fixture.location,
       pasteboard: PasteboardWriter(
-        pasteboard: NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))),
+        pasteboard: Throwaway.pasteboard()),
       trash: { try trash.move($0) }, undoManager: panel.sharedUndoManager)
     let only = try fixture.addText("only", daysAgo: 1)
     try fixture.reload()
@@ -327,7 +315,7 @@ struct UndoTests {
     let actions = ThoughtActions(
       list: fixture.model, location: fixture.location,
       pasteboard: PasteboardWriter(
-        pasteboard: NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))),
+        pasteboard: Throwaway.pasteboard()),
       trash: { try trash.move($0) }, undoManager: panel.sharedUndoManager)
     panel.onNothingToDo = { actions.nothingToDo($0) }
     panel.defersHistory = { actions.deferIfBusy($0) }
@@ -352,7 +340,7 @@ struct UndoTests {
     let actions = ThoughtActions(
       list: fixture.model, location: fixture.location,
       pasteboard: PasteboardWriter(
-        pasteboard: NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))),
+        pasteboard: Throwaway.pasteboard()),
       trash: { try trash.move($0) }, undoManager: undoManager)
     let first = try fixture.addText("one", daysAgo: 3)
     let second = try fixture.addText("two", daysAgo: 2)
@@ -377,7 +365,6 @@ struct UndoTests {
 
   @Test func clearDoneThatFailsOnTheSecondOfThreeUndoesExactlyTheFirst() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let first = try rig.fixture.addText("one", daysAgo: 4, done: true)
     let second = try rig.fixture.addText("two", daysAgo: 3, done: true)
@@ -408,7 +395,6 @@ struct UndoTests {
     #expect(Feedback(kind: .message, text: "x").lifetime == .seconds(4))
 
     let (rig, gate) = try ActionFeedbackTests.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let finished = try rig.fixture.addText("one", daysAgo: 3, done: true)
     let open = try rig.fixture.addText("two", daysAgo: 2)
@@ -434,7 +420,6 @@ struct UndoTests {
 
   @Test func twoSavedEditsOnOneThoughtUndoAndRedoInOrder() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let thought = try rig.fixture.addText("zero", daysAgo: 1)
     try rig.fixture.reload()
@@ -460,7 +445,6 @@ struct UndoTests {
 
   @Test func markDoneThenClearDoneUndoTwiceRestoresBoth() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let thought = try rig.fixture.addText("one", daysAgo: 1)
     try rig.fixture.reload()
@@ -484,7 +468,6 @@ struct UndoTests {
 
   @Test func editThenMarkDoneThenMarkNotDoneUndoThreeTimes() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let thought = try rig.fixture.addText("zero", daysAgo: 1)
     try rig.fixture.reload()
@@ -504,7 +487,6 @@ struct UndoTests {
 
   @Test func anOutsideEditAfterTwoPanelChangesIsStillRefused() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let thought = try rig.fixture.addText("one", daysAgo: 1)
     try rig.fixture.reload()
@@ -532,7 +514,7 @@ struct UndoTests {
     let actions = ThoughtActions(
       list: fixture.model, location: fixture.location,
       pasteboard: PasteboardWriter(
-        pasteboard: NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))),
+        pasteboard: Throwaway.pasteboard()),
       trash: { url in
         if hold.value { release.wait() }
         return try trash.move(url)
@@ -564,7 +546,6 @@ struct UndoTests {
 
   @Test func restoredThoughtsAreRevealedAndNeverCountAsNewAdditions() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let model = rig.fixture.model
     let old = try rig.fixture.addText("old", daysAgo: 5)
     try rig.fixture.addText("newer", daysAgo: 1)
@@ -597,7 +578,7 @@ struct UndoTests {
     let actions = ThoughtActions(
       list: fixture.model, location: fixture.location,
       pasteboard: PasteboardWriter(
-        pasteboard: NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))),
+        pasteboard: Throwaway.pasteboard()),
       trash: { try trash.move($0) }, undoManager: panel.sharedUndoManager)
     let only = try fixture.addText("only", daysAgo: 1)
     try fixture.reload()

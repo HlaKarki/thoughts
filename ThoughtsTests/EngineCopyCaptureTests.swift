@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
 @testable import Thoughts
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .throwaway)
 struct EngineCopyCaptureTests {
   static let browser = AppSnapshot(pid: 51, bundleID: "dev.example.browser", name: "Browser")
   static let hostInFront = AppSnapshot(
@@ -59,7 +59,6 @@ struct EngineCopyCaptureTests {
     let keys = ClipboardWatcherTests.Keys()
     let panel = NSObject()
     let trails = Trails()
-    let suite: String
 
     init(
       behavior: NSPasteboard.AccessBehavior = .alwaysAllow, detected: UTType? = nil,
@@ -67,9 +66,8 @@ struct EngineCopyCaptureTests {
       selectionReader: (@MainActor (NSPasteboard) -> any SelectionReading)? = nil
     ) throws {
       let fixture = try ListFixture()
-      let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-      let suite = "thoughts.tests.\(UUID().uuidString)"
-      let defaults = try #require(UserDefaults(suiteName: suite))
+      let board = Throwaway.pasteboard()
+      let defaults = try Throwaway.defaults()
       let reader = CaptureCoordinatorTests.FakeReader()
       let writer = PasteboardWriter(pasteboard: board)
       let watcher = ClipboardWatcher(
@@ -92,7 +90,6 @@ struct EngineCopyCaptureTests {
         })
       self.fixture = fixture
       self.board = board
-      self.suite = suite
       self.reader = reader
       self.writer = writer
       self.watcher = watcher
@@ -127,15 +124,12 @@ struct EngineCopyCaptureTests {
 
     func close() {
       watcher.stop()
-      board.releaseGlobally()
-      UserDefaults().removePersistentDomain(forName: suite)
     }
   }
 
   @Test func theEngineMarksOnlyPasswordCopiesWithAnExcludedType() {
     for (copy, excluded) in [(Copy.selection, false), (.writeText, false), (.password, true)] {
-      let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-      defer { board.releaseGlobally() }
+      let board = Throwaway.pasteboard()
       Self.write(copy, to: board)
       #expect(ClipboardWatcher.isExcluded(board.types ?? []) == excluded)
     }

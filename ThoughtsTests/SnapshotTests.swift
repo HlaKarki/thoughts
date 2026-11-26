@@ -5,6 +5,7 @@ import Testing
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct SnapshotTests {
   static let panelSize = CGSize(width: PanelController.width, height: PanelController.maxHeight)
 
@@ -12,7 +13,7 @@ struct SnapshotTests {
   func panelChrome(_ appearance: NSAppearance.Name) async throws {
     let fixture = try ListFixture()
     defer { withExtendedLifetime(fixture) {} }
-    let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+    let defaults = try Throwaway.defaults()
     let url = try SnapshotRenderer.render(
       PanelRootView(
         preferences: Preferences(defaults: defaults), list: fixture.model, input: fixture.input),

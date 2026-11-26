@@ -6,6 +6,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct InputModelTests {
   final class Saves {
     var all: [ManualSave] = []
@@ -16,13 +17,12 @@ struct InputModelTests {
     let fixture = try ListFixture()
     let saves = Saves()
     fixture.input.onManualSave = { saves.all.append($0) }
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    let board = Throwaway.pasteboard()
     return (fixture, saves, board)
   }
 
   @Test func enterAddsTheTrimmedTextAndAnEmptyInputDoesNothing() async throws {
-    let (fixture, saves, board) = try Self.rig()
-    defer { board.releaseGlobally() }
+    let (fixture, saves, _) = try Self.rig()
     fixture.input.text = "   \n "
     await fixture.input.submit()
     #expect(try fixture.store.entries().isEmpty)
@@ -38,7 +38,6 @@ struct InputModelTests {
 
   @Test func pastedImageAttachesAndTheTextBecomesItsNote() async throws {
     let (fixture, saves, board) = try Self.rig()
-    defer { board.releaseGlobally() }
     board.clearContents()
     board.setData(try ListFixture.png(), forType: .png)
     fixture.input.paste(board)
@@ -59,7 +58,6 @@ struct InputModelTests {
 
   @Test func imageOnlyAttachmentAddsWithAnEmptyNote() async throws {
     let (fixture, _, board) = try Self.rig()
-    defer { board.releaseGlobally() }
     board.clearContents()
     board.setData(try ListFixture.png(), forType: .png)
     fixture.input.paste(board)
@@ -74,7 +72,6 @@ struct InputModelTests {
 
   @Test func pastedTextGoesIntoTheFieldAndRemoveClearsTheImage() throws {
     let (fixture, _, board) = try Self.rig()
-    defer { board.releaseGlobally() }
     board.clearContents()
     board.setString("a copied line", forType: .string)
     fixture.input.paste(board)
@@ -89,7 +86,6 @@ struct InputModelTests {
 
   @Test func droppedFilesAndTextAreAddedAtOnce() async throws {
     let (fixture, saves, board) = try Self.rig()
-    defer { board.releaseGlobally() }
     board.clearContents()
     board.setString("dropped words", forType: .string)
     #expect(fixture.input.drop(board))
@@ -104,7 +100,6 @@ struct InputModelTests {
 
   @Test func aDroppedFileReportsItsSourceFileInTheManualSave() async throws {
     let (fixture, saves, board) = try Self.rig()
-    defer { board.releaseGlobally() }
     let folder = TempFolder()
     try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
     let file = folder.url.appendingPathComponent("capture.png")
@@ -135,7 +130,6 @@ struct InputModelTests {
 
   @Test func anImageFileCopiedInFinderAttachesThatFileNotItsIcon() async throws {
     let (fixture, _, board) = try Self.rig()
-    defer { board.releaseGlobally() }
     let folder = TempFolder()
     try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
     let file = folder.url.appendingPathComponent("capture.png")
@@ -152,7 +146,6 @@ struct InputModelTests {
 
   @Test func aNonImageFileCopiedInFinderAttachesNothingFromItsIcon() throws {
     let (fixture, _, board) = try Self.rig()
-    defer { board.releaseGlobally() }
     let folder = TempFolder()
     try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
     let file = folder.url.appendingPathComponent("report.pdf")
@@ -165,7 +158,6 @@ struct InputModelTests {
 
   @Test func copiedCellTextGoesIntoTheFieldEvenWithAPictureBesideIt() throws {
     let (fixture, _, board) = try Self.rig()
-    defer { board.releaseGlobally() }
     try Self.fill(board, text: "Q3\t4200", image: true)
     #expect(!fixture.input.takeImage(from: board))
     fixture.input.paste(board)
@@ -175,7 +167,6 @@ struct InputModelTests {
 
   @Test func aBrowserCopyImageAttachesThePictureNotItsAddress() throws {
     let (fixture, _, board) = try Self.rig()
-    defer { board.releaseGlobally() }
     try Self.fill(board, text: "https://example.com/cat.png", image: true)
     fixture.input.paste(board)
     #expect(fixture.input.attachment != nil)
@@ -184,7 +175,6 @@ struct InputModelTests {
 
   @Test func aCopiedLinkWithNoPictureIsText() throws {
     let (fixture, _, board) = try Self.rig()
-    defer { board.releaseGlobally() }
     try Self.fill(board, text: "https://example.com/cat.png", image: false)
     fixture.input.paste(board)
     #expect(fixture.input.text == "https://example.com/cat.png")
@@ -193,7 +183,6 @@ struct InputModelTests {
 
   @Test func pictureDataWithNoTextAttaches() throws {
     let (fixture, _, board) = try Self.rig()
-    defer { board.releaseGlobally() }
     try Self.fill(board, image: true)
     fixture.input.paste(board)
     #expect(fixture.input.attachment != nil)

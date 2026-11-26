@@ -6,6 +6,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct ActionsSnapshotTests {
   @Test(arguments: [NSAppearance.Name.aqua, .darkAqua])
   func actionsMenu(_ appearance: NSAppearance.Name) async throws {

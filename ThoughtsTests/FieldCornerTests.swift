@@ -5,7 +5,7 @@ import Testing
 @testable import Thoughts
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .throwaway)
 struct FieldCornerTests {
   static var expectedRadius: CGFloat {
     if #available(macOS 26, *) { 14 } else { 10 }

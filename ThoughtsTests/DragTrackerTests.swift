@@ -4,6 +4,7 @@ import Testing
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct DragTrackerTests {
   @Test func aDragNeedsAPasteboardChangeAndEndsOnMouseUp() {
     var tracker = DragTracker(baseline: 10)
@@ -20,8 +21,7 @@ struct DragTrackerTests {
   }
 
   @Test func theMonitorReportsStartAndEndFromInjectedEvents() {
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
+    let board = Throwaway.pasteboard()
     var handler: (@MainActor (NSEvent.EventType) -> Void)?
     var localHandler: (@MainActor (NSEvent.EventType) -> Void)?
     var removed = 0

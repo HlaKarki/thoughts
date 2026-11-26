@@ -6,6 +6,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct ReadmeImageTests {
   nonisolated static let outputFolder = ProcessInfo.processInfo.environment[
     "THOUGHTS_README_IMAGES"]
@@ -34,7 +35,7 @@ struct ReadmeImageTests {
       _ = await ThumbnailLoader.load(fixture.folder.appendingPathComponent(name))
     }
 
-    let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+    let defaults = try Throwaway.defaults()
     let suffix = appearance == .aqua ? "light" : "dark"
     let rendered = try SnapshotRenderer.render(
       PanelRootView(

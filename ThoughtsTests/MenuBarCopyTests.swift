@@ -4,6 +4,7 @@ import Testing
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct MenuBarCopyTests {
   @Test func everyPlaceThatNamesTheIconOnlyDoesSoWhileItIsShown() {
     for shown in [true, false] {

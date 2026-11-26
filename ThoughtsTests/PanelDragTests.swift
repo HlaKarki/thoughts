@@ -6,7 +6,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .throwaway)
 struct PanelDragTests {
   typealias Rig = LiveEdgeTests.Rig
 

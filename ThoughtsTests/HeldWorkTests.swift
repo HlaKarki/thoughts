@@ -17,7 +17,7 @@ final class Stamp: @unchecked Sendable {
 }
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .throwaway)
 struct HeldWorkTests {
   static let count = ProcessInfo.processInfo.activeProcessorCount + 2
 
@@ -49,7 +49,6 @@ struct HeldWorkTests {
     let hold = Hold()
     defer { hold.release() }
     let board = PasteboardSnapshotTests.privateBoard()
-    defer { board.releaseGlobally() }
     let read = PasteboardRead(pasteboard: board)
     let start = ContinuousClock.now
     let reads = (0..<Self.count).map { _ in Task { await read.run { _ in hold.pass() } } }

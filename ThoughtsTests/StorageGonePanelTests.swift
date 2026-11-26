@@ -5,7 +5,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .throwaway)
 struct StorageGonePanelTests {
   @Test func aFolderRenamedAwayShowsTheMessageHoldsItsRowsAndComesBackOnItsOwn() async throws {
     try await PanelHarness.run(storageRetry: .milliseconds(50)) { harness in

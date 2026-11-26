@@ -6,6 +6,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct SourceRecordingTests {
   static let page = Source(
     app: "Safari", bundleID: "com.apple.Safari", window: "Example",
@@ -32,8 +33,7 @@ struct SourceRecordingTests {
   }
 
   @Test func returnClearsTheFieldBeforeTheSourceResolves() async throws {
-    let (fixture, _, board) = try InputModelTests.rig()
-    defer { board.releaseGlobally() }
+    let (fixture, _, _) = try InputModelTests.rig()
     let gate = Gate()
     fixture.input.source = {
       await gate.wait()
@@ -53,7 +53,6 @@ struct SourceRecordingTests {
 
   @Test func slowSourceKeepsTheDroppedFilePath() async throws {
     let (fixture, _, board) = try InputModelTests.rig()
-    defer { board.releaseGlobally() }
     let folder = TempFolder()
     try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
     let file = folder.url.appendingPathComponent("slow.txt")
@@ -87,8 +86,7 @@ struct SourceRecordingTests {
   }
 
   @Test func typedThoughtRecordsTheProvidedSource() async throws {
-    let (fixture, _, board) = try InputModelTests.rig()
-    defer { board.releaseGlobally() }
+    let (fixture, _, _) = try InputModelTests.rig()
     fixture.input.source = { Self.page }
     fixture.input.text = "Read this later"
     await fixture.input.submit()
@@ -97,8 +95,7 @@ struct SourceRecordingTests {
   }
 
   @Test func noSourceLeavesTheThoughtWithoutOne() async throws {
-    let (fixture, _, board) = try InputModelTests.rig()
-    defer { board.releaseGlobally() }
+    let (fixture, _, _) = try InputModelTests.rig()
     fixture.input.text = "Plain"
     await fixture.input.submit()
     let stored = try fixture.store.entries().compactMap(\.thought)
@@ -107,7 +104,6 @@ struct SourceRecordingTests {
 
   @Test func droppedTextRecordsTheProvidedSource() async throws {
     let (fixture, _, board) = try InputModelTests.rig()
-    defer { board.releaseGlobally() }
     fixture.input.source = { Self.page }
     board.clearContents()
     board.setString("dropped words", forType: .string)
@@ -119,7 +115,6 @@ struct SourceRecordingTests {
 
   @Test func droppedFileKeepsItsPathBesideTheProvidedSource() async throws {
     let (fixture, _, board) = try InputModelTests.rig()
-    defer { board.releaseGlobally() }
     let folder = TempFolder()
     try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
     let file = folder.url.appendingPathComponent("notes.txt")

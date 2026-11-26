@@ -6,6 +6,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct SettingsSnapshotTests {
   static func tone(_ appearance: NSAppearance.Name) -> String {
     appearance == .aqua ? "light" : "dark"

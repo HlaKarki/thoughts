@@ -126,20 +126,19 @@ extension SuiteTrait where Self == RecordingMainThreadPasteboardReads {
 }
 
 @MainActor
-@Suite(.recordingMainThreadPasteboardReads)
+@Suite(.recordingMainThreadPasteboardReads, .throwaway)
 struct PasteboardReadThreadTests {
   static let reads = MainThreadPasteboardReads.shared
 
   @Test func theCaptureKeyReadsACopiedImageOffTheMainThread() async throws {
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
+    let board = Throwaway.pasteboard()
     board.clearContents()
     board.setData(try ListFixture.png(), forType: .png)
     let count = board.changeCount
     let fixture = try ListFixture()
     let reader = CaptureCoordinatorTests.FakeReader()
     reader.probeResult = .empty
-    let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+    let defaults = try Throwaway.defaults()
     let coordinator = CaptureCoordinator(
       frontmost: { CaptureCoordinatorTests.editor }, ownBundleID: CaptureCoordinatorTests.own,
       ownWindowIsKey: { false }, reader: reader, source: { CaptureCoordinatorTests.page },
@@ -163,7 +162,6 @@ struct PasteboardReadThreadTests {
 
   @Test func theCaptureKeyReadsCopiedTextOffTheMainThread() async throws {
     let rig = try CaptureCoordinatorTests.textRig(text: "  ls -la\n", access: .ask)
-    defer { rig.board.releaseGlobally() }
     Self.reads.watch(rig.board)
     let outcome = await rig.coordinator.capture()
     let onMain = Self.reads.reads(rig.board)
@@ -177,7 +175,6 @@ struct PasteboardReadThreadTests {
 
   @Test func acceptingAClipboardOfferReadsTheImageOffTheMainThread() async throws {
     let rig = try OfferCenterTests.rig(behavior: .ask)
-    defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setData(try ListFixture.png(), forType: .png)
     rig.center.receive(.clipboard(changeCount: rig.board.changeCount, file: nil, at: Date()))
@@ -194,7 +191,6 @@ struct PasteboardReadThreadTests {
 
   @Test func theCopyKeyFallbackKeepsAndReadsTheClipboardOffTheMainThread() async {
     let board = PasteboardSnapshotTests.privateBoard()
-    defer { board.releaseGlobally() }
     PasteboardSnapshotTests.fill(board)
     let before = PasteboardSnapshotTests.contents(of: board)
     let reader = SelectionReader(
@@ -220,7 +216,6 @@ struct PasteboardReadThreadTests {
 
   @Test func aConcealedCopyLandingWhileTheCaptureKeyReadsIsNeverSaved() async throws {
     let rig = try CaptureCoordinatorTests.textRig(text: "ls -la")
-    defer { rig.board.releaseGlobally() }
     Self.reads.arrive(on: rig.board, Self.passwordCopy)
     let outcome = await rig.coordinator.capture()
     _ = Self.reads.reads(rig.board)
@@ -230,7 +225,6 @@ struct PasteboardReadThreadTests {
 
   @Test func aConcealedImageLandingWhileTheCaptureKeyReadsIsNeverSaved() async throws {
     let rig = try CaptureCoordinatorTests.textRig(text: nil, kind: .image)
-    defer { rig.board.releaseGlobally() }
     let png = try ListFixture.png()
     rig.board.setData(png, forType: .png)
     Self.reads.arrive(on: rig.board) { board in
@@ -246,7 +240,6 @@ struct PasteboardReadThreadTests {
 
   @Test func aConcealedCopyLandingAfterTheCopyKeyIsNeverRead() async {
     let board = PasteboardSnapshotTests.privateBoard()
-    defer { board.releaseGlobally() }
     PasteboardSnapshotTests.fill(board)
     let reader = SelectionReader(
       pasteboard: board,
@@ -263,7 +256,6 @@ struct PasteboardReadThreadTests {
 
   @Test func aConcealedCopyLandingBeforeTheCopyKeyStopsTheFallback() async {
     let board = PasteboardSnapshotTests.privateBoard()
-    defer { board.releaseGlobally() }
     PasteboardSnapshotTests.fill(board)
     let log = CallLog()
     let reader = SelectionReader(

@@ -5,14 +5,14 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct PasteboardWriterTests {
   static func privateBoard() -> NSPasteboard {
-    NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    Throwaway.pasteboard()
   }
 
   @Test func copyImageWritesPNGAndFileURL() async throws {
     let board = Self.privateBoard()
-    defer { board.releaseGlobally() }
     let folder = TempFolder()
     try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
     let file = folder.url.appendingPathComponent("shot.png")
@@ -27,7 +27,6 @@ struct PasteboardWriterTests {
 
   @Test func copyImageConvertsOtherFormatsToPNG() async throws {
     let board = Self.privateBoard()
-    defer { board.releaseGlobally() }
     let folder = TempFolder()
     try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
     let file = folder.url.appendingPathComponent("shot.tiff")
@@ -40,7 +39,6 @@ struct PasteboardWriterTests {
 
   @Test func writesRecordOwnChangeCount() {
     let board = Self.privateBoard()
-    defer { board.releaseGlobally() }
     let writer = PasteboardWriter(pasteboard: board)
     var reported: [Int] = []
     writer.onOwnChange = { reported.append($0) }
@@ -64,7 +62,6 @@ struct PasteboardWriterTests {
 
   @Test func ownWritesNeverBecomeOffers() throws {
     let board = Self.privateBoard()
-    defer { board.releaseGlobally() }
     let writer = PasteboardWriter(pasteboard: board)
     var queue = OfferQueue()
     writer.onOwnChange = { queue.noteOwn(changeCount: $0) }

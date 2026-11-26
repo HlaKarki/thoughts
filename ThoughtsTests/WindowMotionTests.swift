@@ -4,6 +4,7 @@ import Testing
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct WindowMotionTests {
   @Test func aMoveAtOnceWinsOverASlideStillRunning() async throws {
     let window = NSPanel(

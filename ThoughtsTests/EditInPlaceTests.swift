@@ -5,6 +5,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct EditInPlaceTests {
   static func begin(_ rig: ThoughtActionsTests.Rig, _ thought: Thought) {
     rig.fixture.model.select(thought.file.lastPathComponent, extend: false)
@@ -13,7 +14,6 @@ struct EditInPlaceTests {
 
   @Test func enterSavesTheEditWithTheVersionReadWhenEditingBegan() async throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let thought = try rig.fixture.addText("Ask the team for the staging API key", daysAgo: 1)
     try rig.fixture.reload()
     rig.fixture.model.onCommand = { rig.actions.perform($0) }
@@ -33,7 +33,6 @@ struct EditInPlaceTests {
 
   @Test func aScreenshotEditsItsNote() async throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let shot = try rig.fixture.addScreenshot(note: "Rename fetchUser", daysAgo: 1)
     try rig.fixture.reload()
     Self.begin(rig, shot)
@@ -52,7 +51,6 @@ struct EditInPlaceTests {
 
   @Test func aChangeOnDiskKeepsTheTextAndTheNextEnterSaves() async throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let thought = try rig.fixture.addText("original", daysAgo: 1)
     try rig.fixture.reload()
     Self.begin(rig, thought)
@@ -77,7 +75,6 @@ struct EditInPlaceTests {
 
   @Test func aDeletedThoughtEndsTheEdit() async throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let thought = try rig.fixture.addText("original", daysAgo: 1)
     try rig.fixture.reload()
     Self.begin(rig, thought)
@@ -92,7 +89,6 @@ struct EditInPlaceTests {
 
   @Test func escapeCancelsWithoutWritingAndAnUnchangedTextWritesNothing() async throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let thought = try rig.fixture.addText("original", daysAgo: 1)
     try rig.fixture.reload()
     let before = try #require(try rig.fixture.store.entries().compactMap(\.thought).first).version
@@ -111,7 +107,6 @@ struct EditInPlaceTests {
 
   @Test func aBlankTextThoughtStaysInEditing() async throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let thought = try rig.fixture.addText("original", daysAgo: 1)
     try rig.fixture.reload()
     Self.begin(rig, thought)
@@ -125,7 +120,6 @@ struct EditInPlaceTests {
 
   @Test func clickingInsideTheEditedRowKeepsTheText() throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let first = try rig.fixture.addText("one", daysAgo: 2)
     try rig.fixture.reload()
     Self.begin(rig, first)
@@ -137,7 +131,6 @@ struct EditInPlaceTests {
 
   @Test func clickingAnotherRowSavesTheEditThenMovesTheSelection() async throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let first = try rig.fixture.addText("one", daysAgo: 2)
     let second = try rig.fixture.addText("two", daysAgo: 1)
     try rig.fixture.reload()
@@ -156,7 +149,6 @@ struct EditInPlaceTests {
 
   @Test func clickingAnotherRowWithTheTextUnchangedMovesAtOnce() throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let first = try rig.fixture.addText("one", daysAgo: 2)
     let second = try rig.fixture.addText("two", daysAgo: 1)
     try rig.fixture.reload()
@@ -169,7 +161,6 @@ struct EditInPlaceTests {
 
   @Test func aConflictOnClickAwayKeepsTheEditAndTheSelection() async throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let first = try rig.fixture.addText("one", daysAgo: 2)
     let second = try rig.fixture.addText("two", daysAgo: 1)
     try rig.fixture.reload()
@@ -188,7 +179,6 @@ struct EditInPlaceTests {
 
   @Test func hidingThePanelKeepsTheEditAndItsText() throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let first = try rig.fixture.addText("one", daysAgo: 1)
     try rig.fixture.reload()
     rig.fixture.model.panelDidShow()
@@ -204,7 +194,6 @@ struct EditInPlaceTests {
 
   @Test func aSaveResultForAnotherRowDoesNotEndTheCurrentEdit() throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let first = try rig.fixture.addText("one", daysAgo: 2)
     let second = try rig.fixture.addText("two", daysAgo: 1)
     try rig.fixture.reload()
@@ -223,7 +212,6 @@ struct EditInPlaceTests {
 
   @Test func leavingTheEditForTheInputSavesItBeforeAnotherRowCanBeEdited() async throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let first = try rig.fixture.addText("one", daysAgo: 2)
     let second = try rig.fixture.addText("two", daysAgo: 1)
     try rig.fixture.reload()
@@ -246,7 +234,6 @@ struct EditInPlaceTests {
 
   @Test func leavingTheEditForSearchOrTheMenuSavesIt() async throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let first = try rig.fixture.addText("one", daysAgo: 1)
     try rig.fixture.reload()
     rig.fixture.model.onCommand = { rig.actions.perform($0) }
@@ -262,7 +249,6 @@ struct EditInPlaceTests {
 
   @Test func aConflictOnLeavingTheEditReturnsFocusToItsField() async throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let first = try rig.fixture.addText("one", daysAgo: 2)
     try rig.fixture.addText("two", daysAgo: 1)
     try rig.fixture.reload()
@@ -282,7 +268,6 @@ struct EditInPlaceTests {
 
   @Test func aBlankTextCannotBeLeftBehind() throws {
     let rig = try ThoughtActionsTests.rig()
-    defer { rig.board.releaseGlobally() }
     let first = try rig.fixture.addText("one", daysAgo: 1)
     try rig.fixture.reload()
     rig.fixture.model.onCommand = { rig.actions.perform($0) }

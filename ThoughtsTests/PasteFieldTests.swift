@@ -18,6 +18,7 @@ private final class PromisedData: NSObject, NSPasteboardItemDataProvider, Sendab
 }
 
 @MainActor
+@Suite(.throwaway)
 struct PasteFieldTests {
   static func inputFields(in view: NSView) -> [InputTextField] {
     var found: [InputTextField] = []
@@ -30,14 +31,13 @@ struct PasteFieldTests {
 
   @Test func pasteInTheInputFieldReachesThePanelHandler() throws {
     let fixture = try ListFixture()
-    let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+    let defaults = try Throwaway.defaults()
     let hosting = NSHostingView(
       rootView: PanelRootView(
         preferences: Preferences(defaults: defaults), list: fixture.model, input: fixture.input))
     hosting.sizingOptions = []
     let panel = ThoughtsPanel(content: hosting)
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
+    let board = Throwaway.pasteboard()
     panel.pasteboard = board
     var received: [NSPasteboard] = []
     panel.onPaste = {
@@ -56,8 +56,7 @@ struct PasteFieldTests {
   }
 
   @Test func thePasteItemIsCheckedWithoutReadingTheClipboard() throws {
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
+    let board = Throwaway.pasteboard()
     let editor = PasteFieldEditor()
     editor.pasteboard = board
     let item = NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "")

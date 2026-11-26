@@ -6,7 +6,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .throwaway)
 struct CrossDisplayTests {
   typealias Rig = LiveEdgeTests.Rig
   typealias Sample = (frame: CGRect, alpha: CGFloat)

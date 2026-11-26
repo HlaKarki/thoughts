@@ -6,7 +6,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .throwaway)
 struct LiveEdgeTests {
   @MainActor
   final class Displays {
@@ -59,7 +59,7 @@ struct LiveEdgeTests {
         note: "Rename fetchUser before the PR", daysAgo: 0.3,
         source: Source(app: "Editor", bundleID: "com.example.editor", window: "users.ts"))
       try fixture.reload()
-      let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+      let defaults = try Throwaway.defaults()
       self.defaults = defaults
       let preferences = Preferences(defaults: defaults)
       preferences.edge = edge

@@ -6,10 +6,10 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct InputSnapshotTests {
   static func attach(_ fixture: ListFixture) throws {
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
+    let board = Throwaway.pasteboard()
     board.clearContents()
     board.setData(try ListFixture.png(), forType: .png)
     #expect(fixture.input.takeImage(from: board))

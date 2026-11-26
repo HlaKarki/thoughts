@@ -7,7 +7,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .throwaway)
 struct CaptureLogTests {
   typealias Rig = EngineCopyCaptureTests.Rig
 

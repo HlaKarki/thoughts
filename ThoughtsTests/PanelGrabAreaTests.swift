@@ -5,7 +5,7 @@ import Testing
 @testable import Thoughts
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .throwaway)
 struct PanelGrabAreaTests {
   static let height = PanelController.maxHeight
 

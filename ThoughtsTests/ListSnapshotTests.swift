@@ -6,6 +6,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct ListSnapshotTests {
   static let panelSize = CGSize(width: PanelController.width, height: PanelController.maxHeight)
 
@@ -54,7 +55,7 @@ struct ListSnapshotTests {
   ) throws
     -> NSBitmapImageRep
   {
-    let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+    let defaults = try Throwaway.defaults()
     let url = try SnapshotRenderer.render(
       PanelRootView(preferences: Preferences(defaults: defaults), list: model, input: input),
       size: panelSize, appearance: appearance, name: name)

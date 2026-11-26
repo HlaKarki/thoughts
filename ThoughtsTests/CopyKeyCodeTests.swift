@@ -6,6 +6,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct CopyKeyCodeTests {
   @Test func qwertyUsesTheCKey() {
     let code = CopyKeyCode.find { $0 == CGKeyCode(kVK_ANSI_C) ? "c" : "x" }
@@ -31,7 +32,6 @@ struct CopyKeyCodeTests {
 
   @Test func secureInputNeverMakesAnUnreadableFocusASecureField() async {
     let board = PasteboardSnapshotTests.privateBoard()
-    defer { board.releaseGlobally() }
     let host = ProcessInfo.processInfo.processIdentifier
     let ax = AXReader()
     let reader = SelectionReader(
@@ -43,7 +43,6 @@ struct CopyKeyCodeTests {
 
   @Test func secureInputTurningOnBeforeThePostPostsNothing() async {
     let board = PasteboardSnapshotTests.privateBoard()
-    defer { board.releaseGlobally() }
     PasteboardSnapshotTests.fill(board)
     let count = board.changeCount
     var posts = 0

@@ -5,6 +5,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct WindowFrontTests {
   @MainActor
   final class Fronting {

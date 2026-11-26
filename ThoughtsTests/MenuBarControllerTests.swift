@@ -4,6 +4,7 @@ import Testing
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct MenuBarControllerTests {
   final class FakeSurface: StatusItemSurface {
     var isVisible = true
@@ -35,9 +36,7 @@ struct MenuBarControllerTests {
     let accessibility = NotificationCenter()
 
     init() throws {
-      let name = "thoughts.tests.\(UUID().uuidString)"
-      defaults = try #require(UserDefaults(suiteName: name))
-      defaults.removePersistentDomain(forName: name)
+      defaults = try Throwaway.defaults()
       preferences = Preferences(defaults: defaults)
       let shared = SharedMenuItems(updates: updates, openSettings: {}, checkForUpdates: {})
       let bar = MenuBarMenu(

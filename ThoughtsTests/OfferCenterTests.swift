@@ -6,6 +6,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct OfferCenterTests {
   static let page = Source(app: "Preview", bundleID: "com.example.preview")
 
@@ -28,9 +29,8 @@ struct OfferCenterTests {
     behavior: NSPasteboard.AccessBehavior = .ask, notifications: NotificationCenter = .default
   ) throws -> Rig {
     let fixture = try ListFixture()
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    let name = "thoughts.tests.\(UUID().uuidString)"
-    let defaults = try #require(UserDefaults(suiteName: name))
+    let board = Throwaway.pasteboard()
+    let defaults = try Throwaway.defaults()
     let preferences = Preferences(defaults: defaults)
     let plays = Plays()
     let temp = TempFolder()
@@ -63,7 +63,6 @@ struct OfferCenterTests {
 
   @Test func clipboardOfferKeepsTheImageWithTheSourceRecordedWhenItArrived() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setData(try ListFixture.png(), forType: .png)
     let count = rig.board.changeCount
@@ -86,7 +85,6 @@ struct OfferCenterTests {
 
   @Test func acceptNeverReadsAnImageMarkedConcealed() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setData(try ListFixture.png(), forType: .png)
     rig.board.setData(Data(), forType: NSPasteboard.PasteboardType(ClipboardTypes.concealed))
@@ -100,7 +98,6 @@ struct OfferCenterTests {
 
   @Test func acceptSaysWhyWhenMacOSRefusedThePaste() async throws {
     let rig = try Self.rig(behavior: .alwaysDeny)
-    defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setString("nothing readable as an image", forType: .string)
     let count = rig.board.changeCount
@@ -113,7 +110,6 @@ struct OfferCenterTests {
 
   @Test func acceptThrowsWhenTheClipboardMoved() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setData(try ListFixture.png(), forType: .png)
     rig.center.receive(.clipboard(changeCount: rig.board.changeCount, file: nil, at: Date()))
@@ -129,7 +125,6 @@ struct OfferCenterTests {
 
   @Test func fileOfferAddsACopyAndNeverMovesTheFile() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let file = try Self.writeShot(in: rig.temp)
     rig.center.receive(.file(file, at: Date()))
     await Self.wait { rig.center.current != nil }
@@ -148,7 +143,6 @@ struct OfferCenterTests {
 
   @Test func clipboardAndFileFromOneScreenshotAreOneOfferThatKeepsTheFile() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let file = try Self.writeShot(in: rig.temp)
     rig.board.clearContents()
     rig.board.setData(try ListFixture.png(), forType: .png)
@@ -164,7 +158,6 @@ struct OfferCenterTests {
 
   @Test func offersTurnedOffMakeNoOffers() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     rig.preferences.offersEnabled = false
     rig.center.receive(.file(try Self.writeShot(in: rig.temp), at: Date()))
     try? await Task.sleep(for: .milliseconds(150))
@@ -174,7 +167,6 @@ struct OfferCenterTests {
 
   @Test func ownChangeAndHandSavesDropTheOffer() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     rig.center.receive(.clipboard(changeCount: 31, file: nil, at: Date()))
     await Self.wait { rig.center.current != nil }
     rig.center.noteOwn(31)
@@ -188,7 +180,6 @@ struct OfferCenterTests {
 
   @Test func handSavingTheOfferedFileDropsTheOffer() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let file = try Self.writeShot(in: rig.temp)
     rig.center.receive(.file(file, at: Date()))
     await Self.wait { rig.center.current != nil }
@@ -203,7 +194,6 @@ struct OfferCenterTests {
 
   @Test func savingAnotherFileKeepsTheOffer() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let file = try Self.writeShot(in: rig.temp)
     rig.center.receive(.file(file, at: Date()))
     await Self.wait { rig.center.current != nil }
@@ -214,7 +204,6 @@ struct OfferCenterTests {
 
   @Test func fileOfferShowsAThumbnailAndClipboardOfferOnlyWhenAlwaysAllowed() async throws {
     let gated = try Self.rig(behavior: .ask)
-    defer { gated.board.releaseGlobally() }
     gated.board.clearContents()
     gated.board.setData(try ListFixture.png(), forType: .png)
     gated.center.receive(
@@ -223,7 +212,6 @@ struct OfferCenterTests {
     #expect(gated.center.thumbnail == nil)
 
     let open = try Self.rig(behavior: .alwaysAllow)
-    defer { open.board.releaseGlobally() }
     open.board.clearContents()
     open.board.setData(try ListFixture.png(), forType: .png)
     open.center.receive(.clipboard(changeCount: open.board.changeCount, file: nil, at: Date()))
@@ -238,13 +226,11 @@ struct OfferCenterTests {
 
   @Test func acceptWithNoOfferThrows() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     await #expect(throws: ThoughtsError.self) { _ = try await rig.center.accept() }
   }
 
   @Test func watchedFoldersStartWithTheScreenshotLocationAndAddTheUsersOwn() throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let extra = rig.temp.url.appendingPathComponent("Extra", isDirectory: true)
     rig.preferences.watchedFolders = [extra, extra]
     let folders = rig.center.folders()

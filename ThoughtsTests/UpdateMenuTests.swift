@@ -6,13 +6,14 @@ import Testing
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct UpdateMenuTests {
   static let size = CGSize(width: 32, height: 32)
 
   static func button(
     updateAvailable: Bool, appearance: NSAppearance.Name = .aqua, name: String
   ) throws -> URL {
-    let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+    let defaults = try Throwaway.defaults()
     let updates = UpdateMenuItem()
     if updateAvailable { updates.updateWillShow(handledBySparkle: false) }
     let shared = SharedMenuItems(updates: updates, openSettings: {}, checkForUpdates: {})

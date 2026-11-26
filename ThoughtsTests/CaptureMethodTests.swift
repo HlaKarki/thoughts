@@ -5,6 +5,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct CaptureMethodTests {
   @Test func freshPreferencesAreTheDoubleShiftTap() throws {
     let preferences = try SettingsFixtures.preferences()
@@ -18,9 +19,7 @@ struct CaptureMethodTests {
     .doubleTap(.command), .shortcut, .off,
   ])
   func eachMethodRoundTripsThroughPreferences(_ method: CaptureMethod) throws {
-    let name = "thoughts.tests.\(UUID().uuidString)"
-    let defaults = try #require(UserDefaults(suiteName: name))
-    defer { defaults.removePersistentDomain(forName: name) }
+    let defaults = try Throwaway.defaults()
     let preferences = Preferences(defaults: defaults)
     preferences.captureMethod = method
     #expect(Preferences(defaults: defaults).captureMethod == method)

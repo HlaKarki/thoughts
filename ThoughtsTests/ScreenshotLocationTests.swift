@@ -3,13 +3,12 @@ import Testing
 
 @testable import Thoughts
 
+@Suite(.throwaway)
 struct ScreenshotLocationTests {
   static let home = URL(fileURLWithPath: "/example/home", isDirectory: true)
 
   static func defaults(location: String?) throws -> UserDefaults {
-    let name = "thoughts.tests.\(UUID().uuidString)"
-    let defaults = try #require(UserDefaults(suiteName: name))
-    defaults.removePersistentDomain(forName: name)
+    let defaults = try Throwaway.defaults()
     if let location { defaults.set(location, forKey: ScreenshotLocation.key) }
     return defaults
   }

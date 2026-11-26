@@ -130,16 +130,12 @@ enum SettingsFixtures {
 
   @MainActor
   static func preferences() throws -> Preferences {
-    let name = "thoughts.tests.\(UUID().uuidString)"
-    let defaults = try #require(UserDefaults(suiteName: name))
-    defaults.removePersistentDomain(forName: name)
+    let defaults = try Throwaway.defaults()
     return Preferences(defaults: defaults)
   }
 
   static func screenshots() throws -> ScreenshotLocation {
-    let name = "thoughts.tests.\(UUID().uuidString)"
-    let defaults = try #require(UserDefaults(suiteName: name))
-    defaults.removePersistentDomain(forName: name)
+    let defaults = try Throwaway.defaults()
     return ScreenshotLocation(defaults: defaults, home: home, isFolder: { _ in true })
   }
 

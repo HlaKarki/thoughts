@@ -6,11 +6,12 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct DropReaderTests {
   static let now = Date(timeIntervalSince1970: 1_795_000_000)
 
   static func board() -> NSPasteboard {
-    NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    Throwaway.pasteboard()
   }
 
   @Test func imageFileDropBecomesScreenshot() throws {
@@ -19,7 +20,6 @@ struct DropReaderTests {
     let file = folder.url.appendingPathComponent("capture.png")
     try ListFixture.png().write(to: file)
     let board = Self.board()
-    defer { board.releaseGlobally() }
     board.clearContents()
     board.writeObjects([file as NSURL])
     let source = Source(app: "Finder", bundleID: "com.apple.finder")
@@ -39,7 +39,6 @@ struct DropReaderTests {
 
   @Test func textDropBecomesTextThought() {
     let board = Self.board()
-    defer { board.releaseGlobally() }
     board.clearContents()
     board.setString("  Ask for the staging key  \n", forType: .string)
     let thoughts = DropReader.thoughts(from: board, source: nil, now: Self.now)
@@ -54,7 +53,6 @@ struct DropReaderTests {
 
   @Test func imageDataDropBecomesScreenshot() throws {
     let board = Self.board()
-    defer { board.releaseGlobally() }
     board.clearContents()
     board.setData(try ListFixture.png(), forType: .png)
     let thoughts = DropReader.thoughts(from: board, source: nil, now: Self.now)
@@ -71,7 +69,6 @@ struct DropReaderTests {
     let file = folder.url.appendingPathComponent("report.pdf")
     try Data("%PDF-1.4".utf8).write(to: file)
     let board = Self.board()
-    defer { board.releaseGlobally() }
     board.clearContents()
     board.writeObjects([file as NSURL])
     let thoughts = DropReader.thoughts(from: board, source: nil, now: Self.now)
@@ -86,7 +83,6 @@ struct DropReaderTests {
 
   @Test func emptyBoardGivesNothing() {
     let board = Self.board()
-    defer { board.releaseGlobally() }
     board.clearContents()
     board.setString("   ", forType: .string)
     #expect(DropReader.thoughts(from: board, source: nil, now: Self.now).isEmpty)
@@ -98,7 +94,6 @@ struct DropReaderTests {
     let file = folder.url.appendingPathComponent("capture.png")
     try ListFixture.png().write(to: file)
     let board = Self.board()
-    defer { board.releaseGlobally() }
     try InputModelTests.fill(board, file: file, image: true)
     let thoughts = DropReader.thoughts(from: board, source: nil, now: Self.now)
     #expect(thoughts.count == 1)

@@ -6,7 +6,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .throwaway)
 struct LiveOfferTests {
   static func withOffer(_ rig: OfferCenterTests.Rig) async throws {
     rig.center.start()
@@ -16,10 +16,7 @@ struct LiveOfferTests {
 
   @Test func turningOffersOffTakesTheOfferThatIsUp() async throws {
     let rig = try OfferCenterTests.rig()
-    defer {
-      rig.center.stop()
-      rig.board.releaseGlobally()
-    }
+    defer { rig.center.stop() }
     try await Self.withOffer(rig)
     rig.preferences.offersEnabled = false
     #expect(await PanelHarness.waitUntil { rig.center.current == nil }, "the offer stayed up")
@@ -29,10 +26,7 @@ struct LiveOfferTests {
 
   @Test func changingTheCaptureKeyUpdatesTheOfferThatIsUp() async throws {
     let rig = try OfferCenterTests.rig()
-    defer {
-      rig.center.stop()
-      rig.board.releaseGlobally()
-    }
+    defer { rig.center.stop() }
     try await Self.withOffer(rig)
     let before = rig.plays.changes.count
     let id = rig.center.current?.id
@@ -47,10 +41,7 @@ struct LiveOfferTests {
   @Test func reRecordingTheCaptureShortcutUpdatesTheOfferThatIsUp() async throws {
     let notifications = NotificationCenter()
     let rig = try OfferCenterTests.rig(notifications: notifications)
-    defer {
-      rig.center.stop()
-      rig.board.releaseGlobally()
-    }
+    defer { rig.center.stop() }
     rig.preferences.captureMethod = .shortcut
     try await Self.withOffer(rig)
     let before = rig.plays.changes.count
@@ -66,10 +57,7 @@ struct LiveOfferTests {
   @Test func aShortcutChangeLeavesAnOfferAloneWhenTheGestureIsTheMethod() async throws {
     let notifications = NotificationCenter()
     let rig = try OfferCenterTests.rig(notifications: notifications)
-    defer {
-      rig.center.stop()
-      rig.board.releaseGlobally()
-    }
+    defer { rig.center.stop() }
     rig.preferences.captureMethod = .doubleTap(.shift)
     try await Self.withOffer(rig)
     let before = rig.plays.changes.count
@@ -81,7 +69,6 @@ struct LiveOfferTests {
   @Test func aShortcutChangeAfterStopDoesNothing() async throws {
     let notifications = NotificationCenter()
     let rig = try OfferCenterTests.rig(notifications: notifications)
-    defer { rig.board.releaseGlobally() }
     rig.preferences.captureMethod = .shortcut
     try await Self.withOffer(rig)
     rig.center.stop()
@@ -93,7 +80,6 @@ struct LiveOfferTests {
 
   @Test func movingTheStorageFolderUpdatesWhatIsWatched() async throws {
     let rig = try OfferCenterTests.rig()
-    defer { rig.board.releaseGlobally() }
     let moved = rig.temp.url.appendingPathComponent("Moved", isDirectory: true)
     try FileManager.default.createDirectory(at: moved, withIntermediateDirectories: true)
     let storage = Box(url: rig.fixture.folder)
@@ -125,10 +111,7 @@ struct LiveOfferTests {
 
   @Test func aScreenshotLocationAnotherProcessWritesIsWatchedWithoutARestart() async throws {
     let rig = try OfferCenterTests.rig()
-    defer { rig.board.releaseGlobally() }
-    let domain = "thoughts.tests.\(UUID().uuidString)"
-    let defaults = try #require(UserDefaults(suiteName: domain))
-    defer { Self.forget(domain) }
+    let (domain, defaults) = try Throwaway.suite()
     let first = rig.temp.url.appendingPathComponent("Shots", isDirectory: true)
     let second = rig.temp.url.appendingPathComponent("Later", isDirectory: true)
     for folder in [first, second] {
@@ -166,14 +149,6 @@ struct LiveOfferTests {
     try process.run()
     process.waitUntilExit()
     return process.terminationStatus
-  }
-
-  static func forget(_ domain: String) {
-    _ = try? runDefaults(["delete", domain])
-    UserDefaults.standard.removePersistentDomain(forName: domain)
-    let plist = FileManager.default.homeDirectoryForCurrentUser
-      .appendingPathComponent("Library/Preferences/\(domain).plist")
-    try? FileManager.default.removeItem(at: plist)
   }
 
   final class Box: @unchecked Sendable {

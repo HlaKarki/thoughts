@@ -8,6 +8,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct FirstRunFlowTests {
   @Test func waitsOnAccessibilityUntilGranted() {
     let waiting = FirstRunState(summonKeySet: true, accessibilityGranted: false)

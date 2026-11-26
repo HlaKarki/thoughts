@@ -42,6 +42,7 @@ enum Eventually {
 }
 
 @MainActor
+@Suite(.throwaway)
 struct FeedbackTests {
   static func rig() throws -> (fixture: ListFixture, gate: SleepGate) {
     let gate = SleepGate()
@@ -169,13 +170,14 @@ struct FeedbackTests {
 }
 
 @MainActor
+@Suite(.throwaway)
 struct ActionFeedbackTests {
   static func rig() throws -> (rig: ThoughtActionsTests.Rig, gate: SleepGate) {
     let gate = SleepGate()
     let fixture = try ListFixture(feedbackDelay: { try await gate.wait($0) })
     fixture.model.panelDidShow()
     let log = OpenerLog()
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    let board = Throwaway.pasteboard()
     let trashed = FakeTrash(folder: fixture.root.appendingPathComponent("Trash"))
     let undoManager = UndoManager()
     undoManager.groupsByEvent = false
@@ -190,7 +192,6 @@ struct ActionFeedbackTests {
 
   @Test func copyConfirmsAndPutsTheTextOnTheClipboard() throws {
     let (rig, _) = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let thought = try rig.fixture.addText("call the dentist", daysAgo: 1)
     try rig.fixture.reload()
     rig.fixture.model.selection = [thought.file.lastPathComponent]
@@ -202,7 +203,6 @@ struct ActionFeedbackTests {
 
   @Test func copyWithNothingSelectedSaysWhy() throws {
     let (rig, _) = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     rig.actions.perform(.copy)
     #expect(rig.fixture.model.feedback?.kind == .message)
     #expect(rig.fixture.model.feedback?.text == "Select a thought first")
@@ -210,7 +210,6 @@ struct ActionFeedbackTests {
 
   @Test func copyOfAnImageWhoseFileIsGoneSaysSo() async throws {
     let (rig, _) = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let thought = try rig.fixture.addScreenshot(note: "", daysAgo: 1)
     try rig.fixture.reload()
     let image = try #require(rig.fixture.store.imageURL(of: thought))
@@ -224,7 +223,6 @@ struct ActionFeedbackTests {
 
   @Test func copyOfAnImageThatCannotBeConvertedSaysItCannotBeRead() async throws {
     let (rig, _) = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let thought = try rig.fixture.addScreenshot(note: "", daysAgo: 1)
     try rig.fixture.reload()
     let image = try #require(rig.fixture.store.imageURL(of: thought))
@@ -252,7 +250,6 @@ struct ActionFeedbackTests {
 
   @Test func copyPathConfirmsOnceForOneAndOnceForMany() throws {
     let (rig, _) = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let one = try rig.fixture.addText("one", daysAgo: 2)
     let two = try rig.fixture.addText("two", daysAgo: 1)
     try rig.fixture.reload()
@@ -371,8 +368,7 @@ struct ActionFeedbackTests {
     await fixture.input.submit()
     #expect(fixture.model.feedback?.text == "Type a thought first")
     fixture.model.perform(.type("x"))
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
+    let board = Throwaway.pasteboard()
     board.clearContents()
     #expect(!fixture.input.drop(board))
     #expect(fixture.model.feedback?.text == "Drop text, an image or a file")

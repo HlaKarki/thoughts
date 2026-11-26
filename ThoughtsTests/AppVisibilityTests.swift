@@ -6,7 +6,7 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .throwaway)
 struct AppVisibilityTests {
   @MainActor
   final class HiddenApp {
@@ -35,7 +35,7 @@ struct AppVisibilityTests {
 
   static func preferences() throws -> Preferences {
     Preferences(
-      defaults: try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)")))
+      defaults: try Throwaway.defaults())
   }
 
   @Test func onlyAHiddenAppIsUnhidden() {
@@ -106,8 +106,7 @@ struct AppVisibilityTests {
 
   @Test func startingADragUnhidesAHiddenAppBeforeTheDropZoneAppears() throws {
     let app = HiddenApp(hidden: true)
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
+    let board = Throwaway.pasteboard()
     var handler: (@MainActor (NSEvent.EventType) -> Void)?
     let monitor = DragSessionMonitor(
       pasteboard: board,

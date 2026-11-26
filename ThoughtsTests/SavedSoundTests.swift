@@ -4,6 +4,7 @@ import Testing
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct SavedSoundTests {
   @Test func theAppBundlesPluckAndItIsAShortSound() throws {
     let url = try #require(Bundle.main.url(forResource: "Pluck", withExtension: "wav"))
@@ -13,9 +14,10 @@ struct SavedSoundTests {
 }
 
 @MainActor
+@Suite(.throwaway)
 struct LiveSoundTests {
   static func rig(enabled: Bool) throws -> (Preferences, SavedSound, Tally) {
-    let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+    let defaults = try Throwaway.defaults()
     let preferences = Preferences(defaults: defaults)
     preferences.soundEnabled = enabled
     let plays = Tally()

@@ -6,6 +6,7 @@ import Testing
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct MenuBarMenuTests {
   @MainActor
   final class Log {
@@ -110,7 +111,7 @@ struct MenuBarMenuTests {
     let rig = Rig(wired: false)
     rig.updates.updateWillShow(handledBySparkle: false)
     rig.menuBar.menuNeedsUpdate(rig.menuBar.menu)
-    let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+    let defaults = try Throwaway.defaults()
     let more = MoreMenu(preferences: Preferences(defaults: defaults), shared: rig.shared)
     #expect(more.shared === rig.shared)
     for id in SharedMenuItem.ID.allCases {

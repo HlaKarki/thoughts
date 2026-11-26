@@ -36,7 +36,7 @@ final class MenuTally: NSObject {
 }
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .throwaway)
 struct StandardKeysTests {
   @MainActor
   final class Rig {

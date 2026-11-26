@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct ClipboardWatcherTests {
   final class Signals {
     var all: [OfferSignal] = []
@@ -27,7 +28,7 @@ struct ClipboardWatcherTests {
     app: AppSnapshot? = nil,
     ownWindowIsKey: Bool = false
   ) -> Rig {
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    let board = Throwaway.pasteboard()
     let signals = Signals()
     let watcher = ClipboardWatcher(
       pasteboard: board, accessBehavior: { behavior }, isOwnChange: { own.contains($0) },
@@ -54,7 +55,6 @@ struct ClipboardWatcherTests {
 
   @Test func copiedImageDataOffersAndIsRemembered() async throws {
     let rig = Self.rig()
-    defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setData(try ListFixture.png(), forType: .png)
     let count = rig.board.changeCount
@@ -68,7 +68,6 @@ struct ClipboardWatcherTests {
 
   @Test func copiedTextIsNotedWithItsAppAndNeverOffers() async {
     let rig = Self.rig(app: Self.terminal)
-    defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setString("just words", forType: .string)
     let count = rig.board.changeCount
@@ -87,7 +86,6 @@ struct ClipboardWatcherTests {
     async throws
   {
     let rig = Self.rig(app: Self.terminal)
-    defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setString("hunter2", forType: .string)
     rig.board.setData(Data(), forType: NSPasteboard.PasteboardType(marker))
@@ -104,8 +102,7 @@ struct ClipboardWatcherTests {
   }
 
   @Test func textThoughtsCopiedItselfIsNotedAsItsOwn() async {
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
+    let board = Throwaway.pasteboard()
     let writer = PasteboardWriter(pasteboard: board)
     let watcher = ClipboardWatcher(
       pasteboard: board, accessBehavior: { .alwaysAllow },
@@ -119,7 +116,6 @@ struct ClipboardWatcherTests {
 
   @Test func textCopiedWhileOneOfItsOwnWindowsIsKeyIsNotedAsItsOwn() async {
     let rig = Self.rig(ownWindowIsKey: true)
-    defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setString("typed in the panel", forType: .string)
     rig.watcher.poll()
@@ -168,8 +164,7 @@ struct ClipboardWatcherTests {
   }
 
   @Test func aCopyAlreadyThereWhenAThoughtsWindowBecomesKeyIsNeverItsOwn() async {
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
+    let board = Throwaway.pasteboard()
     let keys = Keys()
     let watcher = keys.watcher(on: board)
     defer { watcher.stop() }
@@ -183,8 +178,7 @@ struct ClipboardWatcherTests {
   @Test func aCopyMadeWhileAThoughtsWindowIsKeyStaysItsOwnWhenTheWindowResignsBeforeThePoll()
     async
   {
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
+    let board = Throwaway.pasteboard()
     let keys = Keys()
     let watcher = keys.watcher(on: board)
     defer { watcher.stop() }
@@ -208,8 +202,7 @@ struct ClipboardWatcherTests {
   func aCopyInOneThoughtsWindowIsItsOwnWhicheverOrderTheKeySwitchArrivesIn(resignFirst: Bool)
     async
   {
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
+    let board = Throwaway.pasteboard()
     let keys = Keys()
     let watcher = keys.watcher(on: board)
     defer { watcher.stop() }
@@ -236,7 +229,6 @@ struct ClipboardWatcherTests {
 
   @Test func copiedImageFileOffersWhenItsContentTypeIsAnImage() async throws {
     let rig = Self.rig(type: .png)
-    defer { rig.board.releaseGlobally() }
     try Self.copyFile(named: "example.png", to: rig.board)
     let count = rig.board.changeCount
     rig.watcher.poll()
@@ -246,7 +238,6 @@ struct ClipboardWatcherTests {
 
   @Test func copiedNonImageFileNeverOffers() async throws {
     let rig = Self.rig(type: .pdf)
-    defer { rig.board.releaseGlobally() }
     try Self.copyFile(named: "example.pdf", to: rig.board)
     rig.watcher.poll()
     await Self.settle()
@@ -255,8 +246,7 @@ struct ClipboardWatcherTests {
   }
 
   @Test func ownChangeIsRememberedButNeverOffered() async throws {
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
+    let board = Throwaway.pasteboard()
     let signals = Signals()
     let watcher = ClipboardWatcher(
       pasteboard: board, accessBehavior: { .alwaysAllow }, isOwnChange: { _ in true },
@@ -275,7 +265,6 @@ struct ClipboardWatcherTests {
 
   @Test func finderCopyOfANonImageFileWithItsIconIsNotAnImage() async throws {
     let rig = Self.rig(type: .pdf)
-    defer { rig.board.releaseGlobally() }
     let temp = try Self.copyFile(named: "report.pdf", to: rig.board)
     rig.board.addTypes([.tiff], owner: nil)
     rig.board.setData(try ListFixture.tiff(), forType: .tiff)
@@ -288,7 +277,6 @@ struct ClipboardWatcherTests {
 
   @Test func fileCopyWithNoDetectedTypeIsDecidedByItsExtension() async throws {
     let rig = Self.rig(type: nil)
-    defer { rig.board.releaseGlobally() }
     let temp = try Self.copyFile(named: "notes.txt", to: rig.board)
     rig.board.addTypes([.tiff], owner: nil)
     rig.board.setData(try ListFixture.tiff(), forType: .tiff)
@@ -300,7 +288,6 @@ struct ClipboardWatcherTests {
 
   @Test func gatedPathRecordsEveryUnclassifiedChangeAsACandidate() async {
     let rig = Self.rig(behavior: .ask)
-    defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setString("could be anything", forType: .string)
     let count = rig.board.changeCount
@@ -313,7 +300,6 @@ struct ClipboardWatcherTests {
 
   @Test func gatedPathNotesACopyTheDetectAPICallsText() async {
     let rig = Self.rig(behavior: .ask, type: .utf8PlainText)
-    defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setString("words", forType: .string)
     let count = rig.board.changeCount
@@ -326,7 +312,6 @@ struct ClipboardWatcherTests {
   @Test(arguments: [UTType.url, .data, .pdf])
   func gatedPathDropsACopyTheDetectAPICallsNeitherTextNorImage(detected: UTType) async {
     let rig = Self.rig(behavior: .ask, type: detected)
-    defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setString("words", forType: .string)
     await rig.watcher.pollNow()
@@ -336,7 +321,6 @@ struct ClipboardWatcherTests {
 
   @Test func aFinderCopyOfATextFileNeverCountsAsText() async throws {
     let rig = Self.rig(type: .plainText)
-    defer { rig.board.releaseGlobally() }
     let temp = try Self.copyFile(named: "notes.txt", to: rig.board)
     rig.board.setString("notes.txt", forType: .string)
     rig.watcher.poll()
@@ -347,7 +331,6 @@ struct ClipboardWatcherTests {
 
   @Test func gatedPathOffersOnlyWhatTheDetectAPIProvesIsAnImage() async throws {
     let rig = Self.rig(behavior: .ask, type: .jpeg)
-    defer { rig.board.releaseGlobally() }
     try Self.copyFile(named: "photo.jpg", to: rig.board)
     let count = rig.board.changeCount
     rig.watcher.poll()
@@ -357,7 +340,6 @@ struct ClipboardWatcherTests {
 
   @Test func gatedPathDropsTheCandidateWhenDetectFindsANonImageFile() async throws {
     let rig = Self.rig(behavior: .ask, type: .pdf)
-    defer { rig.board.releaseGlobally() }
     try Self.copyFile(named: "example.pdf", to: rig.board)
     rig.watcher.poll()
     await Self.settle()
@@ -367,7 +349,6 @@ struct ClipboardWatcherTests {
 
   @Test func pollSkipsWhilePausedAndPicksTheChangeUpAfterwards() async throws {
     let rig = Self.rig()
-    defer { rig.board.releaseGlobally() }
     var paused = true
     rig.watcher.isPaused = { paused }
     rig.board.clearContents()
@@ -383,7 +364,6 @@ struct ClipboardWatcherTests {
 
   @Test func pollNowClassifiesANewChangeBeforeItReturns() async {
     let rig = Self.rig(app: Self.terminal)
-    defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setString("just copied", forType: .string)
     let count = rig.board.changeCount
@@ -395,7 +375,6 @@ struct ClipboardWatcherTests {
 
   @Test func pollNowWaitsForTheTimedPollStillClassifyingTheSameChange() async throws {
     let rig = Self.rig(type: .png)
-    defer { rig.board.releaseGlobally() }
     let temp = try Self.copyFile(named: "example.png", to: rig.board)
     let count = rig.board.changeCount
     rig.watcher.poll()
@@ -406,7 +385,6 @@ struct ClipboardWatcherTests {
 
   @Test func contentAlreadyOnTheClipboardAtStartIsNotOffered() async throws {
     let rig = Self.rig()
-    defer { rig.board.releaseGlobally() }
     rig.board.clearContents()
     rig.board.setData(try ListFixture.png(), forType: .png)
     rig.watcher.start()
@@ -417,8 +395,7 @@ struct ClipboardWatcherTests {
   }
 
   @Test func detectAPIReportsTheContentTypeOfACopiedFile() async throws {
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
+    let board = Throwaway.pasteboard()
     let temp = try Self.copyFile(named: "example.png", to: board)
     let type = await PasteboardDetect.contentType(of: board)
     #expect(type?.conforms(to: .image) == true)

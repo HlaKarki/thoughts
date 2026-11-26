@@ -5,7 +5,7 @@ import Testing
 @testable import Thoughts
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .throwaway)
 struct HoverPanelTests {
   static func listTracker(_ harness: PanelHarness) throws -> PointerTracker.TrackerView {
     try #require(

@@ -5,11 +5,12 @@ import ThoughtsCore
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct PasteboardSnapshotTests {
   static let custom = NSPasteboard.PasteboardType("dev.example.thoughts.test-payload")
 
   static func privateBoard() -> NSPasteboard {
-    NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    Throwaway.pasteboard()
   }
 
   static func fill(_ board: NSPasteboard) {
@@ -33,7 +34,6 @@ struct PasteboardSnapshotTests {
 
   @Test func snapshotRestoresEveryItemAndType() {
     let board = Self.privateBoard()
-    defer { board.releaseGlobally() }
     Self.fill(board)
     let before = Self.contents(of: board)
     let snapshot = PasteboardSnapshot.take(board)
@@ -48,7 +48,6 @@ struct PasteboardSnapshotTests {
 
   @Test func restoringAnEmptySnapshotEmptiesTheBoard() {
     let board = Self.privateBoard()
-    defer { board.releaseGlobally() }
     board.clearContents()
     let snapshot = PasteboardSnapshot.take(board)
     board.setString("copied", forType: .string)
@@ -58,7 +57,6 @@ struct PasteboardSnapshotTests {
 
   @Test func copyReadsTheSelectionAndPutsTheClipboardBack() async {
     let board = Self.privateBoard()
-    defer { board.releaseGlobally() }
     Self.fill(board)
     let before = Self.contents(of: board)
     let reader = SelectionReader(
@@ -77,7 +75,6 @@ struct PasteboardSnapshotTests {
 
   @Test func copyReportsOnlyTheCopyAndTheRestore() async {
     let board = Self.privateBoard()
-    defer { board.releaseGlobally() }
     Self.fill(board)
     let before = board.changeCount
     var settled = 0
@@ -98,7 +95,6 @@ struct PasteboardSnapshotTests {
 
   @Test func copyWithNoChangeFindsNothingAndTouchesNothing() async {
     let board = Self.privateBoard()
-    defer { board.releaseGlobally() }
     Self.fill(board)
     let count = board.changeCount
     let reader = SelectionReader(pasteboard: board, postCopy: {}, secureInput: { false })
@@ -110,7 +106,6 @@ struct PasteboardSnapshotTests {
 
   @Test func copyOfNonTextIsRestoredAndCountsAsNothing() async {
     let board = Self.privateBoard()
-    defer { board.releaseGlobally() }
     Self.fill(board)
     let before = Self.contents(of: board)
     let reader = SelectionReader(
@@ -128,7 +123,6 @@ struct PasteboardSnapshotTests {
 
   @Test func aConcealedCopyIsRestoredAndNeverRead() async {
     let board = Self.privateBoard()
-    defer { board.releaseGlobally() }
     Self.fill(board)
     let before = Self.contents(of: board)
     let reader = SelectionReader(
@@ -148,7 +142,6 @@ struct PasteboardSnapshotTests {
   @Test func aConcealedOrTransientClipboardSkipsTheCopyAndTouchesNothing() async {
     for marker in [ClipboardTypes.concealed, ClipboardTypes.transient] {
       let board = Self.privateBoard()
-      defer { board.releaseGlobally() }
       board.clearContents()
       board.setString("hunter2", forType: .string)
       board.setData(Data(), forType: NSPasteboard.PasteboardType(marker))

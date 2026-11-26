@@ -4,7 +4,7 @@ import Testing
 @testable import Thoughts
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .throwaway)
 struct PanelReportTests {
   @Test func arrowKeysInTheActionsMenuMoveItsHighlightAndKeepTheSelection() async throws {
     try await PanelHarness.run { harness in

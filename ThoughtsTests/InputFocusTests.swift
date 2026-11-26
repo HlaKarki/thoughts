@@ -5,6 +5,7 @@ import Testing
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct InputFocusTests {
   struct Rig {
     let fixture: ListFixture
@@ -15,7 +16,7 @@ struct InputFocusTests {
 
   static func rig() throws -> Rig {
     let fixture = try ListFixture()
-    let defaults = try #require(UserDefaults(suiteName: "thoughts.tests.\(UUID().uuidString)"))
+    let defaults = try Throwaway.defaults()
     let hosting = NSHostingView(
       rootView: PanelRootView(
         preferences: Preferences(defaults: defaults), list: fixture.model, input: fixture.input))

@@ -4,6 +4,7 @@ import Testing
 @testable import Thoughts
 
 @MainActor
+@Suite(.throwaway)
 struct PanelKeyEquivalentTests {
   static func event(_ key: String, _ flags: NSEvent.ModifierFlags, code: UInt16, window: Int) throws
     -> NSEvent
@@ -17,8 +18,7 @@ struct PanelKeyEquivalentTests {
 
   @Test func commandVInTheInputReachesThePasteHandler() throws {
     let rig = try InputFocusTests.rig()
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
-    defer { board.releaseGlobally() }
+    let board = Throwaway.pasteboard()
     rig.panel.pasteboard = board
     board.clearContents()
     board.setData(try ListFixture.png(), forType: .png)

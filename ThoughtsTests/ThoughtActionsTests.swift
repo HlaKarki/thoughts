@@ -66,6 +66,7 @@ final class OpenerLog {
 }
 
 @MainActor
+@Suite(.throwaway)
 struct ThoughtActionsTests {
   struct Rig {
     let fixture: ListFixture
@@ -78,7 +79,7 @@ struct ThoughtActionsTests {
   static func rig() throws -> Rig {
     let fixture = try ListFixture()
     let log = OpenerLog()
-    let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
+    let board = Throwaway.pasteboard()
     let trashed = FakeTrash(folder: fixture.root.appendingPathComponent("Trash"))
     let undoManager = UndoManager()
     undoManager.groupsByEvent = false
@@ -92,7 +93,6 @@ struct ThoughtActionsTests {
 
   @Test func doneMarksAllOnAMixedSelectionAndClearsOnAnAllDoneOne() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     try rig.fixture.addText("one", daysAgo: 3, done: true)
     try rig.fixture.addText("two", daysAgo: 2)
     try rig.fixture.reload()
@@ -111,7 +111,6 @@ struct ThoughtActionsTests {
 
   @Test func doneLeavesAlreadyDoneThoughtsUntouched() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let finished = try rig.fixture.addText("one", daysAgo: 3, done: true)
     let open = try rig.fixture.addText("two", daysAgo: 2)
     try rig.fixture.reload()
@@ -126,7 +125,6 @@ struct ThoughtActionsTests {
 
   @Test func doneDecidesFromPendingStateBeforeTheListRefreshes() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     try rig.fixture.addText("one", daysAgo: 3, done: true)
     try rig.fixture.addText("two", daysAgo: 2)
     try rig.fixture.reload()
@@ -142,7 +140,6 @@ struct ThoughtActionsTests {
 
   @Test func repeatedDeletesWalkPastThePendingRows() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let oldest = try rig.fixture.addText("x", daysAgo: 4)
     let middle = try rig.fixture.addText("y", daysAgo: 3)
     let newest = try rig.fixture.addText("z", daysAgo: 2)
@@ -169,7 +166,6 @@ struct ThoughtActionsTests {
 
   @Test func deleteTrashesTheFilesAndSelectsTheNeighbor() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     try rig.fixture.addText("older", daysAgo: 4)
     let shot = try rig.fixture.addScreenshot(note: "middle", daysAgo: 3)
     let newer = try rig.fixture.addText("newer", daysAgo: 2)
@@ -185,7 +181,6 @@ struct ThoughtActionsTests {
 
   @Test func deletingTheLastThoughtReturnsToTheInput() async throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let only = try rig.fixture.addText("only", daysAgo: 1)
     try rig.fixture.reload()
     rig.fixture.model.select(only.file.lastPathComponent, extend: false)
@@ -197,7 +192,6 @@ struct ThoughtActionsTests {
 
   @Test func copyWritesTextThenAMarkdownListThenPaths() throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let text = try rig.fixture.addText("Ask the team", daysAgo: 3)
     let shot = try rig.fixture.addScreenshot(note: "Reword", daysAgo: 2)
     try rig.fixture.reload()
@@ -215,7 +209,6 @@ struct ThoughtActionsTests {
 
   @Test func openOriginalTriesTheURLThenTheAppThenTheFile() throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let page = try #require(URL(string: "https://example.com/page"))
     let original = rig.fixture.root.appendingPathComponent("original.txt")
     try Data("x".utf8).write(to: original)
@@ -238,7 +231,6 @@ struct ThoughtActionsTests {
 
   @Test func showInFinderRevealsTheImageForAScreenshot() throws {
     let rig = try Self.rig()
-    defer { rig.board.releaseGlobally() }
     let text = try rig.fixture.addText("plain", daysAgo: 3)
     let shot = try rig.fixture.addScreenshot(note: "", daysAgo: 2)
     try rig.fixture.reload()
