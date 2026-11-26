@@ -86,8 +86,6 @@ export const radius = stylex.defineConsts({
 
 export const motion = stylex.defineConsts({
   easeOut: 'cubic-bezier(0.16, 1, 0.3, 1)',
-  panelIn: '200ms',
-  panelDelay: '400ms',
   loopLong: '8s',
   loopShort: '7s',
 })
