@@ -143,4 +143,62 @@ struct ScreenshotFolderWatcherTests {
     await watcher.caughtUp()
     #expect(watcher.watchedFolders == [folder])
   }
+
+  static func heldListing(of names: [String]) throws -> (
+    temp: TempFolder, folders: [URL], hold: Hold, listed: CallLog,
+    watcher: ScreenshotFolderWatcher
+  ) {
+    let temp = TempFolder()
+    let folders = try names.map { name in
+      let folder = temp.url.appendingPathComponent(name, isDirectory: true)
+      try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+      return folder
+    }
+    let held = ScreenshotFolderWatcher.key(folders[0])
+    let hold = Hold()
+    let listed = CallLog()
+    let watcher = ScreenshotFolderWatcher(
+      storageFolder: { nil },
+      listFolder: { folder in
+        listed.add(folder.lastPathComponent)
+        if ScreenshotFolderWatcher.key(folder) == held { hold.pass() }
+        return []
+      })
+    return (temp, folders, hold, listed, watcher)
+  }
+
+  static func settleListings(_ listed: CallLog, _ watcher: ScreenshotFolderWatcher) async {
+    await watcher.caughtUp()
+    for _ in 0..<10 {
+      try? await Task.sleep(for: .milliseconds(20))
+      await watcher.caughtUp()
+    }
+  }
+
+  @Test func stoppingDuringAListingListsNoOtherFolder() async throws {
+    let rig = try Self.heldListing(of: ["Alpha", "Bravo"])
+    defer { rig.hold.release() }
+    rig.watcher.update(folders: rig.folders)
+    await rig.hold.waitForArrivals(1)
+    rig.watcher.stop()
+    rig.hold.release()
+    await Self.settleListings(rig.listed, rig.watcher)
+    #expect(rig.listed.events == ["Alpha"])
+    #expect(rig.watcher.watchedFolders.isEmpty)
+  }
+
+  @Test func aNewerUpdateDuringAListingListsOnlyItsOwnFolders() async throws {
+    let rig = try Self.heldListing(of: ["Alpha", "Bravo", "Charlie"])
+    defer {
+      rig.hold.release()
+      rig.watcher.stop()
+    }
+    rig.watcher.update(folders: Array(rig.folders.prefix(2)))
+    await rig.hold.waitForArrivals(1)
+    rig.watcher.update(folders: [rig.folders[2]])
+    rig.hold.release()
+    await Self.settleListings(rig.listed, rig.watcher)
+    #expect(rig.listed.events == ["Alpha", "Charlie"])
+    #expect(rig.watcher.watchedFolders == [rig.folders[2]])
+  }
 }

@@ -53,6 +53,41 @@ final class FolderReads: @unchecked Sendable {
   }
 }
 
+final class Hold: @unchecked Sendable {
+  private let condition = NSCondition()
+  private let first: Int
+  private var count = 0
+  private var released = false
+
+  init(first: Int = .max) {
+    self.first = first
+  }
+
+  var arrived: Int { condition.withLock { count } }
+
+  func pass() {
+    condition.withLock {
+      count += 1
+      guard count <= first else { return }
+      let deadline = Date().addingTimeInterval(5)
+      while !released, condition.wait(until: deadline) {}
+    }
+  }
+
+  func release() {
+    condition.withLock {
+      released = true
+      condition.broadcast()
+    }
+  }
+
+  func waitForArrivals(_ wanted: Int) async {
+    for _ in 0..<250 where arrived < wanted {
+      try? await Task.sleep(for: .milliseconds(20))
+    }
+  }
+}
+
 final class CallLog: @unchecked Sendable {
   private let lock = NSLock()
   private var items: [String] = []
