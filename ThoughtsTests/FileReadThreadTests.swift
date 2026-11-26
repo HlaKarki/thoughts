@@ -223,6 +223,65 @@ struct FileReadThreadTests {
     #expect(rig.fixture.model.feedback?.text == "Copied")
   }
 
+  static func heldCopy(_ rig: ThoughtActionsTests.Rig, hold: Hold) -> ThoughtActions {
+    let trashed = rig.trashed
+    return ThoughtActions(
+      list: rig.fixture.model, location: rig.fixture.location,
+      pasteboard: PasteboardWriter(
+        pasteboard: rig.board,
+        readImage: { url in
+          hold.pass()
+          return PasteboardWriter.readImage(at: url)
+        }),
+      opener: rig.log.opener, trash: { try trashed.move($0) }, undoManager: UndoManager(),
+      now: { ListFixture.now })
+  }
+
+  @Test func aTextCopyMadeWhileAnImageCopyReadsStaysOnTheClipboard() async throws {
+    let rig = try ThoughtActionsTests.rig()
+    let hold = Hold()
+    defer { hold.release() }
+    let actions = Self.heldCopy(rig, hold: hold)
+    let shot = try rig.fixture.addScreenshot(note: "", daysAgo: 2)
+    let text = try rig.fixture.addText("copied second", daysAgo: 1)
+    try rig.fixture.reload()
+    rig.fixture.model.panelDidShow()
+    rig.fixture.model.select(shot.file.lastPathComponent, extend: false)
+    actions.perform(.copy)
+    await hold.waitForArrivals(1)
+    rig.fixture.model.select(text.file.lastPathComponent, extend: false)
+    actions.perform(.copy)
+    #expect(rig.board.string(forType: .string) == "copied second")
+    let copied = try #require(rig.fixture.model.feedback)
+    #expect(copied.text == "Copied")
+    hold.release()
+    await actions.pending?.value
+    #expect(rig.board.string(forType: .string) == "copied second")
+    #expect(rig.board.data(forType: .png) == nil)
+    #expect(rig.fixture.model.feedback?.id == copied.id, "the image copy showed a second Copied")
+  }
+
+  @Test func aCopyFromAnotherAppWhileAnImageCopyReadsIsKept() async throws {
+    let rig = try ThoughtActionsTests.rig()
+    let hold = Hold()
+    defer { hold.release() }
+    let actions = Self.heldCopy(rig, hold: hold)
+    let shot = try rig.fixture.addScreenshot(note: "", daysAgo: 2)
+    try rig.fixture.reload()
+    rig.fixture.model.panelDidShow()
+    rig.fixture.model.select(shot.file.lastPathComponent, extend: false)
+    actions.perform(.copy)
+    await hold.waitForArrivals(1)
+    rig.board.clearContents()
+    rig.board.setString("from another app", forType: .string)
+    let before = rig.fixture.model.feedback
+    hold.release()
+    await actions.pending?.value
+    #expect(rig.board.string(forType: .string) == "from another app")
+    #expect(rig.board.data(forType: .png) == nil)
+    #expect(rig.fixture.model.feedback == before, "the image copy showed Copied")
+  }
+
   @Test func theCaptureKeyReadsAnAlreadySavedThoughtOffTheMainThread() async throws {
     let fixture = try ListFixture()
     let saved = try fixture.addText("kept", daysAgo: 1)

@@ -26,6 +26,7 @@ final class PasteboardWriter {
 
   enum ImageWrite: Equatable {
     case written
+    case superseded
     case missing
     case unreadable
   }
@@ -39,8 +40,11 @@ final class PasteboardWriter {
   @discardableResult
   func write(imageAt url: URL) async -> ImageWrite {
     let readImage = readImage
+    let before = pasteboard.changeCount
+    let read = await Self.reading.run { readImage(url) }
+    guard pasteboard.changeCount == before else { return .superseded }
     let png: Data
-    switch await Self.reading.run({ readImage(url) }) {
+    switch read {
     case .png(let data): png = data
     case .missing: return .missing
     case .unreadable: return .unreadable

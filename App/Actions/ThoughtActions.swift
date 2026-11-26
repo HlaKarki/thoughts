@@ -82,6 +82,8 @@ final class ThoughtActions {
         switch await pasteboard.write(imageAt: image) {
         case .written:
           list?.confirm(String(localized: "Copied"))
+        case .superseded:
+          break
         case .missing:
           list?.tell(String(localized: "That image file isn't there anymore"))
         case .unreadable:

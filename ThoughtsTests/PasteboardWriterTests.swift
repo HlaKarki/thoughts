@@ -37,6 +37,31 @@ struct PasteboardWriterTests {
     #expect(written.starts(with: [0x89, 0x50, 0x4E, 0x47]))
   }
 
+  @Test func anImageReadThatLandsAfterTheClipboardMovedWritesNothing() async throws {
+    let board = Self.privateBoard()
+    let hold = Hold()
+    defer { hold.release() }
+    let png = try ListFixture.png()
+    let writer = PasteboardWriter(
+      pasteboard: board,
+      readImage: { _ in
+        hold.pass()
+        return .png(png)
+      })
+    var reported: [Int] = []
+    writer.onOwnChange = { reported.append($0) }
+    let writing = Task { await writer.write(imageAt: URL(fileURLWithPath: "/example/shot.png")) }
+    await hold.waitForArrivals(1)
+    board.clearContents()
+    board.setString("moved", forType: .string)
+    hold.release()
+    let outcome = await writing.value
+    #expect(outcome == .superseded)
+    #expect(board.string(forType: .string) == "moved")
+    #expect(board.data(forType: .png) == nil)
+    #expect(reported.isEmpty)
+  }
+
   @Test func writesRecordOwnChangeCount() {
     let board = Self.privateBoard()
     let writer = PasteboardWriter(pasteboard: board)
