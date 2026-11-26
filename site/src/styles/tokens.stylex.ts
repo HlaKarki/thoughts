@@ -91,8 +91,6 @@ export const motion = stylex.defineConsts({
   appEaseOut: 'cubic-bezier(0, 0, 0.58, 1)',
   steady: 'linear',
   atOnce: 'step-end',
-  loopLong: '8s',
-  loopShort: '7s',
 })
 
 export const color = stylex.defineVars({

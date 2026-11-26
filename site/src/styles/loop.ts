@@ -12,18 +12,4 @@ export const loop = stylex.create({
   playing: {
     [playback.state]: 'running',
   },
-  long: {
-    animationDuration: motion.loopLong,
-    animationIterationCount: 'infinite',
-    animationTimingFunction: 'linear',
-    animationFillMode: 'both',
-    animationPlayState: playback.state,
-  },
-  short: {
-    animationDuration: motion.loopShort,
-    animationIterationCount: 'infinite',
-    animationTimingFunction: 'linear',
-    animationFillMode: 'both',
-    animationPlayState: playback.state,
-  },
 })
