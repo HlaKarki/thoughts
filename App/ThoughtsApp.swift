@@ -39,10 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       state.urls.handle(launchURLs)
       launchURLs = []
     } catch {
-      let alert = NSAlert()
-      alert.messageText = String(localized: "Thoughts can't start")
-      alert.informativeText = error.localizedDescription
-      alert.runModal()
+      LaunchFailure.show(LaunchFailure.alert(for: error))
       NSApp.terminate(nil)
     }
   }
