@@ -50,6 +50,8 @@ final class PanelController {
   private var hiding = false
   var ownIconInUse: @MainActor () -> Bool = { false }
   private var lostKey = LostKeyTracker()
+  private var heldReads = 0
+  private var lostKeyWhileHeld = false
   var onWillShow: (() -> Void)?
   var onWillRefocus: (() -> Void)?
   var onWillHide: (() -> Void)?
@@ -166,6 +168,26 @@ final class PanelController {
     key.makeKey(panel)
   }
 
+  func holdThroughPrompt(_ returns: FrontReturn) -> @MainActor () -> Void {
+    guard isShown, isKey else { return {} }
+    heldReads += 1
+    return returns.watchRead(
+      back: { [weak self] in self?.releaseRead(cameBack: true) },
+      otherwise: { [weak self] in self?.releaseRead(cameBack: false) })
+  }
+
+  private func releaseRead(cameBack: Bool) {
+    heldReads -= 1
+    guard isShown else { return }
+    if cameBack {
+      lostKeyWhileHeld = false
+      if !isKey { makeKey() }
+    } else if heldReads == 0, lostKeyWhileHeld {
+      lostKeyWhileHeld = false
+      if !isKey { hide() }
+    }
+  }
+
   private func present(makeKey: Bool, visible: CGRect?) {
     lostKey.clear()
     if isShown {
@@ -230,6 +252,7 @@ final class PanelController {
     hiding = true
     defer { hiding = false }
     lostKey.clear()
+    lostKeyWhileHeld = false
     _ = panel.cancelDrag()
     onWillHide?()
     restingFrame = nil
@@ -303,6 +326,10 @@ final class PanelController {
     let ownIcon = ownIconInUse()
     if ownIcon { lostKey.lostKey(toEvent: Self.mouseEventNumber(NSApp.currentEvent)) }
     guard Self.hidesOnKeyLoss(keepOpen: preferences.keepOpen, ownIconInUse: ownIcon) else {
+      return
+    }
+    guard heldReads == 0 else {
+      lostKeyWhileHeld = true
       return
     }
     hide()

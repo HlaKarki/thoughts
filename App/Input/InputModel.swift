@@ -42,6 +42,7 @@ final class InputModel {
 
   @ObservationIgnored var onManualSave: (ManualSave) -> Void = { _ in }
   @ObservationIgnored var source: @MainActor () async -> Source? = { nil }
+  @ObservationIgnored var hooks = FrontReturn.Hooks()
   @ObservationIgnored private let location: StorageLocation
   @ObservationIgnored private let now: () -> Date
   @ObservationIgnored private let onFailure: (String) -> Void
@@ -116,7 +117,9 @@ final class InputModel {
     let version = composerVersion
     let changeCount = pasteboard.changeCount
     let files = files
+    let done = hooks.read()
     pasteRead = Task { [weak self] in
+      defer { done() }
       let read = await files.run { PasteboardReader.preview(of: found) }
       guard let self, self.composerVersion == version, pasteboard.changeCount == changeCount
       else { return }
@@ -141,7 +144,9 @@ final class InputModel {
       return false
     }
     let needsSource = source == nil
+    let done = hooks.read()
     Task {
+      defer { done() }
       let recorded = needsSource ? await self.source() : nil
       await add(dropped.map { Self.applying(recorded, to: $0) })
     }

@@ -165,6 +165,7 @@ final class AppState {
       list.focus == .input && input.takeImage(from: pasteboard)
     }
     let returns = FrontReturn()
+    input.hooks = FrontReturn.Hooks(read: { [panel] in panel.holdThroughPrompt(returns) })
     panel.onWillHide = { [list, preview, input] in
       list.panelDidHide()
       preview.hide()
