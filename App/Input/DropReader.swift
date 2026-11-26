@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 enum PasteContent {
   case image(ImageInput, preview: NSImage)
+  case imageFiles([URL])
   case text(String)
   case nothing
 }
@@ -25,12 +26,10 @@ enum PasteboardReader {
 
   static func paste(from pasteboard: NSPasteboard) -> PasteContent {
     let files = fileURLs(in: pasteboard)
-    for file in files {
-      let isImage = UTType(filenameExtension: file.pathExtension)?.conforms(to: .image) == true
-      if isImage, let preview = NSImage(contentsOf: file) {
-        return .image(.file(file), preview: preview)
-      }
+    let images = files.filter {
+      UTType(filenameExtension: $0.pathExtension)?.conforms(to: .image) == true
     }
+    if !images.isEmpty { return .imageFiles(images) }
     let text = pasteboard.string(forType: .string).flatMap { $0.isEmpty ? nil : $0 }
     let image = files.isEmpty ? imageData(in: pasteboard) : nil
     let picture = image.flatMap { found in
@@ -43,6 +42,13 @@ enum PasteboardReader {
       return .text(text)
     }
     return picture ?? .nothing
+  }
+
+  nonisolated static func preview(of files: [URL]) -> (file: URL, preview: NSImage)? {
+    for file in files {
+      if let preview = NSImage(contentsOf: file) { return (file, preview) }
+    }
+    return nil
   }
 
   static func isSingleURL(_ text: String) -> Bool {

@@ -35,7 +35,9 @@ struct ManualSave: Equatable {
 @Observable
 final class InputModel {
   var text = ""
-  var attachment: Attachment?
+  var attachment: Attachment? {
+    didSet { composerVersion += 1 }
+  }
   var isDropTargeted = false
 
   @ObservationIgnored var onManualSave: (ManualSave) -> Void = { _ in }
@@ -45,6 +47,9 @@ final class InputModel {
   @ObservationIgnored private let onFailure: (String) -> Void
   @ObservationIgnored private var attachmentChangeCount: Int?
   @ObservationIgnored private var ledger = SavedLedger()
+  @ObservationIgnored private(set) var pasteRead: Task<Void, Never>?
+  @ObservationIgnored private var composerVersion = 0
+  @ObservationIgnored private let files = BlockingQueue("thoughts.input.files", concurrent: true)
 
   init(
     location: StorageLocation,
@@ -90,12 +95,35 @@ final class InputModel {
 
   @discardableResult
   func takeImage(from pasteboard: NSPasteboard) -> Bool {
-    guard case .image(let input, let preview) = PasteboardReader.paste(from: pasteboard) else {
+    switch PasteboardReader.paste(from: pasteboard) {
+    case .image(let input, let preview):
+      attachment = .image(input, preview: preview)
+      attachmentChangeCount = pasteboard.changeCount
+      return true
+    case .imageFiles(let found):
+      read(found, from: pasteboard)
+      return true
+    case .text, .nothing:
       return false
     }
-    attachment = .image(input, preview: preview)
-    attachmentChangeCount = pasteboard.changeCount
-    return true
+  }
+
+  private func read(_ found: [URL], from pasteboard: NSPasteboard) {
+    composerVersion += 1
+    let version = composerVersion
+    let changeCount = pasteboard.changeCount
+    let files = files
+    pasteRead = Task { [weak self] in
+      let read = await files.run { PasteboardReader.preview(of: found) }
+      guard let self, self.composerVersion == version, pasteboard.changeCount == changeCount
+      else { return }
+      guard let read else {
+        self.onFailure(String(localized: "That image file can't be read"))
+        return
+      }
+      self.attachment = .image(.file(read.file), preview: read.preview)
+      self.attachmentChangeCount = changeCount
+    }
   }
 
   func removeAttachment() {

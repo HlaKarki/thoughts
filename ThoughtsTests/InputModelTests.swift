@@ -133,7 +133,7 @@ struct InputModelTests {
     }
   }
 
-  @Test func anImageFileCopiedInFinderAttachesThatFileNotItsIcon() throws {
+  @Test func anImageFileCopiedInFinderAttachesThatFileNotItsIcon() async throws {
     let (fixture, _, board) = try Self.rig()
     defer { board.releaseGlobally() }
     let folder = TempFolder()
@@ -142,6 +142,7 @@ struct InputModelTests {
     try ListFixture.png().write(to: file)
     try Self.fill(board, file: file, image: true)
     fixture.input.paste(board)
+    await fixture.input.pasteRead?.value
     guard case .image(.file(let attached), _) = fixture.input.attachment else {
       Issue.record("expected the image file")
       return
