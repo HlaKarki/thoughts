@@ -23,18 +23,20 @@ final class ScreenshotFolderWatcher {
   }
 
   private let storageFolder: () -> URL?
-  private let listFolder: (URL) -> [String]
+  private let listFolder: @Sendable (URL) -> [String]
   private let now: () -> Date
   private let settle: Duration
   private let queue = DispatchQueue(label: "thoughts.screenshot-folders")
   private var watches: [String: Watch] = [:]
+  private var updating: Task<Void, Never>?
+  private var generation = 0
 
   var onFile: (URL, Date) -> Void = { _, _ in }
 
   init(
     storageFolder: @escaping () -> URL?, now: @escaping () -> Date = Date.init,
     settle: Duration = ScreenshotFolderWatcher.settleInterval,
-    listFolder: @escaping (URL) -> [String] = ScreenshotFolderWatcher.list
+    listFolder: @escaping @Sendable (URL) -> [String] = ScreenshotFolderWatcher.list
   ) {
     self.storageFolder = storageFolder
     self.listFolder = listFolder
@@ -51,31 +53,63 @@ final class ScreenshotFolderWatcher {
   }
 
   func update(folders: [URL]) {
-    let storage = storageFolder().map(Self.key)
-    var wanted: [String: URL] = [:]
-    for folder in folders {
-      let key = Self.key(folder)
-      if key != storage, wanted[key] == nil { wanted[key] = folder }
+    let storage = storageFolder()
+    let previous = updating
+    let generation = generation
+    updating = Task { [weak self] in
+      await previous?.value
+      let wanted = await Task.detached { Self.wanted(folders, storage: storage) }.value
+      guard let self, self.generation == generation else { return }
+      for key in self.watches.keys where wanted[key] == nil { self.end(key) }
+      for (key, folder) in wanted.sorted(by: { $0.key < $1.key }) where self.watches[key] == nil {
+        await self.begin(key, folder, generation: generation)
+      }
     }
-    for key in watches.keys where wanted[key] == nil { end(key) }
-    for (key, folder) in wanted where watches[key] == nil { begin(key, folder) }
+  }
+
+  func caughtUp() async {
+    await updating?.value
   }
 
   func stop() {
+    generation += 1
+    updating = nil
     for key in Array(watches.keys) { end(key) }
   }
 
-  private func begin(_ key: String, _ folder: URL) {
-    let existing = Set(listFolder(folder))
-    let watcher = FolderWatcher(folder: folder, queue: queue) { [weak self] urls in
-      Task { @MainActor in self?.handle(urls, key: key) }
+  nonisolated private static func wanted(_ folders: [URL], storage: URL?) -> [String: URL] {
+    let storage = storage.map(key)
+    var wanted: [String: URL] = [:]
+    for folder in folders {
+      let key = key(folder)
+      if key != storage, wanted[key] == nil { wanted[key] = folder }
     }
-    do {
-      try watcher.start()
-    } catch {
+    return wanted
+  }
+
+  private func begin(_ key: String, _ folder: URL, generation: Int) async {
+    let started = now()
+    let list = listFolder
+    let queue = queue
+    let opened = await Task.detached { [weak self] () -> (Set<String>, FolderWatcher)? in
+      let existing = Set(list(folder))
+      let watcher = FolderWatcher(folder: folder, queue: queue) { [weak self] urls in
+        Task { @MainActor in self?.handle(urls, key: key) }
+      }
+      do {
+        try watcher.start()
+      } catch {
+        return nil
+      }
+      return (existing, watcher)
+    }.value
+    guard let opened else { return }
+    let (existing, watcher) = opened
+    guard self.generation == generation, watches[key] == nil else {
+      watcher.stop()
       return
     }
-    watches[key] = Watch(folder: folder, watcher: watcher, started: now(), known: existing)
+    watches[key] = Watch(folder: folder, watcher: watcher, started: started, known: existing)
   }
 
   private func end(_ key: String) {
@@ -136,7 +170,7 @@ final class ScreenshotFolderWatcher {
     (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
   }
 
-  static func key(_ url: URL) -> String {
+  nonisolated static func key(_ url: URL) -> String {
     url.resolvingSymlinksInPath().standardizedFileURL.path
   }
 }

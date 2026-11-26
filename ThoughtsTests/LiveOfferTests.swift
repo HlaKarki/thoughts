@@ -108,18 +108,19 @@ struct LiveOfferTests {
     rig.preferences.watchedFolders = [moved]
     center.start()
     defer { center.stop() }
-    func watches() -> Bool {
-      watcher.watchedFolders.contains {
+    func watches() async -> Bool {
+      await watcher.caughtUp()
+      return watcher.watchedFolders.contains {
         ScreenshotFolderWatcher.key($0) == ScreenshotFolderWatcher.key(moved)
       }
     }
-    #expect(watches())
+    #expect(await watches())
     storage.url = moved
     center.storageRepointed()
-    #expect(!watches())
+    #expect(!(await watches()))
     storage.url = rig.fixture.folder
     center.storageRepointed()
-    #expect(watches())
+    #expect(await watches())
   }
 
   final class Box: @unchecked Sendable {

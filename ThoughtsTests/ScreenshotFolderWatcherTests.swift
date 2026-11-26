@@ -41,6 +41,7 @@ struct ScreenshotFolderWatcherTests {
     let rig = try Self.rig()
     rig.watcher.update(folders: [rig.folder])
     defer { rig.watcher.stop() }
+    await rig.watcher.caughtUp()
     let file = rig.folder.appendingPathComponent("Screenshot 1.png")
     try ListFixture.png().write(to: file)
     await Self.wait { !rig.found.files.isEmpty }
@@ -51,6 +52,7 @@ struct ScreenshotFolderWatcherTests {
     let rig = try Self.rig(existing: ["old.png"])
     rig.watcher.update(folders: [rig.folder])
     defer { rig.watcher.stop() }
+    await rig.watcher.caughtUp()
     try ListFixture.png().write(to: rig.folder.appendingPathComponent(".hidden.png"))
     try Data("notes".utf8).write(to: rig.folder.appendingPathComponent("notes.txt"))
     try Data([9]).write(to: rig.folder.appendingPathComponent("old.png"))
@@ -65,6 +67,7 @@ struct ScreenshotFolderWatcherTests {
     let rig = try Self.rig()
     rig.watcher.update(folders: [rig.folder])
     defer { rig.watcher.stop() }
+    await rig.watcher.caughtUp()
     let nested = rig.folder.appendingPathComponent("Nested", isDirectory: true)
     try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
     try ListFixture.png().write(to: nested.appendingPathComponent("deep.png"))
@@ -74,7 +77,7 @@ struct ScreenshotFolderWatcherTests {
     #expect(rig.found.files.map(\.lastPathComponent) == ["top.png"])
   }
 
-  @Test func theStorageFolderIsNeverWatched() throws {
+  @Test func theStorageFolderIsNeverWatched() async throws {
     let temp = TempFolder()
     let storage = temp.url.appendingPathComponent("Thoughts", isDirectory: true)
     let other = temp.url.appendingPathComponent("Other", isDirectory: true)
@@ -84,14 +87,60 @@ struct ScreenshotFolderWatcherTests {
     let watcher = ScreenshotFolderWatcher(storageFolder: { storage })
     watcher.update(folders: [storage, other, other])
     defer { watcher.stop() }
+    await watcher.caughtUp()
     #expect(watcher.watchedFolders.map(\.lastPathComponent) == ["Other"])
   }
 
-  @Test func droppingAFolderStopsItsWatcher() throws {
+  @Test func droppingAFolderStopsItsWatcher() async throws {
     let rig = try Self.rig()
     rig.watcher.update(folders: [rig.folder])
+    await rig.watcher.caughtUp()
     #expect(rig.watcher.watchedFolders.count == 1)
     rig.watcher.update(folders: [])
+    await rig.watcher.caughtUp()
     #expect(rig.watcher.watchedFolders.isEmpty)
+  }
+
+  @Test func aFolderIsListedOffTheMainThread() async throws {
+    let temp = TempFolder()
+    let folder = temp.url.appendingPathComponent("Desktop", isDirectory: true)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let reads = FolderReads()
+    let watcher = ScreenshotFolderWatcher(
+      storageFolder: { nil },
+      listFolder: {
+        reads.read($0)
+        return []
+      })
+    watcher.update(folders: [folder])
+    defer { watcher.stop() }
+    await watcher.caughtUp()
+    #expect(reads.urls == [folder])
+    #expect(!reads.anyOnMain)
+    #expect(watcher.watchedFolders == [folder])
+  }
+
+  @Test func aListingWaitingOnMacOSNeverHoldsUpTheMainThread() async throws {
+    let temp = TempFolder()
+    let folder = temp.url.appendingPathComponent("Documents", isDirectory: true)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let reads = FolderReads()
+    reads.holdEachRead()
+    defer { reads.releaseHeldReads() }
+    let watcher = ScreenshotFolderWatcher(
+      storageFolder: { nil },
+      listFolder: {
+        reads.read($0)
+        return []
+      })
+    defer { watcher.stop() }
+    let clock = ContinuousClock()
+    let started = clock.now
+    watcher.update(folders: [folder])
+    let held = clock.now - started
+    #expect(held < .milliseconds(500), "the main thread waited \(held) on a folder listing")
+    reads.releaseHeldReads()
+    await watcher.caughtUp()
+    #expect(watcher.watchedFolders == [folder])
   }
 }

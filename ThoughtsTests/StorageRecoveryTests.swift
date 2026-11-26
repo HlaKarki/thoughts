@@ -22,17 +22,20 @@ final class Flag: @unchecked Sendable {
 
 @MainActor
 struct OfferGateTests {
-  @MainActor
-  final class Reads {
-    var paths: [String] = []
-  }
-
-  static func rig(firstRunDone: Bool) throws -> (OfferCenter, OfferGate, Reads, Preferences) {
+  static func rig(firstRunDone: Bool) throws -> (
+    OfferCenter, OfferGate, FolderReads, Preferences, ScreenshotFolderWatcher
+  ) {
     let name = "thoughts.tests.\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: name))
     let preferences = Preferences(defaults: defaults)
     preferences.firstRunDone = firstRunDone
-    let reads = Reads()
+    let reads = FolderReads()
+    let screenshots = ScreenshotFolderWatcher(
+      storageFolder: { nil },
+      listFolder: {
+        reads.read($0)
+        return []
+      })
     let temp = TempFolder()
     let board = NSPasteboard(name: NSPasteboard.Name("thoughts.tests.\(UUID().uuidString)"))
     let input = InputModel(
@@ -42,36 +45,34 @@ struct OfferGateTests {
     let center = OfferCenter(
       preferences: preferences, input: input,
       clipboard: ClipboardWatcher(pasteboard: board, accessBehavior: { .alwaysAllow }),
-      screenshots: ScreenshotFolderWatcher(
-        storageFolder: { nil },
-        listFolder: {
-          reads.paths.append($0.path)
-          return []
-        }),
+      screenshots: screenshots,
       sound: SavedSound(preferences: preferences, player: {}),
       source: { nil }, pasteboard: board,
       location: ScreenshotLocation(defaults: nil, home: temp.url),
       accessBehavior: { .alwaysAllow })
     let gate = OfferGate(firstRunDone: { preferences.firstRunDone }, start: { center.start() })
-    return (center, gate, reads, preferences)
+    return (center, gate, reads, preferences, screenshots)
   }
 
-  @Test func aFirstLaunchReadsNoFolderUntilFirstRunFinishes() throws {
-    let (center, gate, reads, preferences) = try Self.rig(firstRunDone: false)
+  @Test func aFirstLaunchReadsNoFolderUntilFirstRunFinishes() async throws {
+    let (center, gate, reads, preferences, screenshots) = try Self.rig(firstRunDone: false)
     defer { center.stop() }
     gate.launch()
-    #expect(reads.paths.isEmpty)
+    await screenshots.caughtUp()
+    #expect(reads.urls.isEmpty)
     #expect(center.current == nil)
     preferences.firstRunDone = true
     gate.firstRunFinished()
-    #expect(!reads.paths.isEmpty)
+    await screenshots.caughtUp()
+    #expect(!reads.urls.isEmpty)
   }
 
-  @Test func aNormalLaunchStartsOffersAtOnce() throws {
-    let (center, gate, reads, _) = try Self.rig(firstRunDone: true)
+  @Test func aNormalLaunchStartsOffersAtOnce() async throws {
+    let (center, gate, reads, _, screenshots) = try Self.rig(firstRunDone: true)
     defer { center.stop() }
     gate.launch()
-    #expect(!reads.paths.isEmpty)
+    await screenshots.caughtUp()
+    #expect(!reads.urls.isEmpty)
   }
 }
 
