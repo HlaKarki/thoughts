@@ -8,31 +8,81 @@ import ThoughtsCore
 final class MainThreadPasteboardReads: @unchecked Sendable {
   static let shared = MainThreadPasteboardReads()
 
+  private typealias DataRead = @convention(c) (NSPasteboard, Selector, NSString) -> NSData?
+  private typealias StringRead = @convention(c) (NSPasteboard, Selector, NSString) -> NSString?
+  private typealias ObjectsRead =
+    @convention(c) (NSPasteboard, Selector, NSArray, NSDictionary?) -> NSArray?
+  private typealias ItemsRead = @convention(c) (NSPasteboard, Selector) -> NSArray?
+
   private let lock = NSLock()
   private var watched: Set<String> = []
   private var seen: [String: [String]] = [:]
+  private var originals: [(method: Method, implementation: IMP)] = []
 
-  private init() {
-    Self.swap(#selector(NSPasteboard.data(forType:)), #selector(NSPasteboard.watchedData(forType:)))
-    Self.swap(
-      #selector(NSPasteboard.string(forType:)), #selector(NSPasteboard.watchedString(forType:)))
-    Self.swap(
-      #selector(NSPasteboard.readObjects(forClasses:options:)),
-      #selector(NSPasteboard.watchedReadObjects(forClasses:options:)))
-    Self.swap(
-      #selector(getter: NSPasteboard.pasteboardItems),
-      #selector(getter: NSPasteboard.watchedPasteboardItems))
+  private init() {}
+
+  func install() {
+    lock.withLock {
+      guard originals.isEmpty else { return }
+      originals = [
+        Self.replace(#selector(NSPasteboard.data(forType:))) { original, selector in
+          let call = unsafeBitCast(original, to: DataRead.self)
+          let read: @convention(block) (NSPasteboard, NSString) -> NSData? = { board, type in
+            Self.shared.note(board, "data")
+            return call(board, selector, type)
+          }
+          return imp_implementationWithBlock(read)
+        },
+        Self.replace(#selector(NSPasteboard.string(forType:))) { original, selector in
+          let call = unsafeBitCast(original, to: StringRead.self)
+          let read: @convention(block) (NSPasteboard, NSString) -> NSString? = { board, type in
+            Self.shared.note(board, "string")
+            return call(board, selector, type)
+          }
+          return imp_implementationWithBlock(read)
+        },
+        Self.replace(#selector(NSPasteboard.readObjects(forClasses:options:))) {
+          original, selector in
+          let call = unsafeBitCast(original, to: ObjectsRead.self)
+          let read: @convention(block) (NSPasteboard, NSArray, NSDictionary?) -> NSArray? = {
+            board, classes, options in
+            Self.shared.note(board, "readObjects")
+            return call(board, selector, classes, options)
+          }
+          return imp_implementationWithBlock(read)
+        },
+        Self.replace(#selector(getter: NSPasteboard.pasteboardItems)) { original, selector in
+          let call = unsafeBitCast(original, to: ItemsRead.self)
+          let read: @convention(block) (NSPasteboard) -> NSArray? = { board in
+            Self.shared.note(board, "pasteboardItems")
+            return call(board, selector)
+          }
+          return imp_implementationWithBlock(read)
+        },
+      ].compactMap { $0 }
+    }
   }
 
-  private static func swap(_ original: Selector, _ replacement: Selector) {
-    guard let from = class_getInstanceMethod(NSPasteboard.self, original),
-      let to = class_getInstanceMethod(NSPasteboard.self, replacement)
-    else { return }
-    method_exchangeImplementations(from, to)
+  func uninstall() {
+    lock.withLock {
+      for original in originals {
+        method_setImplementation(original.method, original.implementation)
+      }
+      originals = []
+    }
+  }
+
+  private static func replace(_ selector: Selector, with make: (IMP, Selector) -> IMP) -> (
+    method: Method, implementation: IMP
+  )? {
+    guard let method = class_getInstanceMethod(NSPasteboard.self, selector) else { return nil }
+    let original = method_getImplementation(method)
+    method_setImplementation(method, make(original, selector))
+    return (method, original)
   }
 
   func watch(_ board: NSPasteboard) {
-    lock.withLock { watched.insert(board.name.rawValue) }
+    lock.withLock { _ = watched.insert(board.name.rawValue) }
   }
 
   func reads(_ board: NSPasteboard) -> [String] {
@@ -52,31 +102,23 @@ final class MainThreadPasteboardReads: @unchecked Sendable {
   }
 }
 
-extension NSPasteboard {
-  @objc dynamic func watchedData(forType type: NSPasteboard.PasteboardType) -> Data? {
-    MainThreadPasteboardReads.shared.note(self, "data")
-    return watchedData(forType: type)
-  }
-
-  @objc dynamic func watchedString(forType type: NSPasteboard.PasteboardType) -> String? {
-    MainThreadPasteboardReads.shared.note(self, "string")
-    return watchedString(forType: type)
-  }
-
-  @objc dynamic func watchedReadObjects(
-    forClasses classes: [AnyClass], options: [NSPasteboard.ReadingOptionKey: Any]?
-  ) -> [Any]? {
-    MainThreadPasteboardReads.shared.note(self, "readObjects")
-    return watchedReadObjects(forClasses: classes, options: options)
-  }
-
-  @objc dynamic var watchedPasteboardItems: [NSPasteboardItem]? {
-    MainThreadPasteboardReads.shared.note(self, "pasteboardItems")
-    return watchedPasteboardItems
+struct RecordingMainThreadPasteboardReads: SuiteTrait, TestScoping {
+  func provideScope(
+    for test: Test, testCase: Test.Case?,
+    performing function: @Sendable () async throws -> Void
+  ) async throws {
+    MainThreadPasteboardReads.shared.install()
+    defer { MainThreadPasteboardReads.shared.uninstall() }
+    try await function()
   }
 }
 
+extension SuiteTrait where Self == RecordingMainThreadPasteboardReads {
+  static var recordingMainThreadPasteboardReads: Self { Self() }
+}
+
 @MainActor
+@Suite(.recordingMainThreadPasteboardReads)
 struct PasteboardReadThreadTests {
   static let reads = MainThreadPasteboardReads.shared
 
