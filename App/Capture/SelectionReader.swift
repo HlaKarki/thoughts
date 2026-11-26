@@ -95,7 +95,8 @@ final class SelectionReader: SelectionReading {
     if ClipboardTypes.isConcealedOrTransient((pasteboard.types ?? []).map(\.rawValue)) {
       return (.copiedNothing, [])
     }
-    let snapshot = PasteboardSnapshot.take(pasteboard)
+    let read = PasteboardRead(pasteboard: pasteboard)
+    let snapshot = await read.run { PasteboardSnapshot.take($0) }
     let before = pasteboard.changeCount
     postCopy()
     let deadline = ContinuousClock.now + Self.copyWait
@@ -110,7 +111,7 @@ final class SelectionReader: SelectionReading {
     }
     let copied = pasteboard.changeCount
     let concealed = ClipboardTypes.isConcealed((pasteboard.types ?? []).map(\.rawValue))
-    let text = concealed ? nil : pasteboard.string(forType: .string)
+    let text = concealed ? nil : await read.run { $0.string(forType: .string) }
     let restored = snapshot.restore(to: pasteboard)
     let counts = [copied, restored]
     if concealed { return (.secureField, counts) }

@@ -95,7 +95,7 @@ final class CaptureCoordinator {
     }
     var held: ImageInput?
     if action == .readClipboard {
-      let read = readClipboard()
+      let read = await readClipboard()
       current.clipboardContent = read.content
       held = read.image
       action = CaptureDecision.decide(current)
@@ -157,14 +157,15 @@ final class CaptureCoordinator {
     ClipboardWatcher.isExcluded(pasteboard.types ?? [])
   }
 
-  private func readClipboard() -> (content: ClipboardContent, image: ImageInput?) {
+  private func readClipboard() async -> (content: ClipboardContent, image: ImageInput?) {
     if holdsExcludedCopy() { return (.nothing, nil) }
-    if let image = Self.image(in: pasteboard) { return (.image, image) }
-    if !PasteboardReader.fileURLs(in: pasteboard).isEmpty { return (.nothing, nil) }
-    guard let text = pasteboard.string(forType: .string) else {
-      return (accessBehavior() == .alwaysAllow ? .nothing : .refused, nil)
+    let read = await PasteboardRead(pasteboard: pasteboard).run {
+      board -> (content: ClipboardContent, image: ImageInput?)? in
+      if let image = Self.image(in: board) { return (.image, image) }
+      if !PasteboardReader.fileURLs(in: board).isEmpty { return (.nothing, nil) }
+      return board.string(forType: .string).map { (.text($0), nil) }
     }
-    return (.text(text), nil)
+    return read ?? (accessBehavior() == .alwaysAllow ? .nothing : .refused, nil)
   }
 
   private func accept() async -> CaptureOutcome {
@@ -184,7 +185,9 @@ final class CaptureCoordinator {
       return .failed(Self.message(for: ThoughtsError.clipboardChanged))
     }
     if held == nil, holdsExcludedCopy() { return .nothingToSave }
-    guard let image = held ?? Self.image(in: pasteboard) else {
+    let read = PasteboardRead(pasteboard: pasteboard)
+    let found = if let held { held } else { await read.run { Self.image(in: $0) } }
+    guard let image = found else {
       return accessBehavior() == .alwaysAllow ? .nothingToSave : .failed(Self.pasteRefusedMessage)
     }
     var source = recorded
@@ -206,7 +209,7 @@ final class CaptureCoordinator {
     }
   }
 
-  static func image(in pasteboard: NSPasteboard) -> ImageInput? {
+  nonisolated static func image(in pasteboard: NSPasteboard) -> ImageInput? {
     let files = PasteboardReader.fileURLs(in: pasteboard)
     if !files.isEmpty {
       return files.first {

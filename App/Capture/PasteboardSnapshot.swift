@@ -1,6 +1,6 @@
 import AppKit
 
-struct PasteboardSnapshot: Equatable {
+struct PasteboardSnapshot: Equatable, Sendable {
   let items: [[NSPasteboard.PasteboardType: Data]]
 
   static func take(_ pasteboard: NSPasteboard) -> PasteboardSnapshot {

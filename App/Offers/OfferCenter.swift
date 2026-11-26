@@ -114,7 +114,10 @@ final class OfferCenter {
       guard !ClipboardWatcher.isExcluded(pasteboard.types ?? []) else {
         throw ThoughtsError.io(String(localized: "The clipboard no longer holds an image"))
       }
-      guard let image = CaptureCoordinator.image(in: pasteboard) else {
+      let found = await PasteboardRead(pasteboard: pasteboard).run {
+        CaptureCoordinator.image(in: $0)
+      }
+      guard let image = found else {
         throw ThoughtsError.io(
           accessBehavior() == .alwaysAllow
             ? String(localized: "The clipboard no longer holds an image")
