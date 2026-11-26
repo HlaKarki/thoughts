@@ -192,7 +192,6 @@ export const color = stylex.defineVars({
 
   capture: '#FFFFFF14',
   captureBorder: '#FFFFFFCC',
-  flash: '#FFFFFF',
   cursorBlock: { default: '#00000080', [DARK]: '#E6E6E6B3' },
 
   settingsList: { default: '#FFFFFF', [DARK]: '#1C1C1E' },
