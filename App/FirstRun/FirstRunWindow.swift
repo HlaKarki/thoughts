@@ -25,8 +25,18 @@ final class FirstRunWindowController {
       self?.close()
       finish()
     }
+    let granted = model.onAccessibilityGranted
+    model.onAccessibilityGranted = { [weak self] in
+      self?.bringBack()
+      granted()
+    }
     let window = makeWindow(model: model)
     self.window = window
+    front.bring(window)
+  }
+
+  private func bringBack() {
+    guard let window else { return }
     front.bring(window)
   }
 

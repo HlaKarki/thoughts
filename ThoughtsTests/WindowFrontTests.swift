@@ -49,6 +49,31 @@ struct WindowFrontTests {
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
+  @Test func theFirstRunWindowComesBackInFrontWhenAccessibilityIsTurnedOn() async throws {
+    let fronting = Fronting()
+    let system = FakeSystem()
+    let preferences = try SettingsFixtures.preferences()
+    var made: FirstRunModel?
+    var reinstalls = 0
+    let controller = FirstRunWindowController(front: fronting.front) {
+      let model = try! SettingsFixtures.firstRun(system: system, preferences: preferences)
+      model.onAccessibilityGranted = { reinstalls += 1 }
+      made = model
+      return model
+    }
+    controller.show()
+    let model = try #require(made)
+    #expect(fronting.events == Self.fromBehindAnotherApp)
+    let watching = Task { await model.watchAccessibility() }
+    system.trusted = true
+    await watching.value
+    #expect(fronting.events == Self.fromBehindAnotherApp + Self.again)
+    #expect(reinstalls == 1)
+    #expect(fronting.windows.count == 2)
+    #expect(fronting.windows.first === fronting.windows.last)
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
+  }
+
   @Test func theSettingsWindowComesInFrontOfTheActiveAppAndBecomesKey() throws {
     let fronting = Fronting()
     let preferences = try SettingsFixtures.preferences()
