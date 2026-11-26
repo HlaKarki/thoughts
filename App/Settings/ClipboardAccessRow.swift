@@ -8,9 +8,9 @@ struct ClipboardAccessRow: View {
 
   static func title(for behavior: NSPasteboard.AccessBehavior) -> LocalizedStringKey {
     switch behavior {
-    case .alwaysAllow: "Allow"
-    case .alwaysDeny: "Deny"
-    default: "Ask"
+    case .alwaysAllow: "Allowed"
+    case .alwaysDeny: "Blocked"
+    default: "Asks permission"
     }
   }
 

@@ -137,6 +137,17 @@ struct SettingsSnapshotTests {
 
   @Test(arguments: [NSAppearance.Name.aqua, .darkAqua])
   func settingsStates(_ appearance: NSAppearance.Name) throws {
+    for (access, name) in [
+      (NSPasteboard.AccessBehavior.alwaysAllow, "allowed"), (.alwaysDeny, "blocked"),
+    ] {
+      let system = FakeSystem()
+      system.access = access
+      let model = try SettingsFixtures.settings(
+        system: system, preferences: SettingsFixtures.preferences())
+      try Self.check(
+        SettingsView(model: model), size: SettingsView.size, appearance: appearance,
+        name: "settings-paste-\(name)")
+    }
     let approval = try Self.settings(login: .requiresApproval, method: .off, withFolder: false)
     try Self.check(
       SettingsView(model: approval), size: SettingsView.size, appearance: appearance,
