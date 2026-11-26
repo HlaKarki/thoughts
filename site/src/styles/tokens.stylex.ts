@@ -5,7 +5,6 @@ const DARK = '@media (prefers-color-scheme: dark)'
 export const media = stylex.defineConsts({
   wide: '@media (min-width: 1100px)',
   motion: '@media (prefers-reduced-motion: no-preference)',
-  scrollTimeline: '@supports (animation-timeline: view())',
 })
 
 export const font = stylex.defineConsts({
