@@ -5,7 +5,7 @@ import { MiniLine, MiniPage } from '@/components/MiniPage'
 import { MiniWindow } from '@/components/MiniWindow'
 import { TypedText } from '@/components/TypedText'
 import { features } from '@/content/features'
-import type { Rich } from '@/content/types'
+import { type BoldWindow, typedBold } from '@/lib/searchHighlight'
 import { loop } from '@/styles/loop'
 import { color, font, leading, media, motion, size } from '@/styles/tokens.stylex'
 import { sequence } from '@/styles/sequence.stylex'
@@ -25,12 +25,6 @@ const revealed = stylex.keyframes({
   '90.782%, 100%': { gridTemplateRows: '0fr', opacity: 0 },
 })
 
-const matched = stylex.keyframes({
-  '0%': { fontWeight: '400', animationTimingFunction: motion.atOnce },
-  '28.403%, 90.139%': { fontWeight: '600', animationTimingFunction: motion.atOnce },
-  '90.782%, 100%': { fontWeight: '400' },
-})
-
 const narrowed = stylex.keyframes({
   '0%': { gridTemplateRows: '1fr', opacity: 1, marginTop: 0, animationTimingFunction: motion.atOnce },
   '30.118%, 90.139%': { gridTemplateRows: '0fr', opacity: 0, marginTop: -2, animationTimingFunction: motion.atOnce },
@@ -43,18 +37,20 @@ const reset = stylex.keyframes({
   '100%': { opacity: 1 },
 })
 
-function Highlighted({ text }: { readonly text: Rich }) {
+function weightOf(windows: ReadonlyArray<BoldWindow>): string {
+  const after = (length: number) => `clamp(0, (${sequence.typed} - ${length}) * 1000, 1)`
+  const steps = windows.map(({ from, to }) => (to === null ? after(from) : `${after(from)} - ${after(to)}`))
+  return `calc(400 + 200 * (${steps.join(' + ')}))`
+}
+
+function Highlighted({ text }: { readonly text: string }) {
   return (
     <>
-      {text.map((part, index) =>
-        typeof part === 'string' ? (
-          part
-        ) : 'strong' in part ? (
-          <strong key={index} {...stylex.props(styles.match, loop.run, styles.loop, styles.matching)}>
-            {part.strong}
-          </strong>
-        ) : null,
-      )}
+      {typedBold(text, tile.query).map((segment, index) => (
+        <span key={index} {...stylex.props(segment.windows.length > 0 && styles.weight(weightOf(segment.windows)))}>
+          {segment.text}
+        </span>
+      ))}
     </>
   )
 }
@@ -75,12 +71,12 @@ export function SearchTile() {
         </MiniPage>
       </MiniWindow>
       <MiniPanel
-        xstyle={styles.panel}
+        xstyle={[styles.panel, loop.run, styles.loop, styles.typing]}
         listXstyle={[loop.run, styles.loop, styles.resetting]}
         search={
           <span {...stylex.props(styles.query, loop.run, styles.loop, styles.resetting)}>
             <span {...stylex.props(styles.queryText)}>
-              <TypedText text={tile.query} xstyle={[loop.run, styles.loop, styles.typing]} />
+              <TypedText text={tile.query} />
             </span>
             <span {...stylex.props(styles.caret)} />
           </span>
@@ -95,13 +91,15 @@ export function SearchTile() {
               <Highlighted text={match.text} />
             </span>
             <Collapse xstyle={[loop.run, styles.loop, styles.revealing]}>
-              <span {...stylex.props(styles.source)}>{match.source}</span>
+              <span {...stylex.props(styles.source)}>
+                <Highlighted text={match.source} />
+              </span>
             </Collapse>
           </MiniRow>
         ))}
         <Collapse element="li" xstyle={[styles.narrowed, loop.run, styles.loop, styles.narrowing]}>
           <MiniRow element="div" time={tile.newest.time}>
-            {tile.newest.text}
+            <Highlighted text={tile.newest.text} />
           </MiniRow>
         </Collapse>
       </MiniPanel>
@@ -159,12 +157,9 @@ const styles = stylex.create({
   revealing: {
     animationName: { default: null, [media.motion]: revealed },
   },
-  match: {
-    fontWeight: 600,
-  },
-  matching: {
-    animationName: { default: null, [media.motion]: matched },
-  },
+  weight: (fontWeight: string) => ({
+    fontWeight,
+  }),
   source: {
     paddingTop: 2,
     color: color.rowTime,

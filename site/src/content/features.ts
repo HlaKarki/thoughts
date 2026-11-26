@@ -1,4 +1,3 @@
-import { highlight } from '@/lib/highlight'
 import { stamp } from '@/lib/stamp'
 import { site } from './site'
 import { sourceLine, sources, thoughts, today } from './thoughts'
@@ -35,7 +34,7 @@ type Features = {
     readonly label: string
     readonly query: string
     readonly matches: ReadonlyArray<{
-      readonly text: Rich
+      readonly text: string
       readonly source: string
       readonly time: string
     }>
@@ -119,12 +118,12 @@ export const features: Features = {
       query: searchQuery,
       matches: [
         {
-          text: highlight(thoughts.review.text, searchQuery),
+          text: thoughts.review.text,
           source: sourceLine(sources.slack),
           time: thoughts.review.time,
         },
         {
-          text: highlight(thoughts.water.text, searchQuery),
+          text: thoughts.water.text,
           source: sourceLine(sources.messages),
           time: thoughts.water.time,
         },

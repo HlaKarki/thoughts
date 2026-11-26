@@ -5,7 +5,7 @@ import { reveal } from '@/styles/sequence.stylex'
 type Props = {
   readonly text: string
   readonly wrapWords?: boolean
-  readonly xstyle: stylex.StyleXStyles
+  readonly xstyle?: stylex.StyleXStyles
 }
 
 export function TypedText({ text, wrapWords = false, xstyle }: Props) {
