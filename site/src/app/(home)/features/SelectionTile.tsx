@@ -12,34 +12,58 @@ import { Tile } from './Tile'
 const tile = features.selection.tile
 
 const sweep = stylex.keyframes({
-  '0%, 8.457%': { opacity: 1, backgroundSize: '0% 100%', animationTimingFunction: motion.easeInOut },
-  '17.97%, 90.909%': { opacity: 1, backgroundSize: '100% 100%', animationTimingFunction: motion.easeIn },
-  '95.137%': { opacity: 0, backgroundSize: '100% 100%', animationTimingFunction: motion.atOnce },
-  '95.455%, 100%': { opacity: 1, backgroundSize: '0% 100%' },
+  '0%, 7.968%': { opacity: 1, backgroundSize: '0% 100%', animationTimingFunction: motion.easeInOut },
+  '16.932%, 91.434%': { opacity: 1, backgroundSize: '100% 100%', animationTimingFunction: motion.easeIn },
+  '95.418%': { opacity: 0, backgroundSize: '100% 100%', animationTimingFunction: motion.atOnce },
+  '95.717%, 100%': { opacity: 1, backgroundSize: '0% 100%' },
 })
 
 const pressFirst = stylex.keyframes({
-  '0%, 24.313%': { borderColor: color.keyBorder, translate: '0 0', animationTimingFunction: motion.easeInOut },
-  '24.947%, 25.581%': { borderColor: color.accent, translate: '0 1px', animationTimingFunction: motion.easeInOut },
-  '26.427%, 100%': { borderColor: color.keyBorder, translate: '0 0' },
+  '0%, 22.908%': { borderColor: color.keyBorder, translate: '0 0', animationTimingFunction: motion.easeInOut },
+  '23.506%, 24.104%': { borderColor: color.accent, translate: '0 1px', animationTimingFunction: motion.easeInOut },
+  '24.9%, 100%': { borderColor: color.keyBorder, translate: '0 0' },
 })
 
 const pressSecond = stylex.keyframes({
-  '0%, 27.484%': { borderColor: color.keyBorder, translate: '0 0', animationTimingFunction: motion.easeInOut },
-  '28.118%, 28.753%': { borderColor: color.accent, translate: '0 1px', animationTimingFunction: motion.easeInOut },
-  '29.598%, 100%': { borderColor: color.keyBorder, translate: '0 0' },
+  '0%, 25.896%': { borderColor: color.keyBorder, translate: '0 0', animationTimingFunction: motion.easeInOut },
+  '26.494%, 27.092%': { borderColor: color.accent, translate: '0 1px', animationTimingFunction: motion.easeInOut },
+  '27.888%, 100%': { borderColor: color.keyBorder, translate: '0 0' },
 })
 
 const savedChip = stylex.keyframes({
-  '0%, 30.444%': { opacity: 0, translate: '24px 0', animationTimingFunction: motion.appEaseOut },
-  '32.558%, 55.814%': { opacity: 1, translate: '0 0', animationTimingFunction: motion.appEaseOut },
-  '57.928%, 100%': { opacity: 0, translate: '24px 0' },
+  '0%, 28.685%': { opacity: 0, translate: '24px 0', animationTimingFunction: motion.appEaseOut },
+  '30.677%, 52.59%': { opacity: 1, translate: '0 0', animationTimingFunction: motion.appEaseOut },
+  '54.582%, 100%': { opacity: 0, translate: '24px 0' },
+})
+
+const shiftKeysShown = stylex.keyframes({
+  '0%, 54.582%': { opacity: 1, animationTimingFunction: motion.easeIn },
+  '58.566%, 96.016%': { opacity: 0, animationTimingFunction: motion.easeOut },
+  '100%': { opacity: 1 },
+})
+
+const summonKeysShown = stylex.keyframes({
+  '0%, 58.765%': { opacity: 0, animationTimingFunction: motion.easeOut },
+  '62.749%, 91.434%': { opacity: 1, animationTimingFunction: motion.easeIn },
+  '95.418%, 100%': { opacity: 0 },
+})
+
+const pressOption = stylex.keyframes({
+  '0%, 65.737%': { borderColor: color.keyBorder, translate: '0 0', animationTimingFunction: motion.easeInOut },
+  '66.335%, 68.725%': { borderColor: color.accent, translate: '0 1px', animationTimingFunction: motion.easeInOut },
+  '69.522%, 100%': { borderColor: color.keyBorder, translate: '0 0' },
+})
+
+const pressN = stylex.keyframes({
+  '0%, 66.932%': { borderColor: color.keyBorder, translate: '0 0', animationTimingFunction: motion.easeInOut },
+  '67.53%, 68.127%': { borderColor: color.accent, translate: '0 1px', animationTimingFunction: motion.easeInOut },
+  '68.924%, 100%': { borderColor: color.keyBorder, translate: '0 0' },
 })
 
 const panelShown = stylex.keyframes({
   '0%': { opacity: 0, animationTimingFunction: motion.atOnce },
-  '65.539%, 90.909%': { opacity: 1, animationTimingFunction: motion.easeIn },
-  '95.137%, 100%': { opacity: 0 },
+  '67.53%, 91.434%': { opacity: 1, animationTimingFunction: motion.easeIn },
+  '95.418%, 100%': { opacity: 0 },
 })
 
 function Selection() {
@@ -72,8 +96,14 @@ export function SelectionTile() {
           </MiniPage>
         </MiniWindow>
         <div {...stylex.props(styles.keys)}>
-          <kbd {...stylex.props(styles.key, loop.run, styles.loop, styles.pressFirst)}>{tile.key}</kbd>
-          <kbd {...stylex.props(styles.key, loop.run, styles.loop, styles.pressSecond)}>{tile.key}</kbd>
+          <div {...stylex.props(styles.keyGroup, loop.run, styles.loop, styles.shiftKeys)}>
+            <kbd {...stylex.props(styles.key, loop.run, styles.loop, styles.pressFirst)}>{tile.key}</kbd>
+            <kbd {...stylex.props(styles.key, loop.run, styles.loop, styles.pressSecond)}>{tile.key}</kbd>
+          </div>
+          <div {...stylex.props(styles.keyGroup, styles.summonGroup, loop.run, styles.loop, styles.summonKeys)}>
+            <kbd {...stylex.props(styles.key, loop.run, styles.loop, styles.pressOption)}>{tile.summonKeys[0]}</kbd>
+            <kbd {...stylex.props(styles.key, loop.run, styles.loop, styles.pressN)}>{tile.summonKeys[1]}</kbd>
+          </div>
         </div>
       </div>
       <MiniPanel xstyle={[styles.panel, loop.run, styles.loop, styles.panelShown]}>
@@ -94,7 +124,7 @@ export function SelectionTile() {
 
 const styles = stylex.create({
   loop: {
-    animationDuration: '9460ms',
+    animationDuration: '10040ms',
   },
   stack: {
     position: 'absolute',
@@ -127,8 +157,22 @@ const styles = stylex.create({
   keys: {
     position: 'relative',
     marginTop: { default: -7, [media.wide]: 11 },
+  },
+  keyGroup: {
     display: 'flex',
     gap: 6,
+  },
+  summonGroup: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    opacity: 0,
+  },
+  shiftKeys: {
+    animationName: { default: null, [media.motion]: shiftKeysShown },
+  },
+  summonKeys: {
+    animationName: { default: null, [media.motion]: summonKeysShown },
   },
   key: {
     display: 'flex',
@@ -152,6 +196,12 @@ const styles = stylex.create({
   },
   pressSecond: {
     animationName: { default: null, [media.motion]: pressSecond },
+  },
+  pressOption: {
+    animationName: { default: null, [media.motion]: pressOption },
+  },
+  pressN: {
+    animationName: { default: null, [media.motion]: pressN },
   },
   panel: {
     top: { default: 16, [media.wide]: 24 },

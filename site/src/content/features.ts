@@ -16,6 +16,7 @@ type Features = {
   readonly selection: Card<{
     readonly label: string
     readonly key: string
+    readonly summonKeys: readonly [string, string]
     readonly saved: string
     readonly row: string
     readonly time: string
@@ -87,6 +88,7 @@ export const features: Features = {
     tile: {
       label: 'A selected sentence on a docs page becomes the newest thought in the panel.',
       key: '⇧',
+      summonKeys: ['⌥', 'N'],
       saved: 'Saved',
       row: thoughts.clone.text,
       time: thoughts.clone.time,
