@@ -7,6 +7,45 @@ import ThoughtsCore
 @MainActor
 @Suite(.throwaway)
 struct FrontReturnTests {
+  final class Checks: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isOpen = false
+    private var waitCount = 0
+    private var passCount = 0
+    private var cancelCount = 0
+
+    var waits: Int { lock.withLock { waitCount } }
+    var cancels: Int { lock.withLock { cancelCount } }
+    var settled: Bool { lock.withLock { passCount + cancelCount >= waitCount } }
+
+    func open() {
+      lock.withLock { isOpen = true }
+    }
+
+    func close() {
+      lock.withLock { isOpen = false }
+    }
+
+    func wait() async throws {
+      lock.withLock { waitCount += 1 }
+      while !lock.withLock({ isOpen }) {
+        do {
+          try await Task.sleep(for: .milliseconds(2))
+        } catch {
+          lock.withLock { cancelCount += 1 }
+          throw error
+        }
+      }
+      lock.withLock { passCount += 1 }
+    }
+  }
+
+  @MainActor
+  final class Outcomes {
+    var backs = 0
+    var others = 0
+  }
+
   @MainActor
   final class Apps {
     static let own = AppSnapshot(pid: 4101, bundleID: "dev.example.thoughts", name: "Thoughts")
@@ -23,13 +62,30 @@ struct FrontReturnTests {
     var front: AppSnapshot? = Apps.own
     var windows: Set<Int32> = [Apps.own.pid, Apps.finder.pid, Apps.editor.pid]
     var settingsLaunched = false
+    let checks = Checks()
 
     lazy var returns = FrontReturn(
       center: center, ownBundleID: Apps.own.bundleID,
       frontmost: { [unowned self] in front },
       app: { $0.userInfo?["app"] as? AppSnapshot },
       showsWindow: { [unowned self] in windows.contains($0) },
-      settingsLaunched: { [unowned self] _ in settingsLaunched })
+      settingsLaunched: { [unowned self] _ in settingsLaunched },
+      recheckDelay: { [checks] in try await checks.wait() })
+
+    func runChecks(after scheduled: Int) async {
+      #expect(await PanelHarness.waitUntil(within: .seconds(2)) { checks.waits >= scheduled })
+      checks.open()
+      _ = await PanelHarness.waitUntil(within: .seconds(2)) { checks.settled }
+      try? await Task.sleep(for: .milliseconds(30))
+      checks.close()
+    }
+
+    func watch() -> (Outcomes, @MainActor () -> Void) {
+      let outcomes = Outcomes()
+      let done = returns.watchRead(
+        back: { outcomes.backs += 1 }, otherwise: { outcomes.others += 1 })
+      return (outcomes, done)
+    }
 
     func activate(_ app: AppSnapshot) {
       front = app
@@ -176,17 +232,71 @@ struct FrontReturnTests {
     #expect(backs == 1)
   }
 
-  @Test func choosingAnotherAppWhileTheFolderPromptIsUpLeavesTheFrontAlone() {
+  @Test func anotherAppActivatingWhileThePromptWindowStaysUpThroughTheCheckIsAChoice() async {
     let apps = Apps()
-    var backs = 0
-    let hooks = apps.returns.hooks { backs += 1 }
-    let done = hooks.read()
+    let (outcomes, done) = apps.watch()
     apps.activate(Apps.folderPrompt)
     apps.activate(Apps.editor)
+    #expect(outcomes.others == 0)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.waits == 1 })
+    await apps.runChecks(after: 1)
+    #expect(outcomes.others == 1)
     apps.close(Apps.folderPrompt)
     done()
     apps.activate(Apps.finder)
-    #expect(backs == 0)
+    #expect(outcomes.backs == 0)
+    #expect(outcomes.others == 1)
+  }
+
+  @Test(arguments: [true, false])
+  func aFallbackWhileThePromptWindowStillShowsBringsTheWindowBackWhenItIsGoneAtTheCheck(
+    _ readFirst: Bool
+  ) async {
+    let apps = Apps()
+    let (outcomes, done) = apps.watch()
+    apps.activate(Apps.folderPrompt)
+    if readFirst { done() }
+    apps.activate(Apps.finder)
+    if !readFirst { done() }
+    #expect(outcomes.backs == 0)
+    #expect(outcomes.others == 0)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.waits == 1 })
+    apps.close(Apps.folderPrompt)
+    await apps.runChecks(after: 1)
+    #expect(outcomes.backs == 1)
+    #expect(outcomes.others == 0)
+  }
+
+  @Test func anActivationDuringTheWaitCancelsTheCheckAndIsJudgedOnItsOwn() async {
+    let apps = Apps()
+    let (outcomes, done) = apps.watch()
+    apps.activate(Apps.folderPrompt)
+    apps.activate(Apps.editor)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.waits == 1 })
+    apps.activate(Apps.folderPrompt)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.cancels == 1 })
+    apps.answerFolderPrompt()
+    done()
+    #expect(outcomes.backs == 1)
+    #expect(outcomes.others == 0)
+  }
+
+  @Test func aWatchThatEndsBeforeItsCheckFiresLeavesNothingBehind() async {
+    let apps = Apps()
+    let (outcomes, done) = apps.watch()
+    apps.activate(Apps.folderPrompt)
+    apps.activate(Apps.finder)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.waits == 1 })
+    apps.activate(Apps.own)
+    #expect(outcomes.others == 1)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.cancels == 1 })
+    apps.close(Apps.folderPrompt)
+    await apps.runChecks(after: 1)
+    done()
+    apps.activate(Apps.finder)
+    #expect(outcomes.backs == 0)
+    #expect(outcomes.others == 1)
+    #expect(apps.checks.waits == 1)
   }
 
   @Test func choosingAnotherAppAfterThePromptEndedButBeforeTheReadLandedLeavesTheFrontAlone() {
@@ -270,6 +380,39 @@ struct FrontReturnTests {
     #expect(backs == 1)
   }
 
+  @Test func theWindowComesBackWhenFinderActivatesBeforeTheDeniedAlertWindowLeaves() async {
+    let apps = Apps()
+    let outcomes = Outcomes()
+    let hooks = apps.returns.hooks { outcomes.backs += 1 }
+    hooks.askedForAccessibility()
+    apps.activate(Apps.accessibilityAlert)
+    apps.activate(Apps.finder)
+    #expect(outcomes.backs == 0)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.waits == 1 })
+    apps.close(Apps.accessibilityAlert)
+    await apps.runChecks(after: 1)
+    #expect(outcomes.backs == 1)
+  }
+
+  @Test func openSystemSettingsFromTheAlertWithSystemSettingsAlreadyRunningLeavesItTheFront()
+    async
+  {
+    let apps = Apps()
+    let outcomes = Outcomes()
+    let hooks = apps.returns.hooks { outcomes.backs += 1 }
+    hooks.askedForAccessibility()
+    apps.activate(Apps.accessibilityAlert)
+    apps.activate(Apps.finder)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.waits == 1 })
+    apps.close(Apps.accessibilityAlert)
+    apps.activate(Apps.settings)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.cancels == 1 })
+    await apps.runChecks(after: 1)
+    #expect(outcomes.backs == 0)
+    apps.quitSettings(fallbackFirst: true)
+    #expect(outcomes.backs == 1)
+  }
+
   @Test func aDeniedAccessibilityAlertLeavesNothingWaitingOnSystemSettings() {
     let apps = Apps()
     var backs = 0
@@ -302,16 +445,17 @@ struct FrontReturnTests {
     #expect(backs == 1)
   }
 
-  @Test func choosingAnotherAppWhileTheAccessibilityAlertIsUpLeavesTheFrontAlone() {
+  @Test func choosingAnotherAppWhileTheAccessibilityAlertIsUpLeavesTheFrontAlone() async {
     let apps = Apps()
-    var backs = 0
-    let hooks = apps.returns.hooks { backs += 1 }
+    let outcomes = Outcomes()
+    let hooks = apps.returns.hooks { outcomes.backs += 1 }
     hooks.askedForAccessibility()
     apps.activate(Apps.accessibilityAlert)
     apps.activate(Apps.editor)
+    await apps.runChecks(after: 1)
     apps.close(Apps.accessibilityAlert)
     apps.activate(Apps.finder)
-    #expect(backs == 0)
+    #expect(outcomes.backs == 0)
   }
 
   @Test func theWorkspaceNotificationNamesTheAppThatChanged() {

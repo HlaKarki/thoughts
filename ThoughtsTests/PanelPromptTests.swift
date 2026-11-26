@@ -33,13 +33,12 @@ struct PanelPromptTests {
       name: NSWindow.didResignKeyNotification, object: rig.controller.panel)
   }
 
-  @Test func aPasteThatWaitsOnAFolderPromptKeepsThePanelWithItsCaretAndMakesItKeyAgain()
-    async throws
-  {
-    let (rig, apps) = try Self.rig()
-    apps.activate(Apps.folderPrompt)
-    rig.controller.show(inVisible: rig.screen.visible, makeKey: true)
-    let made = rig.key.made
+  struct Composer {
+    let panel: NSPanel
+    let editor: NSTextView
+  }
+
+  static func compose(_ rig: Rig) async throws -> Composer {
     let panel = rig.controller.panel
     let content = try #require(panel.contentView)
     content.layoutSubtreeIfNeeded()
@@ -49,11 +48,43 @@ struct PanelPromptTests {
     await InputFocusTests.settle()
     let editor = try #require(field.currentEditor() as? NSTextView)
     editor.setSelectedRange(NSRange(location: 3, length: 0))
-    let folder = TempFolder()
+    return Composer(panel: panel, editor: editor)
+  }
+
+  static func pasteFile(_ rig: Rig, in folder: TempFolder) throws {
     let file = try FileReadThreadTests.file(named: "Orange block.png", in: folder)
     let board = Throwaway.pasteboard()
     try InputModelTests.fill(board, file: file, text: "Orange block.png", image: false)
     #expect(rig.fixture.input.takeImage(from: board))
+  }
+
+  static func expectKept(_ rig: Rig, _ composer: Composer) {
+    if case .image(.file(let attached), _) = rig.fixture.input.attachment {
+      #expect(attached.lastPathComponent == "Orange block.png")
+    } else {
+      Issue.record("expected the pasted image file")
+    }
+    #expect(rig.fixture.input.text == "Orange")
+    #expect(composer.panel.firstResponder === composer.editor)
+    #expect(composer.editor.selectedRange() == NSRange(location: 3, length: 0))
+  }
+
+  static func finish(_ rig: Rig, _ composer: Composer) {
+    _ = composer.panel.makeFirstResponder(nil)
+    rig.controller.hide()
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
+  }
+
+  @Test func aPasteThatWaitsOnAFolderPromptKeepsThePanelWithItsCaretAndMakesItKeyAgain()
+    async throws
+  {
+    let (rig, apps) = try Self.rig()
+    apps.activate(Apps.folderPrompt)
+    rig.controller.show(inVisible: rig.screen.visible, makeKey: true)
+    let made = rig.key.made
+    let composer = try await Self.compose(rig)
+    let folder = TempFolder()
+    try Self.pasteFile(rig, in: folder)
     await rig.fixture.input.pasteRead?.value
     Self.loseKey(rig)
     #expect(rig.controller.isShown)
@@ -62,17 +93,57 @@ struct PanelPromptTests {
     #expect(rig.controller.isShown)
     #expect(rig.controller.isKey)
     #expect(rig.key.made == made + 1)
-    guard case .image(.file(let attached), _) = rig.fixture.input.attachment else {
-      Issue.record("expected the pasted image file")
-      return
-    }
-    #expect(attached.lastPathComponent == "Orange block.png")
-    #expect(rig.fixture.input.text == "Orange")
-    #expect(panel.firstResponder === editor)
-    #expect(editor.selectedRange() == NSRange(location: 3, length: 0))
-    _ = panel.makeFirstResponder(nil)
-    rig.controller.hide()
-    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
+    Self.expectKept(rig, composer)
+    Self.finish(rig, composer)
+  }
+
+  @Test func aPasteWaitingOnAPromptAlreadyUpComesBackWhenFinderActivatesBeforeThePromptLeaves()
+    async throws
+  {
+    let (rig, apps) = try Self.rig()
+    apps.activate(Apps.folderPrompt)
+    rig.controller.show(inVisible: rig.screen.visible, makeKey: true)
+    let made = rig.key.made
+    let composer = try await Self.compose(rig)
+    let folder = TempFolder()
+    try Self.pasteFile(rig, in: folder)
+    await rig.fixture.input.pasteRead?.value
+    Self.loseKey(rig)
+    apps.activate(Apps.finder)
+    #expect(rig.controller.isShown)
+    #expect(!rig.controller.isKey)
+    apps.close(Apps.folderPrompt)
+    await apps.runChecks(after: 1)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { rig.controller.isKey })
+    #expect(rig.controller.isShown)
+    #expect(rig.key.made == made + 1)
+    Self.expectKept(rig, composer)
+    Self.finish(rig, composer)
+  }
+
+  @Test func aPastePromptAnsweredAfterTheReadLandsMakesThePanelKeyOnceThePromptWindowIsGone()
+    async throws
+  {
+    let (rig, apps) = try Self.rig()
+    rig.controller.show(inVisible: rig.screen.visible, makeKey: true)
+    let made = rig.key.made
+    let composer = try await Self.compose(rig)
+    let folder = TempFolder()
+    try Self.pasteFile(rig, in: folder)
+    apps.activate(Apps.folderPrompt)
+    Self.loseKey(rig)
+    await rig.fixture.input.pasteRead?.value
+    #expect(rig.controller.isShown)
+    apps.activate(Apps.finder)
+    #expect(rig.controller.isShown)
+    #expect(!rig.controller.isKey)
+    apps.close(Apps.folderPrompt)
+    await apps.runChecks(after: 1)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { rig.controller.isKey })
+    #expect(rig.controller.isShown)
+    #expect(rig.key.made == made + 1)
+    Self.expectKept(rig, composer)
+    Self.finish(rig, composer)
   }
 
   @Test func aPasteThatCausesAFolderPromptMakesThePanelKeyAgainAfterTheAnswer() throws {
@@ -92,7 +163,7 @@ struct PanelPromptTests {
     rig.controller.hide()
   }
 
-  @Test func choosingAnotherAppWhileAPastePromptIsUpHidesThePanelAsBefore() throws {
+  @Test func choosingAnotherAppWhileAPastePromptIsUpHidesThePanelAsBefore() async throws {
     let (rig, apps) = try Self.rig()
     rig.controller.show(inVisible: rig.screen.visible, makeKey: true)
     let done = rig.controller.holdThroughPrompt(apps.returns)
@@ -100,6 +171,9 @@ struct PanelPromptTests {
     Self.loseKey(rig)
     #expect(rig.controller.isShown)
     apps.activate(Apps.editor)
+    #expect(rig.controller.isShown)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.waits == 1 })
+    await apps.runChecks(after: 1)
     #expect(!rig.controller.isShown)
     apps.close(Apps.folderPrompt)
     done()
@@ -108,7 +182,7 @@ struct PanelPromptTests {
     #expect(rig.key.made == 1)
   }
 
-  @Test func withKeepOpenThePanelTakesTheKeyBackAfterAPromptButNotAfterAChoice() throws {
+  @Test func withKeepOpenThePanelTakesTheKeyBackAfterAPromptButNotAfterAChoice() async throws {
     let (rig, apps) = try Self.rig(keepOpen: true)
     rig.controller.show(inVisible: rig.screen.visible, makeKey: true)
     let first = rig.controller.holdThroughPrompt(apps.returns)
@@ -122,6 +196,7 @@ struct PanelPromptTests {
     apps.activate(Apps.folderPrompt)
     Self.loseKey(rig)
     apps.activate(Apps.editor)
+    await apps.runChecks(after: 1)
     apps.close(Apps.folderPrompt)
     second()
     apps.activate(Apps.finder)

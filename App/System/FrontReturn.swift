@@ -6,6 +6,7 @@ final class FrontReturn {
   static let systemSettings = "com.apple.systempreferences"
   static let folderPrompt = "com.apple.UserNotificationCenter"
   static let accessibilityAlert = "com.apple.accessibility.universalAccessAuthWarn"
+  nonisolated static let recheckAfter: Duration = .milliseconds(300)
 
   struct Hooks {
     var openedSystemSettings: @MainActor () -> Void = {}
@@ -29,6 +30,7 @@ final class FrontReturn {
     var prompt: AppSnapshot?
     var promptGone = false
     var readDone: Bool
+    var check: Task<Void, Never>?
 
     init(
       back: @escaping @MainActor () -> Void, otherwise: @escaping @MainActor () -> Void,
@@ -55,6 +57,7 @@ final class FrontReturn {
   private let app: @Sendable (Notification) -> AppSnapshot?
   private let showsWindow: @MainActor (Int32) -> Bool
   private let settingsLaunched: @MainActor (Date) -> Bool
+  private let recheckDelay: @Sendable () async throws -> Void
   private let now: @MainActor () -> Date
   private var settingsReturn: SettingsReturn?
   private var watches: [Watch] = []
@@ -67,6 +70,9 @@ final class FrontReturn {
     app: @escaping @Sendable (Notification) -> AppSnapshot? = FrontReturn.app(in:),
     showsWindow: @escaping @MainActor (Int32) -> Bool = FrontReturn.showsWindow(pid:),
     settingsLaunched: @escaping @MainActor (Date) -> Bool = FrontReturn.settingsLaunched(since:),
+    recheckDelay: @escaping @Sendable () async throws -> Void = {
+      try await Task.sleep(for: FrontReturn.recheckAfter)
+    },
     now: @escaping @MainActor () -> Date = Date.init
   ) {
     self.center = center
@@ -75,6 +81,7 @@ final class FrontReturn {
     self.app = app
     self.showsWindow = showsWindow
     self.settingsLaunched = settingsLaunched
+    self.recheckDelay = recheckDelay
     self.now = now
   }
 
@@ -141,6 +148,8 @@ final class FrontReturn {
   private func end(_ watch: Watch, back: Bool) {
     guard let index = watches.firstIndex(where: { $0 === watch }) else { return }
     watches.remove(at: index)
+    watch.check?.cancel()
+    watch.check = nil
     if back, watch.yieldsToSettings, settingsReturn?.pid == nil {
       settingsReturn = nil
     }
@@ -214,6 +223,8 @@ final class FrontReturn {
   }
 
   private func step(_ watch: Watch, activated app: AppSnapshot, _ role: Role) {
+    watch.check?.cancel()
+    watch.check = nil
     switch role {
     case .prompt:
       watch.prompt = app
@@ -223,13 +234,31 @@ final class FrontReturn {
     case .settings, .other:
       if watch.yieldsToSettings, role == .settings || settingsLaunched(watch.started) {
         end(watch, back: false)
-      } else if let prompt = watch.prompt, !watch.promptGone, !showsWindow(prompt.pid) {
-        watch.promptGone = true
-        if watch.readDone { end(watch, back: true) }
+      } else if let prompt = watch.prompt, !watch.promptGone {
+        if showsWindow(prompt.pid) { recheck(watch, prompt) } else { promptLeft(watch) }
       } else {
         end(watch, back: false)
       }
     }
+  }
+
+  private func promptLeft(_ watch: Watch) {
+    watch.promptGone = true
+    if watch.readDone { end(watch, back: true) }
+  }
+
+  private func recheck(_ watch: Watch, _ prompt: AppSnapshot) {
+    watch.check = Task { [weak self, weak watch, recheckDelay] in
+      do { try await recheckDelay() } catch { return }
+      guard !Task.isCancelled, let self, let watch else { return }
+      checked(watch, prompt)
+    }
+  }
+
+  private func checked(_ watch: Watch, _ prompt: AppSnapshot) {
+    guard isPending(watch) else { return }
+    watch.check = nil
+    if showsWindow(prompt.pid) { end(watch, back: false) } else { promptLeft(watch) }
   }
 
   private func role(of app: AppSnapshot) -> Role {

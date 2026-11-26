@@ -231,6 +231,45 @@ struct WindowFrontTests {
     #expect(rig.events == Self.fromBehindAnotherApp + Self.again)
   }
 
+  @Test func theFirstRunWindowComesBackWhenFinderActivatesBeforeTheDeniedAlertWindowLeaves()
+    async throws
+  {
+    let rig = Returning()
+    let model = try rig.firstRun()
+    model.openAccessibility()
+    rig.apps.activate(Apps.accessibilityAlert)
+    rig.apps.activate(Apps.finder)
+    #expect(rig.events == Self.fromBehindAnotherApp)
+    rig.apps.close(Apps.accessibilityAlert)
+    await rig.apps.runChecks(after: 1)
+    #expect(rig.events == Self.fromBehindAnotherApp + Self.again)
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
+  }
+
+  @Test func stepFiveComesBackWhenFinderActivatesBeforeThePromptWindowLeaves() async throws {
+    let rig = Returning()
+    rig.system.trusted = true
+    rig.system.folderReads.holdEachRead()
+    defer { rig.system.folderReads.releaseHeldReads() }
+    let model = try rig.firstRun()
+    for _ in 0..<4 { model.advance() }
+    let reading = Task { await model.readWatchedFolders() }
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { !rig.system.read.isEmpty })
+    rig.apps.activate(Apps.folderPrompt)
+    rig.apps.activate(Apps.finder)
+    #expect(rig.events == Self.fromBehindAnotherApp)
+    rig.system.folderReads.releaseHeldReads()
+    await reading.value
+    await InputFocusTests.settle()
+    #expect(rig.events == Self.fromBehindAnotherApp)
+    rig.apps.close(Apps.folderPrompt)
+    await rig.apps.runChecks(after: 1)
+    let returned = Self.fromBehindAnotherApp + Self.again
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { rig.events == returned })
+    #expect(rig.system.read.count == 1)
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
+  }
+
   @Test(arguments: [true, false])
   func stepFiveComesBackAfterTheDesktopFolderPrompt(_ readFirst: Bool) async throws {
     let rig = Returning()
@@ -276,6 +315,7 @@ struct WindowFrontTests {
     #expect(await PanelHarness.waitUntil(within: .seconds(2)) { !rig.system.read.isEmpty })
     rig.apps.activate(Apps.folderPrompt)
     rig.apps.activate(Apps.editor)
+    await rig.apps.runChecks(after: 1)
     rig.apps.close(Apps.folderPrompt)
     rig.system.folderReads.releaseHeldReads()
     await reading.value
