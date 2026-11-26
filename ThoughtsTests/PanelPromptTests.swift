@@ -182,6 +182,27 @@ struct PanelPromptTests {
     #expect(rig.key.made == 1)
   }
 
+  @Test func anotherAppChosenAfterTheFallbackButBeforeTheCheckHidesThePanelAsBefore()
+    async throws
+  {
+    let (rig, apps) = try Self.rig()
+    rig.controller.show(inVisible: rig.screen.visible, makeKey: true)
+    let done = rig.controller.holdThroughPrompt(apps.returns)
+    apps.activate(Apps.folderPrompt)
+    Self.loseKey(rig)
+    done()
+    #expect(rig.controller.isShown)
+    apps.activate(Apps.finder)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.waits == 1 })
+    #expect(rig.controller.isShown)
+    apps.close(Apps.folderPrompt)
+    apps.activate(Apps.editor)
+    #expect(!rig.controller.isShown)
+    await apps.runChecks(after: 1)
+    #expect(!rig.controller.isShown)
+    #expect(rig.key.made == 1)
+  }
+
   @Test func withKeepOpenThePanelTakesTheKeyBackAfterAPromptButNotAfterAChoice() async throws {
     let (rig, apps) = try Self.rig(keepOpen: true)
     rig.controller.show(inVisible: rig.screen.visible, makeKey: true)

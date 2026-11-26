@@ -267,7 +267,7 @@ struct FrontReturnTests {
     #expect(outcomes.others == 0)
   }
 
-  @Test func anActivationDuringTheWaitCancelsTheCheckAndIsJudgedOnItsOwn() async {
+  @Test func aPromptActivationDuringTheWaitCancelsTheCheckAndKeepsWatching() async {
     let apps = Apps()
     let (outcomes, done) = apps.watch()
     apps.activate(Apps.folderPrompt)
@@ -279,6 +279,25 @@ struct FrontReturnTests {
     done()
     #expect(outcomes.backs == 1)
     #expect(outcomes.others == 0)
+  }
+
+  @Test(arguments: [true, false])
+  func anotherAppActivatingAfterTheFallbackButBeforeTheCheckIsAChoice(_ readFirst: Bool) async {
+    let apps = Apps()
+    let (outcomes, done) = apps.watch()
+    apps.activate(Apps.folderPrompt)
+    if readFirst { done() }
+    apps.activate(Apps.finder)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.waits == 1 })
+    apps.close(Apps.folderPrompt)
+    apps.activate(Apps.editor)
+    if !readFirst { done() }
+    #expect(outcomes.backs == 0)
+    #expect(outcomes.others == 1)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.cancels == 1 })
+    await apps.runChecks(after: 1)
+    #expect(outcomes.backs == 0)
+    #expect(outcomes.others == 1)
   }
 
   @Test func aWatchThatEndsBeforeItsCheckFiresLeavesNothingBehind() async {
@@ -413,7 +432,49 @@ struct FrontReturnTests {
     #expect(outcomes.backs == 1)
   }
 
-  @Test func aDeniedAccessibilityAlertLeavesNothingWaitingOnSystemSettings() {
+  @Test(arguments: [true, false])
+  func openSystemSettingsFromTheAlertWhileSystemSettingsLaunchesLeavesItTheFrontUntilItQuits(
+    _ fallbackFirst: Bool
+  ) async {
+    let apps = Apps()
+    let outcomes = Outcomes()
+    let hooks = apps.returns.hooks { outcomes.backs += 1 }
+    hooks.askedForAccessibility()
+    apps.activate(Apps.accessibilityAlert)
+    apps.activate(Apps.finder)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.waits == 1 })
+    apps.settingsLaunched = true
+    apps.close(Apps.accessibilityAlert)
+    await apps.runChecks(after: 1)
+    #expect(outcomes.backs == 0)
+    apps.activate(Apps.settings)
+    #expect(outcomes.backs == 0)
+    apps.quitSettings(fallbackFirst: fallbackFirst)
+    #expect(outcomes.backs == 1)
+  }
+
+  @Test(arguments: [true, false])
+  func systemSettingsThatRegistersAfterTheCheckStillBringsTheWindowBackWhenItQuits(
+    _ fallbackFirst: Bool
+  ) async {
+    let apps = Apps()
+    let outcomes = Outcomes()
+    let hooks = apps.returns.hooks { outcomes.backs += 1 }
+    hooks.askedForAccessibility()
+    apps.activate(Apps.accessibilityAlert)
+    apps.activate(Apps.finder)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { apps.checks.waits == 1 })
+    apps.close(Apps.accessibilityAlert)
+    await apps.runChecks(after: 1)
+    #expect(outcomes.backs == 1)
+    apps.settingsLaunched = true
+    apps.activate(Apps.settings)
+    #expect(outcomes.backs == 1)
+    apps.quitSettings(fallbackFirst: fallbackFirst)
+    #expect(outcomes.backs == 2)
+  }
+
+  @Test func aDeniedAccessibilityAlertKeepsTheSystemSettingsReturnArmed() {
     let apps = Apps()
     var backs = 0
     let hooks = apps.returns.hooks { backs += 1 }
@@ -423,8 +484,9 @@ struct FrontReturnTests {
     apps.activate(Apps.finder)
     #expect(backs == 1)
     apps.activate(Apps.settings)
-    apps.quitSettings(fallbackFirst: true)
     #expect(backs == 1)
+    apps.quitSettings(fallbackFirst: true)
+    #expect(backs == 2)
   }
 
   @Test(arguments: [true, false])

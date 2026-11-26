@@ -246,6 +246,68 @@ struct WindowFrontTests {
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
   }
 
+  @Test func theFirstRunWindowStaysBehindSystemSettingsOpenedFromTheAlertUntilItQuits()
+    async throws
+  {
+    let rig = Returning()
+    let model = try rig.firstRun()
+    model.openAccessibility()
+    rig.apps.activate(Apps.accessibilityAlert)
+    rig.apps.activate(Apps.finder)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { rig.apps.checks.waits == 1 })
+    rig.apps.settingsLaunched = true
+    rig.apps.close(Apps.accessibilityAlert)
+    await rig.apps.runChecks(after: 1)
+    #expect(rig.events == Self.fromBehindAnotherApp)
+    rig.apps.activate(Apps.settings)
+    #expect(rig.events == Self.fromBehindAnotherApp)
+    rig.apps.quitSettings(fallbackFirst: true)
+    #expect(rig.events == Self.fromBehindAnotherApp + Self.again)
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
+  }
+
+  @Test func theFirstRunWindowComesBackWhenSystemSettingsThatRegisteredLateQuits()
+    async throws
+  {
+    let rig = Returning()
+    let model = try rig.firstRun()
+    model.openAccessibility()
+    rig.apps.activate(Apps.accessibilityAlert)
+    rig.apps.activate(Apps.finder)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { rig.apps.checks.waits == 1 })
+    rig.apps.close(Apps.accessibilityAlert)
+    await rig.apps.runChecks(after: 1)
+    #expect(rig.events == Self.fromBehindAnotherApp + Self.again)
+    rig.apps.settingsLaunched = true
+    rig.apps.activate(Apps.settings)
+    #expect(rig.events == Self.fromBehindAnotherApp + Self.again)
+    rig.apps.quitSettings(fallbackFirst: true)
+    #expect(rig.events == Self.fromBehindAnotherApp + Self.again + Self.again)
+    #expect(PanelHarness.ownWindowsOnScreens().isEmpty)
+  }
+
+  @Test func stepFiveStaysBehindAnAppChosenAfterTheFallbackButBeforeTheCheck() async throws {
+    let rig = Returning()
+    rig.system.trusted = true
+    rig.system.folderReads.holdEachRead()
+    defer { rig.system.folderReads.releaseHeldReads() }
+    let model = try rig.firstRun()
+    for _ in 0..<4 { model.advance() }
+    let reading = Task { await model.readWatchedFolders() }
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { !rig.system.read.isEmpty })
+    rig.apps.activate(Apps.folderPrompt)
+    rig.apps.activate(Apps.finder)
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { rig.apps.checks.waits == 1 })
+    rig.apps.close(Apps.folderPrompt)
+    rig.apps.activate(Apps.editor)
+    rig.system.folderReads.releaseHeldReads()
+    await reading.value
+    await InputFocusTests.settle()
+    await rig.apps.runChecks(after: 1)
+    #expect(rig.events == Self.fromBehindAnotherApp)
+    #expect(rig.system.read.count == 1)
+  }
+
   @Test func stepFiveComesBackWhenFinderActivatesBeforeThePromptWindowLeaves() async throws {
     let rig = Returning()
     rig.system.trusted = true

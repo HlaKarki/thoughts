@@ -150,9 +150,6 @@ final class FrontReturn {
     watches.remove(at: index)
     watch.check?.cancel()
     watch.check = nil
-    if back, watch.yieldsToSettings, settingsReturn?.pid == nil {
-      settingsReturn = nil
-    }
     if back { watch.back() } else { watch.otherwise() }
     quietIfIdle()
   }
@@ -223,6 +220,7 @@ final class FrontReturn {
   }
 
   private func step(_ watch: Watch, activated app: AppSnapshot, _ role: Role) {
+    let checking = watch.check != nil
     watch.check?.cancel()
     watch.check = nil
     switch role {
@@ -232,7 +230,7 @@ final class FrontReturn {
     case .own:
       end(watch, back: false)
     case .settings, .other:
-      if watch.yieldsToSettings, role == .settings || settingsLaunched(watch.started) {
+      if yields(watch, activated: role) || checking {
         end(watch, back: false)
       } else if let prompt = watch.prompt, !watch.promptGone {
         if showsWindow(prompt.pid) { recheck(watch, prompt) } else { promptLeft(watch) }
@@ -240,6 +238,11 @@ final class FrontReturn {
         end(watch, back: false)
       }
     }
+  }
+
+  private func yields(_ watch: Watch, activated role: Role?) -> Bool {
+    guard watch.yieldsToSettings else { return false }
+    return role == .settings || settingsLaunched(watch.started)
   }
 
   private func promptLeft(_ watch: Watch) {
@@ -258,7 +261,11 @@ final class FrontReturn {
   private func checked(_ watch: Watch, _ prompt: AppSnapshot) {
     guard isPending(watch) else { return }
     watch.check = nil
-    if showsWindow(prompt.pid) { end(watch, back: false) } else { promptLeft(watch) }
+    if yields(watch, activated: nil) || showsWindow(prompt.pid) {
+      end(watch, back: false)
+    } else {
+      promptLeft(watch)
+    }
   }
 
   private func role(of app: AppSnapshot) -> Role {
