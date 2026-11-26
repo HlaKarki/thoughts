@@ -112,7 +112,32 @@ struct FirstRunFlowTests {
     for _ in 0..<4 { model.advance() }
     await model.readWatchedFolders()
     #expect(system.read.map(\.path) == ["/example/home/Desktop", extra.path])
+    model.back()
+    model.advance()
+    await model.readWatchedFolders()
+    await ListFixture.settle()
+    #expect(system.read.map(\.path) == ["/example/home/Desktop", extra.path])
     #expect(!system.folderReads.anyOnMain)
+  }
+
+  @Test func backThenContinueWhileAFolderPromptIsUpReadsNoFolderTwice() async throws {
+    let system = FakeSystem()
+    system.trusted = true
+    system.folderReads.holdEachRead()
+    defer { system.folderReads.releaseHeldReads() }
+    let model = try SettingsFixtures.firstRun(
+      system: system, preferences: SettingsFixtures.preferences())
+    for _ in 0..<4 { model.advance() }
+    let first = Task { await model.readWatchedFolders() }
+    #expect(await PanelHarness.waitUntil(within: .seconds(2)) { !system.read.isEmpty })
+    model.back()
+    model.advance()
+    let second = Task { await model.readWatchedFolders() }
+    await ListFixture.settle()
+    system.folderReads.releaseHeldReads()
+    await first.value
+    await second.value
+    #expect(system.read.map(\.path) == ["/example/home/Desktop"])
   }
 
   @Test func aFolderReadWaitingOnMacOSNeverHoldsUpTheWindow() async throws {
@@ -152,6 +177,12 @@ struct FirstRunFlowTests {
     #expect(system.read.isEmpty)
     model.advance()
     #expect(await PanelHarness.waitUntil(within: .seconds(2)) { !system.read.isEmpty })
+    await ListFixture.settle()
+    #expect(system.read.map(\.path) == ["/example/home/Desktop"])
+    model.back()
+    try await Task.sleep(for: .milliseconds(100))
+    model.advance()
+    try await Task.sleep(for: .milliseconds(200))
     #expect(system.read.map(\.path) == ["/example/home/Desktop"])
     #expect(!system.folderReads.anyOnMain)
     #expect(PanelHarness.ownWindowsOnScreens().isEmpty)

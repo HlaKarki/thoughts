@@ -31,25 +31,22 @@ final class FakeSystem {
 final class FolderReads: @unchecked Sendable {
   private let lock = NSLock()
   private var seen: [(url: URL, onMain: Bool)] = []
-  private let release = DispatchSemaphore(value: 0)
-  private var holds = false
+  private var hold: Hold?
 
   var urls: [URL] { lock.withLock { seen.map(\.url) } }
   var anyOnMain: Bool { lock.withLock { seen.contains { $0.onMain } } }
 
-  func holdEachRead() {
-    lock.withLock { holds = true }
+  func holdEachRead(with hold: Hold = Hold()) {
+    lock.withLock { self.hold = hold }
   }
 
   func releaseHeldReads() {
-    lock.withLock { holds = false }
-    for _ in 0..<8 { release.signal() }
+    lock.withLock { hold }?.release()
   }
 
   func read(_ url: URL) {
     lock.withLock { seen.append((url, Thread.isMainThread)) }
-    guard lock.withLock({ holds }) else { return }
-    _ = release.wait(timeout: .now() + 2)
+    lock.withLock { hold }?.pass()
   }
 }
 

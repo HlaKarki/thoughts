@@ -19,6 +19,7 @@ final class FirstRunModel {
   @ObservationIgnored private let storage: StorageMover
   @ObservationIgnored private let poller: PermissionPoller
   @ObservationIgnored private let captureShortcutText: @MainActor () -> String?
+  @ObservationIgnored private var requestedFolders: Set<String> = []
   @ObservationIgnored var onAccessibilityGranted: @MainActor () -> Void = {}
   @ObservationIgnored var onFinish: @MainActor () -> Void = {}
 
@@ -123,7 +124,8 @@ final class FirstRunModel {
   }
 
   func readWatchedFolders() async {
-    let folders = watchedFolders
+    let folders = watchedFolders.filter { requestedFolders.insert($0.standardized.path).inserted }
+    guard !folders.isEmpty else { return }
     let read = services.readFolder
     await Task.detached {
       for folder in folders { read(folder) }
