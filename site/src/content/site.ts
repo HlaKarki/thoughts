@@ -8,6 +8,7 @@ export const site = {
   language: 'en',
   author: { name: 'Hla Htun', url: 'https://github.com/HlaKarki' },
   operatingSystem: 'macOS 15.4 or later',
+  indexNowKey: '2f14e5bf8435adddc64531fc3e3faf77',
   analytics: {
     beacon: 'https://static.cloudflareinsights.com/beacon.min.js',
     token: '68c33c7552a045bb9acd9df16a725a36',
