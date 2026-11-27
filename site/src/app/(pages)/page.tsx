@@ -1,6 +1,7 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 import { findPage, pages } from '@/content/pages'
 import type { Block, Page } from '@/content/types'
+import { changelogSections } from '@/lib/changelog'
 import { pageHead } from '@/lib/pageHead'
 import { plainText } from '@/lib/plainText'
 import { ContentPage } from './ContentPage'
@@ -21,9 +22,10 @@ export const Route = createFileRoute('/$page')({
 
 function PageRoute() {
   const { page: slug } = Route.useParams()
-  const page = findPage(slug)
-  if (!page) return null
-  return <ContentPage page={page} related={pages.filter((other) => other.slug !== page.slug)} />
+  const found = findPage(slug)
+  if (!found) return null
+  const page = found.generated === 'changelog' ? { ...found, sections: changelogSections() } : found
+  return <ContentPage page={page} related={pages.filter((other) => other.slug !== page.slug && other.group !== 'project')} />
 }
 
 function questionsData(page: Page) {

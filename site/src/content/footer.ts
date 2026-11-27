@@ -32,8 +32,8 @@ export const footer: Footer = {
     {
       heading: 'Project',
       links: [
+        ...pageLinks('project'),
         { label: 'Source on GitHub', href: site.links.source },
-        { label: 'Releases', href: `${site.links.source}/releases` },
         { label: 'MIT License', href: site.links.license },
       ],
     },

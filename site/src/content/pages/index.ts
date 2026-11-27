@@ -1,5 +1,6 @@
 import type { Page } from '../types'
 import { appleQuickNote } from './appleQuickNote'
+import { changelog } from './changelog'
 import { copper } from './copper'
 import { drafts } from './drafts'
 import { faq } from './faq'
@@ -21,6 +22,7 @@ export const pages: ReadonlyArray<Page> = [
   drafts,
   tot,
   faq,
+  changelog,
 ]
 
 export function findPage(slug: string) {

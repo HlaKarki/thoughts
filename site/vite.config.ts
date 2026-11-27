@@ -22,6 +22,9 @@ export default defineConfig({
   resolve: {
     alias: { '@': src },
   },
+  server: {
+    fs: { allow: ['..'] },
+  },
   plugins: [
     cloudflare({ viteEnvironment: { name: 'ssr' } }),
     stylex.vite({

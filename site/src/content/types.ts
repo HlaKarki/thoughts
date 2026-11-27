@@ -57,7 +57,7 @@ export type Section = {
   readonly blocks: ReadonlyArray<Block>
 }
 
-export type PageGroup = 'guides' | 'compare'
+export type PageGroup = 'guides' | 'compare' | 'project'
 
 export type Page = {
   readonly slug: string
@@ -70,4 +70,5 @@ export type Page = {
   readonly lead: string
   readonly sections: ReadonlyArray<Section>
   readonly footnote?: string
+  readonly generated?: 'changelog'
 }
