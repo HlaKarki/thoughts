@@ -13,6 +13,7 @@ export const footer: Footer = {
   credit: 'Photos by Jacek Urbanski and Clay Elliot on Unsplash.',
   navLabel: 'Project',
   links: [
+    { label: 'Coming from Copper?', href: '/copper-alternative' },
     { label: 'Source on GitHub', href: site.links.source },
     { label: 'MIT License', href: site.links.license },
   ],
