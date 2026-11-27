@@ -54,6 +54,7 @@ struct AccessibilityTrustTests {
     let system = FakeSystem()
     let monitors = Monitors()
     let gate = Gate()
+    var refreshes = 0
     let preferences: Preferences
     let gesture: GestureMonitor
     let trust: AccessibilityTrustWatch
@@ -72,9 +73,15 @@ struct AccessibilityTrustTests {
       gesture = GestureMonitor(preferences: preferences, monitors: monitors.events)
       let system = system
       let gate = gate
+      var refresh: @MainActor () -> Void = {}
       trust = AccessibilityTrustWatch(
-        isTrusted: { system.trusted }, center: center, name: name,
-        recheckDelay: { try await gate.wait() })
+        isTrusted: { system.services.accessibilityTrusted() }, refreshAnswer: { refresh() },
+        center: center, name: name, recheckDelay: { try await gate.wait() })
+      refresh = { [unowned self] in
+        refreshes += 1
+        system.staleAnswer = nil
+        center.post(name: name, object: nil)
+      }
       trust.onGranted = { [gesture] in gesture.reinstall() }
       gesture.start()
       trust.start()
@@ -176,6 +183,40 @@ struct AccessibilityTrustTests {
     #expect(
       await PanelHarness.waitUntil { rig.monitors.installs == 2 },
       "the deferred check did not turn the gesture on")
+  }
+
+  @Test func aGrantReadTooEarlyByMacOSIsCaughtByRefreshingTheAnswer() async throws {
+    let rig = try Rig(trusted: false)
+    defer { rig.stop() }
+    let model = try rig.firstRun()
+    let watching = Task { await model.watchAccessibility() }
+    rig.system.staleAnswer = false
+    rig.system.trusted = true
+    rig.trustChanged()
+    rig.gate.open()
+    #expect(
+      await PanelHarness.waitUntil { rig.monitors.installs == 2 },
+      "the stale answer kept the gesture off")
+    #expect(
+      await PanelHarness.waitUntil { model.state.accessibilityGranted },
+      "the stale answer kept first run on the Accessibility step")
+    watching.cancel()
+    #expect(rig.refreshes == 1)
+  }
+
+  @Test func anAnswerThatStaysDeniedIsRefreshedOnceForEachChange() async throws {
+    let rig = try Rig(trusted: false)
+    defer { rig.stop() }
+    rig.gate.open()
+    rig.trustChanged()
+    #expect(await PanelHarness.waitUntil { rig.refreshes == 1 }, "the answer was never refreshed")
+    await Self.settle()
+    #expect(rig.refreshes == 1)
+    rig.trustChanged()
+    #expect(await PanelHarness.waitUntil { rig.refreshes == 2 })
+    await Self.settle()
+    #expect(rig.refreshes == 2)
+    #expect(rig.monitors.installs == 1)
   }
 
   @Test func stoppingBeforeTheDeferredCheckCancelsIt() async throws {
