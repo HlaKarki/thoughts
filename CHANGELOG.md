@@ -2,6 +2,13 @@
 
 This file lists what changes in each version of Thoughts. A minor version, like 1.1, adds features. A patch version, like 1.0.1, only fixes bugs.
 
+## Unreleased
+
+### Fixed
+
+- First run now moves on as soon as you turn on Thoughts under Accessibility. Before, Continue could stay off until you turned it off and on again.
+- The Back and Continue buttons in first run are no longer cut off at the bottom of the window.
+
 ## 1.0.0 (2026-11-27)
 
 The first release. Thoughts needs macOS 15.4 or later.
