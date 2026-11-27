@@ -6,7 +6,7 @@
 
 <p align="center">
   Thoughts is a quiet place for what you find while you work.<br>
-  Press ⌥N in any app to open the panel, or select text and press Shift twice to save it.
+  A scratchpad one key away on your Mac. Press ⌥N to catch a thought before it slips away, or select text and press Shift twice to keep it.
 </p>
 
 <p align="center">

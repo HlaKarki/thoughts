@@ -15,7 +15,7 @@ type Intro = {
 
 export const intro: Intro = {
   title: 'Thoughts is a quiet place for what you find while you work.',
-  lead: 'Press ⌥N in any app to open the panel, or select text and press Shift twice to save it.',
+  lead: 'A scratchpad one key away on your Mac. Press ⌥N to catch a thought before it slips away, or select text and press Shift twice to keep it.',
   download: { label: 'Download for Mac', href: site.links.download },
   brew: 'brew install --cask hlakarki/tap/thoughts',
   send: {
