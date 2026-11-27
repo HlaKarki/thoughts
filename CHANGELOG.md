@@ -2,7 +2,7 @@
 
 This file lists what changes in each version of Thoughts. A minor version, like 1.1, adds features. A patch version, like 1.0.1, only fixes bugs.
 
-## Unreleased
+## 1.1.0
 
 ### Changed
 
