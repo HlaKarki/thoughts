@@ -8,6 +8,10 @@ export const site = {
   language: 'en',
   author: { name: 'Hla Htun', url: 'https://github.com/HlaKarki' },
   operatingSystem: 'macOS 15.4 or later',
+  analytics: {
+    beacon: 'https://static.cloudflareinsights.com/beacon.min.js',
+    token: '68c33c7552a045bb9acd9df16a725a36',
+  },
   title: 'Thoughts: a quick scratchpad for your Mac, one key away',
   description:
     'Thoughts is a scratchpad one key away on your Mac. Press ⌥N, jot down what came to mind and get back to work. Each thought is a Markdown file you own.',

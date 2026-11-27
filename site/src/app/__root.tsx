@@ -55,6 +55,9 @@ export const Route = createRootRoute({
     ],
     scripts: [
       { type: 'application/ld+json', children: JSON.stringify(structuredData) },
+      ...(import.meta.env.PROD
+        ? [{ defer: true, src: site.analytics.beacon, 'data-cf-beacon': JSON.stringify({ token: site.analytics.token }) }]
+        : []),
       ...(import.meta.env.DEV ? [{ type: 'module', children: "import('/@id/virtual:stylex:runtime')" }] : []),
     ],
   }),
