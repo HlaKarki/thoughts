@@ -180,13 +180,17 @@ private struct ChoiceCard<Trailing: View>: View {
     let palette = FirstRunPalette(scheme: colorScheme)
     let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
     HStack(spacing: 8) {
-      Text(title)
-        .font(.system(size: 13, weight: .medium))
-        .foregroundStyle(
-          Color(nsColor: selected ? .labelColor : .secondaryLabelColor)
-        )
-        .lineLimit(1)
-        .fixedSize()
+      Button(action: select) {
+        Text(title)
+          .font(.system(size: 13, weight: .medium))
+          .foregroundStyle(
+            Color(nsColor: selected ? .labelColor : .secondaryLabelColor)
+          )
+          .lineLimit(1)
+          .fixedSize()
+      }
+      .buttonStyle(.plain)
+      .accessibilityAddTraits(selected ? .isSelected : [])
       Spacer(minLength: 0)
       trailing
     }
@@ -199,9 +203,6 @@ private struct ChoiceCard<Trailing: View>: View {
     }
     .contentShape(shape)
     .onTapGesture(perform: select)
-    .accessibilityElement(children: .contain)
-    .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-    .accessibilityAction(.default, select)
   }
 }
 
