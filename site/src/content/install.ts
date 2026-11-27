@@ -14,7 +14,7 @@ type Install = {
 }
 
 export const install: Install = {
-  id: site.links.install.slice(1),
+  id: site.links.install.slice(2),
   heading: 'Get Thoughts for your Mac.',
   body: 'Thoughts is free and open source under the MIT License. It checks for updates once a day, and "Update available" appears in the ⋯ menu and the menu bar icon\'s menu when one is ready.',
   download: intro.download,

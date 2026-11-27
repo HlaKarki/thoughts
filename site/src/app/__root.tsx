@@ -30,14 +30,9 @@ export const Route = createRootRoute({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: site.title },
-      { name: 'description', content: site.description },
       { name: 'color-scheme', content: 'light dark' },
       { property: 'og:type', content: 'website' },
       { property: 'og:site_name', content: site.name },
-      { property: 'og:url', content: site.url },
-      { property: 'og:title', content: site.title },
-      { property: 'og:description', content: site.description },
       { property: 'og:image', content: shareImage },
       { property: 'og:image:width', content: String(site.shareImage.width) },
       { property: 'og:image:height', content: String(site.shareImage.height) },
@@ -48,7 +43,6 @@ export const Route = createRootRoute({
     links: [
       { rel: 'stylesheet', href: globalCss },
       ...(import.meta.env.DEV ? [{ rel: 'stylesheet', href: '/virtual:stylex.css' }] : []),
-      { rel: 'canonical', href: site.url },
       { rel: 'icon', type: 'image/png', href: site.favicon.light, media: '(prefers-color-scheme: light)' },
       { rel: 'icon', type: 'image/png', href: site.favicon.dark, media: '(prefers-color-scheme: dark)' },
       { rel: 'apple-touch-icon', href: site.favicon.apple },

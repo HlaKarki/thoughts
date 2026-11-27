@@ -26,7 +26,7 @@ export default defineConfig({
         routeTreeFileHeader: [],
       },
       prerender: { enabled: true, crawlLinks: false, failOnError: true },
-      pages: [{ path: '/' }],
+      pages: [{ path: '/' }, { path: '/copper-alternative' }],
     }),
     viteReact(),
   ],

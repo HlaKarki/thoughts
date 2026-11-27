@@ -27,7 +27,7 @@ export const site = {
     download: `${repository}/releases/latest/download/Thoughts.zip`,
     source: repository,
     license: `${repository}/blob/HEAD/LICENSE`,
-    install: '#install',
+    install: '/#install',
   },
   photos: {
     tram: '/images/tram.jpg',
