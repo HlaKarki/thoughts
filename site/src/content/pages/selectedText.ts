@@ -3,6 +3,8 @@ import type { Page } from '../types'
 export const selectedText: Page = {
   slug: 'save-selected-text-mac',
   label: 'Save selected text from any app',
+  group: 'guides',
+  navLabel: 'Save selected text',
   title: 'Save selected text from any Mac app with one shortcut: Thoughts',
   description:
     'Select text in any Mac app and press Shift twice. Thoughts saves it as a Markdown note with the app, window and web page it came from.',

@@ -3,6 +3,8 @@ import type { Page } from '../types'
 export const tot: Page = {
   slug: 'tot-alternative',
   label: 'Thoughts and Tot',
+  group: 'compare',
+  navLabel: 'Tot',
   title: 'A Tot alternative for Mac with no note limit: Thoughts',
   description:
     'Thoughts and Tot both keep a scratchpad one key away on a Mac. Thoughts has no limit on notes, saves a selection with Shift twice, keeps screenshots and stores Markdown files.',

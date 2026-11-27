@@ -3,6 +3,8 @@ import type { Page } from '../types'
 export const screenshots: Page = {
   slug: 'screenshots-to-markdown',
   label: 'Keep screenshots as notes',
+  group: 'guides',
+  navLabel: 'Keep screenshots',
   title: 'Save screenshots and copied images as Markdown notes on Mac: Thoughts',
   description:
     'Take a screenshot or copy an image, and Thoughts offers to keep it. Each image is saved as a PNG beside a Markdown note, and search finds the text inside it.',

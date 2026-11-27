@@ -5,6 +5,8 @@ const helper = '/Applications/Thoughts.app/Contents/Helpers/thoughts'
 export const mcp: Page = {
   slug: 'mcp',
   label: 'Thoughts for AI agents',
+  group: 'guides',
+  navLabel: 'For AI agents',
   title: 'A Mac notes app your AI agent can write to: Thoughts MCP',
   description:
     'Thoughts ships an MCP server, so Claude Code, Cursor and other agents can add, search and check off the same Markdown thoughts you keep on your Mac.',

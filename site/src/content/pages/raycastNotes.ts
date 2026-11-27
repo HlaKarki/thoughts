@@ -3,6 +3,8 @@ import type { Page } from '../types'
 export const raycastNotes: Page = {
   slug: 'raycast-notes-alternative',
   label: 'Thoughts and Raycast Notes',
+  group: 'compare',
+  navLabel: 'Raycast Notes',
   title: 'A Raycast Notes alternative with Markdown files: Thoughts',
   description:
     'Thoughts and Raycast Notes both open a note window with one key. Thoughts saves a selection from any app with Shift twice and keeps each thought as a Markdown file.',

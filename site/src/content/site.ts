@@ -6,7 +6,7 @@ export const site = {
   name: 'Thoughts',
   url: 'https://thoughts.hla.dev',
   language: 'en',
-  author: { name: 'Hla Htun', url: 'https://github.com/HlaKarki' },
+  author: { name: 'Hla Htun', url: 'https://hla.dev' },
   operatingSystem: 'macOS 15.4 or later',
   indexNowKey: '2f14e5bf8435adddc64531fc3e3faf77',
   analytics: {

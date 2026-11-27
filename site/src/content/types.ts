@@ -57,9 +57,13 @@ export type Section = {
   readonly blocks: ReadonlyArray<Block>
 }
 
+export type PageGroup = 'guides' | 'compare'
+
 export type Page = {
   readonly slug: string
   readonly label: string
+  readonly group: PageGroup
+  readonly navLabel: string
   readonly title: string
   readonly description: string
   readonly heading: string

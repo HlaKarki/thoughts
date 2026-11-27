@@ -3,6 +3,8 @@ import type { Page } from '../types'
 export const appleQuickNote: Page = {
   slug: 'apple-quick-note-alternative',
   label: 'Thoughts and Apple Quick Note',
+  group: 'compare',
+  navLabel: 'Apple Quick Note',
   title: 'An Apple Quick Note alternative that saves to Markdown: Thoughts',
   description:
     'Thoughts and Apple Quick Note both catch a thought fast on a Mac. Thoughts saves a selection from any app with Shift twice and keeps every note as a Markdown file.',

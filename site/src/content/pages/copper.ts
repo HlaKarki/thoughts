@@ -5,6 +5,8 @@ import type { Page } from '../types'
 export const copper: Page = {
   slug: 'copper-alternative',
   label: 'Coming from Copper',
+  group: 'compare',
+  navLabel: 'Copper',
   title: 'A free, open source Copper alternative for Mac: Thoughts',
   description:
     'Thoughts works like Copper by shadcn: press Shift twice to keep a selection in a panel one key away. It is free, MIT licensed and keeps every thought as a Markdown file.',

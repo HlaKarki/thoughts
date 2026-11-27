@@ -5,6 +5,8 @@ import type { Page } from '../types'
 export const faq: Page = {
   slug: 'faq',
   label: 'Questions and answers',
+  group: 'guides',
+  navLabel: 'Questions',
   title: 'Thoughts FAQ: files, permissions, shortcuts and privacy',
   description:
     'Answers about Thoughts, the Mac scratchpad: where your thoughts are saved, what macOS asks you to allow, the keyboard shortcuts, sync, updates and privacy.',

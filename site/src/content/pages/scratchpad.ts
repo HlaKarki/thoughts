@@ -3,6 +3,8 @@ import type { Page } from '../types'
 export const scratchpad: Page = {
   slug: 'mac-scratchpad',
   label: 'A scratchpad for your Mac',
+  group: 'guides',
+  navLabel: 'A scratchpad for Mac',
   title: 'A quick scratchpad for Mac that opens with one key: Thoughts',
   description:
     'Press ⌥N in any app to open a scratchpad, jot down what came to mind and get back to work. Thoughts is free, and every note is a Markdown file you own.',

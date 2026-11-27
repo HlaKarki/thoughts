@@ -3,6 +3,8 @@ import type { Page } from '../types'
 export const drafts: Page = {
   slug: 'drafts-alternative',
   label: 'Thoughts and Drafts',
+  group: 'compare',
+  navLabel: 'Drafts',
   title: 'A free Drafts alternative for Mac with Markdown files: Thoughts',
   description:
     'Thoughts and Drafts both catch text quickly on a Mac. Thoughts is free and open source, saves a selection with Shift twice, keeps screenshots and stores Markdown files.',
