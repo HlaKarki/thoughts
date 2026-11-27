@@ -66,7 +66,8 @@ targets:
           - $(THOUGHTS_APP_GROUP)
     settings:
       base:
-        PRODUCT_NAME: Thoughts
+        PRODUCT_NAME: $(THOUGHTS_DISPLAY_NAME)
+        EXECUTABLE_NAME: Thoughts
         PRODUCT_MODULE_NAME: Thoughts
         PRODUCT_BUNDLE_IDENTIFIER: $(THOUGHTS_BUNDLE_ID)
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -132,6 +133,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.hla.thoughts.tests
         GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/$(THOUGHTS_DISPLAY_NAME).app/Contents/MacOS/Thoughts
     dependencies:
       - target: Thoughts
   ThoughtsCLI:
