@@ -89,9 +89,9 @@ The first time Thoughts opens, it walks you through five steps.
 
 1. **Pick a key to open Thoughts.** The default is ⌥N. Press it in any app to show or hide the panel. You can also choose Show Thoughts from the Thoughts icon in the menu bar.
 2. **Pick how to save from any app.** Press Shift twice, or record your own shortcut. It saves the selected text, or what you just copied, as a thought.
-3. **Allow Accessibility.** Thoughts asks for Accessibility, which macOS 27 calls Device Control and Data Access, so the capture works in other apps. It reads the text you select and the title of the window you're in, so each thought records where it came from. Turn on Thoughts in System Settings, then come back.
+3. **Turn on Thoughts in System Settings.** Thoughts asks for Accessibility, which macOS 27 calls Device Control and Data Access, so the capture works in other apps. It reads the text you select and the title of the window you're in, so each thought records where it came from. The step shows when Thoughts is waiting for the switch and moves on once you turn it on.
 4. **Choose where thoughts are saved.** The default is `~/Thoughts`. Thoughts makes the folder if it isn't there. A folder inside iCloud Drive or Dropbox syncs to your other Macs.
-5. **Saving copied images.** When you copy an image, a small offer appears at the edge of the screen. Click it, or press your capture key, to keep it. Thoughts also offers new images saved in your screenshot folder, which is the Desktop unless you changed it. That is why macOS may ask for access to that folder at this step.
+5. **Keep the images you copy.** When you copy an image, a small offer appears at the edge of the screen. Click it, or press your capture key, to keep it. Thoughts also offers new images saved in your screenshot folder, which is the Desktop unless you changed it. That is why macOS may ask for access to that folder at this step.
 
 The first time Thoughts reads something you copied, macOS asks if it can paste from other apps. Choose Allow Paste, so Shift twice can save the copy and offers show a preview of the image. You can change this later in System Settings under Privacy & Security, Paste from Other Apps.
 

@@ -4,6 +4,10 @@ This file lists what changes in each version of Thoughts. A minor version, like 
 
 ## Unreleased
 
+### Changed
+
+- First run has a new look. Each step shows what it sets up, like the keys to press or the switch to find in System Settings, and tells you when Thoughts is waiting for that switch.
+
 ### Fixed
 
 - First run now moves on as soon as you turn on Thoughts under Accessibility. Before, Continue could stay off until you turned it off and on again.
