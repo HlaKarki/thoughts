@@ -82,7 +82,7 @@ cask "thoughts" do
 
   url "https://github.com/HlaKarki/thoughts/releases/download/v#{version}/Thoughts-#{version}.zip"
   name "Thoughts"
-  desc "Save text and screenshots from any app as Markdown files"
+  desc "Scratchpad that saves text and screenshots as Markdown"
   homepage "https://thoughts.hla.dev/"
 
   auto_updates true
