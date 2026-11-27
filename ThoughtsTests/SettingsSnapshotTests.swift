@@ -79,6 +79,8 @@ struct SettingsSnapshotTests {
     let waiting = try Self.firstRun(step: .accessibility, trusted: false)
     #expect(waiting.step == .accessibility)
     #expect(!waiting.canContinue)
+    waiting.openAccessibility()
+    #expect(waiting.accessibilityRequested)
     try Self.check(
       FirstRunView(model: waiting), size: FirstRunView.size, appearance: appearance,
       name: "first-run-3-permissions-waiting")

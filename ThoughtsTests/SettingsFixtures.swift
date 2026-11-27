@@ -7,6 +7,7 @@ import Testing
 @MainActor
 final class FakeSystem {
   var trusted = false
+  var staleAnswer: Bool?
   var access: NSPasteboard.AccessBehavior = .alwaysAllow
   var picks: [URL?] = []
   private(set) var requested = 0
@@ -18,7 +19,7 @@ final class FakeSystem {
 
   var services: SystemServices {
     SystemServices(
-      accessibilityTrusted: { self.trusted },
+      accessibilityTrusted: { self.staleAnswer ?? self.trusted },
       requestAccessibility: { self.requested += 1 },
       open: { self.opened.append($0) },
       reveal: { self.revealed.append($0) },

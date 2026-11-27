@@ -5,7 +5,7 @@ enum MenuBarCopy {
     iconShown
       ? String(
         localized:
-          "Press it in any app to show or hide the panel. You can also choose Show Thoughts from the Thoughts icon in the menu bar."
+          "Press it in any app to show or hide the panel, or choose Show Thoughts from the Thoughts icon in the menu bar."
       ) : String(localized: "Press it in any app to show or hide the panel.")
   }
 

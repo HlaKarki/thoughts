@@ -8,14 +8,9 @@ struct Palette {
   var isDark: Bool { scheme == .dark }
   var settingsWindow: Color { isDark ? Color(white: 0.118) : Color(white: 0.949) }
   var group: Color { isDark ? Color(white: 0.165) : .white }
-  var firstRunWindow: Color { isDark ? Color(white: 0.149) : .white }
   var divider: Color { isDark ? Color(white: 0.2) : Color(white: 0.933) }
   var note: Color { isDark ? Color(white: 0.18) : Color(white: 0.961) }
-  var field: Color { isDark ? Color(white: 0.173) : .white }
-  var fieldBorder: Color { isDark ? Color(white: 0.267) : Color(white: 0.9) }
   var selection: Color { isDark ? Color(white: 0.212) : Color(white: 0.929) }
-  var dotIdle: Color { isDark ? Color(white: 0.3) : Color(white: 0.82) }
-  var dotActive: Color { isDark ? Color(white: 0.9) : Color(white: 0.082) }
 }
 
 extension EnvironmentValues {

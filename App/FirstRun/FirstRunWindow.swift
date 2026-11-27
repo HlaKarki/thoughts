@@ -70,6 +70,7 @@ final class FirstRunWindowController {
     window.animationBehavior = .none
     let hosting = NSHostingView(rootView: FirstRunView(model: model))
     hosting.sizingOptions = []
+    hosting.safeAreaRegions = []
     window.contentView = hosting
     window.center()
     return window
