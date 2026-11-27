@@ -1,71 +1,67 @@
-# Thoughts
+<p align="center">
+  <picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/icon-dark.webp"><img src=".github/images/icon-light.webp" alt="Thoughts app icon" width="128"></picture>
+</p>
 
-Thoughts is a quiet place for what you find while you work. Press ⌥N in any app to open the panel, or select text and press Shift twice to save it.
+<h1 align="center">Thoughts</h1>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/images/hero-dark.webp">
-  <img src=".github/images/hero-light.webp" alt="The Thoughts panel beside a Lisbon travel guide in Safari. The sentence selected on the page is now the newest thought." width="880">
-</picture>
+<p align="center">
+  Thoughts is a quiet place for what you find while you work.<br>
+  Press ⌥N in any app to open the panel, or select text and press Shift twice to save it.
+</p>
 
-[Download for Mac](https://github.com/HlaKarki/thoughts/releases/latest/download/Thoughts.zip), or install it with `brew install --cask hlakarki/tap/thoughts`. Thoughts needs macOS 15.4 or later. The site is [thoughts.hla.dev](https://thoughts.hla.dev).
+<p align="center">
+  <a href="https://github.com/HlaKarki/thoughts/releases/latest/download/Thoughts.zip"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/download-dark.webp"><img src=".github/images/download-light.webp" alt="Download for Mac" width="179"></picture></a>
+</p>
+
+<p align="center">
+  Or install it with Homebrew: <code>brew install --cask hlakarki/tap/thoughts</code><br>
+  <sub>Needs macOS 15.4 or later. More at <a href="https://thoughts.hla.dev">thoughts.hla.dev</a>.</sub>
+</p>
+
+<picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/hero-dark.webp"><img src=".github/images/hero-light.webp" alt="The Thoughts panel beside a Lisbon travel guide in Safari. The sentence selected on the page is now the newest thought." width="880"></picture>
 
 ## Save it in the app where you found it
 
 Find it later in one list. Text, todos and screenshots from any app go to one list at the edge of your screen, and each one is a Markdown file. Saved text keeps the app and window it came from, so you can go back to it.
 
-### Press Shift twice to keep a selection
-
-Select or copy text in any app and press Shift twice. Thoughts saves it with the app and window it came from, and a note at the edge of the screen shows what it saved.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/images/selection-dark.webp">
-  <img src=".github/images/selection-light.webp" alt="A selected sentence on a docs page becomes the newest thought in the panel." width="500">
-</picture>
-
-### Keep a copied image with a click
-
-Copy an image or take a screenshot, and a small offer slides in at the edge of the screen. Click it or press Shift twice to keep the image as a thought.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/images/screenshot-dark.webp">
-  <img src=".github/images/screenshot-light.webp" alt="A copied cat photo becomes a thought with a note in the panel." width="500">
-</picture>
-
-### Press ⌘F to search your thoughts
-
-Start typing and the list narrows to the thoughts that match, including the text inside screenshots. Esc clears the search.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/images/search-dark.webp">
-  <img src=".github/images/search-light.webp" alt="Searching for Thursday narrows the list to a message from Slack and a screenshot of a building notice, found by the text inside it." width="500">
-</picture>
-
-### Every thought is a Markdown file
-
-Each thought is one Markdown file in a folder you choose. Edit the file in any editor and the panel shows the change.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/images/markdown-dark.webp">
-  <img src=".github/images/markdown-light.webp" alt="A line typed into the Markdown file shows up in the panel." width="500">
-</picture>
-
-### Your agents can add thoughts too
-
-The `thoughts` command uses the same folder as the app, so a script can run `thoughts add`. Add `thoughts mcp` to an MCP client and your agent can list, add and search thoughts.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/images/agents-dark.webp">
-  <img src=".github/images/agents-light.webp" alt="A thoughts add command in Terminal adds a thought to the panel." width="500">
-</picture>
-
-### What Thoughts asks macOS for
-
-Accessibility lets Thoughts read what you select and the window title. macOS 27 calls it Device Control and Data Access. Paste access lets Thoughts read what you copy, so Shift twice can save it and an offer can show a preview. macOS asks for it the first time Thoughts needs it. Thoughts asks for your screenshot folder, the Desktop by default, only if macOS guards it. It goes online only to check for updates.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/images/privacy-dark.webp">
-  <img src=".github/images/privacy-light.webp" alt="Thoughts turned on in the Accessibility list, set to Allow in the Paste from Other Apps list, and turned on in the Files and Folders list of System Settings." width="500">
-</picture>
+<table>
+<tr>
+<td width="50%" valign="top">
+<h3>Press Shift twice to keep a selection</h3>
+<p>Select or copy text in any app and press Shift twice. Thoughts saves it with the app and window it came from, and a note at the edge of the screen shows what it saved.</p>
+<picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/selection-dark.webp"><img src=".github/images/selection-light.webp" alt="A selected sentence on a docs page becomes the newest thought in the panel." width="400"></picture>
+</td>
+<td width="50%" valign="top">
+<h3>Keep a copied image with a click</h3>
+<p>Copy an image or take a screenshot, and a small offer slides in at the edge of the screen. Click it or press Shift twice to keep the image as a thought.</p>
+<picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/screenshot-dark.webp"><img src=".github/images/screenshot-light.webp" alt="A copied cat photo becomes a thought with a note in the panel." width="400"></picture>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<h3>Press ⌘F to search your thoughts</h3>
+<p>Start typing and the list narrows to the thoughts that match, including the text inside screenshots. Esc clears the search.</p>
+<picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/search-dark.webp"><img src=".github/images/search-light.webp" alt="Searching for Thursday narrows the list to a message from Slack and a screenshot of a building notice, found by the text inside it." width="400"></picture>
+</td>
+<td width="50%" valign="top">
+<h3>Every thought is a Markdown file</h3>
+<p>Each thought is one Markdown file in a folder you choose. Edit the file in any editor and the panel shows the change.</p>
+<picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/markdown-dark.webp"><img src=".github/images/markdown-light.webp" alt="A line typed into the Markdown file shows up in the panel." width="400"></picture>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<h3>Your agents can add thoughts too</h3>
+<p>The <code>thoughts</code> command uses the same folder as the app, so a script can run <code>thoughts add</code>. Add <code>thoughts mcp</code> to an MCP client and your agent can list, add and search thoughts.</p>
+<picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/agents-dark.webp"><img src=".github/images/agents-light.webp" alt="A thoughts add command in Terminal adds a thought to the panel." width="400"></picture>
+</td>
+<td width="50%" valign="top">
+<h3>What Thoughts asks macOS for</h3>
+<p>Accessibility lets Thoughts read what you select and the window title. macOS 27 calls it Device Control and Data Access. Paste access lets Thoughts read what you copy, so Shift twice can save it and an offer can show a preview. macOS asks for it the first time Thoughts needs it. Thoughts asks for your screenshot folder, the Desktop by default, only if macOS guards it. It goes online only to check for updates.</p>
+<picture><source media="(prefers-color-scheme: dark)" srcset=".github/images/privacy-dark.webp"><img src=".github/images/privacy-light.webp" alt="Thoughts turned on in the Accessibility list, set to Allow in the Paste from Other Apps list, and turned on in the Files and Folders list of System Settings." width="400"></picture>
+</td>
+</tr>
+</table>
 
 ## Install
 
