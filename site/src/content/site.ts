@@ -6,6 +6,8 @@ export const site = {
   name: 'Thoughts',
   url: 'https://thoughts.hla.dev',
   language: 'en',
+  author: { name: 'Hla Htun', url: 'https://github.com/HlaKarki' },
+  operatingSystem: 'macOS 15.4 or later',
   title: 'Thoughts, a quiet place for what you find while you work',
   description:
     'Thoughts is a Mac app that keeps text, todos and screenshots from any app as Markdown files. Press ⌥N to open the panel, or select text and press Shift twice to save it.',

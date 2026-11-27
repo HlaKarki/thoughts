@@ -8,6 +8,23 @@ import { color, font } from '@/styles/tokens.stylex'
 
 const shareImage = `${site.url}${site.shareImage.src}`
 
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: site.name,
+  description: site.description,
+  url: site.url,
+  image: shareImage,
+  applicationCategory: 'ProductivityApplication',
+  operatingSystem: site.operatingSystem,
+  downloadUrl: site.links.download,
+  license: site.links.license,
+  isAccessibleForFree: true,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  author: { '@type': 'Person', ...site.author },
+  sameAs: [site.links.source],
+}
+
 export const Route = createRootRoute({
   head: () => ({
     meta: [
@@ -17,6 +34,7 @@ export const Route = createRootRoute({
       { name: 'description', content: site.description },
       { name: 'color-scheme', content: 'light dark' },
       { property: 'og:type', content: 'website' },
+      { property: 'og:site_name', content: site.name },
       { property: 'og:url', content: site.url },
       { property: 'og:title', content: site.title },
       { property: 'og:description', content: site.description },
@@ -35,9 +53,10 @@ export const Route = createRootRoute({
       { rel: 'icon', type: 'image/png', href: site.favicon.dark, media: '(prefers-color-scheme: dark)' },
       { rel: 'apple-touch-icon', href: site.favicon.apple },
     ],
-    scripts: import.meta.env.DEV
-      ? [{ type: 'module', children: "import('/@id/virtual:stylex:runtime')" }]
-      : [],
+    scripts: [
+      { type: 'application/ld+json', children: JSON.stringify(structuredData) },
+      ...(import.meta.env.DEV ? [{ type: 'module', children: "import('/@id/virtual:stylex:runtime')" }] : []),
+    ],
   }),
   component: RootDocument,
   notFoundComponent: NotFound,
