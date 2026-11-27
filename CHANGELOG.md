@@ -2,7 +2,7 @@
 
 This file lists what changes in each version of Thoughts. A minor version, like 1.1, adds features. A patch version, like 1.0.1, only fixes bugs.
 
-## 1.0.0
+## 1.0.0 (2026-11-27)
 
 The first release. Thoughts needs macOS 15.4 or later.
 
