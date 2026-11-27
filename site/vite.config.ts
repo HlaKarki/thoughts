@@ -3,9 +3,20 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 import stylex from '@stylexjs/unplugin'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
+import { llmsTxt, prerenderPages, sitemapXml } from './src/lib/siteFiles'
 
 const src = fileURLToPath(new URL('./src', import.meta.url))
+
+const siteFiles: Plugin = {
+  name: 'site-files',
+  apply: 'build',
+  applyToEnvironment: (environment) => environment.name === 'client',
+  generateBundle() {
+    this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemapXml() })
+    this.emitFile({ type: 'asset', fileName: 'llms.txt', source: llmsTxt() })
+  },
+}
 
 export default defineConfig({
   resolve: {
@@ -26,8 +37,9 @@ export default defineConfig({
         routeTreeFileHeader: [],
       },
       prerender: { enabled: true, crawlLinks: false, failOnError: true },
-      pages: [{ path: '/' }, { path: '/copper-alternative' }],
+      pages: prerenderPages,
     }),
     viteReact(),
+    siteFiles,
   ],
 })

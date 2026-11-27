@@ -17,6 +17,10 @@ export function RichText({ text, codeXstyle }: Props) {
           <code key={index} {...stylex.props(styles.code, codeXstyle)}>
             {part.code}
           </code>
+        ) : 'link' in part ? (
+          <a key={index} href={part.link.href} {...stylex.props(styles.link)}>
+            {part.link.label}
+          </a>
         ) : (
           <strong key={index} {...stylex.props(styles.strong)}>
             {part.strong}
@@ -33,6 +37,10 @@ const styles = stylex.create({
     fontFamily: font.mono,
     fontSize: size.s14,
     lineHeight: leading.l16,
+  },
+  link: {
+    color: color.accent,
+    textDecorationLine: { default: 'none', ':hover': 'underline' },
   },
   strong: {
     fontWeight: 600,
