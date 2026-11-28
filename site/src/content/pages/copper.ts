@@ -120,5 +120,5 @@ export const copper: Page = {
       ],
     },
   ],
-  footnote: `Thoughts is made by Hla Htun and is not affiliated with shadcn or Copper. The source is on GitHub at ${site.links.source.replace('https://', '')}.`,
+  footnote: `Thoughts is made by Hla Karki and is not affiliated with shadcn or Copper. The source is on GitHub at ${site.links.source.replace('https://', '')}.`,
 }
